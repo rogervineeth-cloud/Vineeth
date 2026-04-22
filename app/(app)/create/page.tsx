@@ -33,6 +33,7 @@ export default function CreatePage() {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -60,6 +61,7 @@ export default function CreatePage() {
     }
 
     setGenerating(true);
+    setGenError(null);
     setProgress(5);
     setProgressLabel("Starting…");
 
@@ -96,7 +98,9 @@ export default function CreatePage() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Generation failed. Try again.");
+        const msg = data.error || "Generation failed. Try again.";
+        toast.error(msg);
+        setGenError(msg);
         setGenerating(false);
         setProgress(0);
         return;
@@ -141,7 +145,9 @@ export default function CreatePage() {
     } catch (err) {
       clearInterval(interval);
       console.error(err);
-      toast.error("Something went wrong. Please try again.");
+      const msg = "Something went wrong. Please try again.";
+      toast.error(msg);
+      setGenError(msg);
       setGenerating(false);
       setProgress(0);
     }
@@ -178,11 +184,17 @@ export default function CreatePage() {
               </div>
             </div>
 
+            {genError && (
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+                {genError}
+              </div>
+            )}
+
             <div className="mt-6">
               <Button
                 size="lg"
                 onClick={handleGenerate}
-                disabled={jdText.trim().length < 200}
+                disabled={jdText.trim().length < 200 || generating}
                 className="w-full sm:w-auto text-base px-10"
               >
                 Generate my resume →

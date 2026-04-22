@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
+// Vercel Pro allows up to 300s; Hobby is capped at 10s (upgrade if timeouts occur)
+export const maxDuration = 60;
+
 const inputSchema = z.object({
   jd_text: z.string().min(100, "Job description too short (min 100 chars)"),
   jd_url: z.string().url().optional().or(z.literal("")),
@@ -111,10 +114,18 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ resume_json: resumeJson });
-  } catch (err) {
-    console.error("Generate resume error:", err);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Generate resume error:", msg);
+    // Surface specific error types to help diagnose in production
+    if (msg.includes("authentication") || msg.includes("API key") || msg.includes("401")) {
+      return NextResponse.json({ error: "API key error — contact support." }, { status: 500 });
+    }
+    if (msg.includes("timeout") || msg.includes("ETIMEDOUT")) {
+      return NextResponse.json({ error: "Generation timed out — please try again." }, { status: 500 });
+    }
     return NextResponse.json(
-      { error: "Generation failed. Please try again." },
+      { error: `Generation failed: ${msg.slice(0, 120)}` },
       { status: 500 }
     );
   }
