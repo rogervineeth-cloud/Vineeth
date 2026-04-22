@@ -23,14 +23,15 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // Use getSession (cookie-based, no network call) — safe for middleware in this environment
+  const { data: { session } } = await supabase.auth.getSession();
 
   const protectedPaths = ["/onboarding", "/create", "/preview", "/dashboard"];
   const isProtected = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
 
-  if (isProtected && !user) {
+  if (isProtected && !session) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("returnTo", request.nextUrl.pathname);
