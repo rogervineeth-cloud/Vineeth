@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { Upload, FileText, Download, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 const plans = [
   {

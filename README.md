@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Neduresume
 
-## Getting Started
+AI resume builder for Indian students and job seekers. Paste your LinkedIn profile. Paste a job description. Get an ATS-optimised, tailored resume in under 60 seconds.
 
-First, run the development server:
+Built by Vineeth (Distribution Sales Manager, Kerala) in one weekend using Claude Code — without writing a single line of code.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## Tech Stack
+
+- **Framework**: Next.js 14 App Router, TypeScript strict mode
+- **Styling**: Tailwind CSS v4, custom UI components (Radix UI primitives)
+- **Fonts**: Instrument Serif (headings), Geist Sans (body)
+- **Auth + DB**: Supabase (email/password + Google OAuth, Postgres, Row Level Security)
+- **AI**: Anthropic SDK — `claude-haiku-4-5-20251001`
+- **PDF**: `@react-pdf/renderer` (server-side, clean A4 output)
+- **PDF parsing**: `pdf-parse` (LinkedIn PDF extraction)
+- **Forms**: `react-hook-form` + `zod`
+- **Toasts**: `sonner`
+
+---
+
+## Environment Variables
+
+Create a `.env.local` file in the root (never commit this):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Use the **legacy JWT-format keys** from Supabase (Settings → API → Project API Keys). The newer `sb_publishable_` format has host restrictions incompatible with server-side rendering.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Running locally
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open http://localhost:3000
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Database
 
-## Deploy on Vercel
+Run `supabase/migrations/001_initial.sql` in your Supabase SQL Editor before first use. Creates `profiles` and `resumes` tables with RLS policies.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Architecture notes
+
+All Supabase reads/writes happen **client-side** (from the user's browser directly to Supabase). This bypasses any server-side network restrictions and keeps RLS enforcement clean. The only server-side operations are:
+
+- `/api/generate-resume` — calls Anthropic API, returns JSON to client
+- `/api/download-pdf/[id]` — renders PDF with react-pdf, streams to client
+- `/api/parse-linkedin` — parses uploaded PDF, returns extracted text
+
+---
+
+## Known limitations / deferred to next weekend
+
+- **Payments**: Razorpay not yet integrated. All downloads are free in this version.
+- **Email notifications**: Not yet (no Resend integration).
+- **Deployment**: Not yet on Vercel — tested via Claude Code preview URL.
+- **Cover letter**: Not yet built.
+- **LinkedIn profile rewrite**: Add-on shown on pricing, not yet functional.
+- **Interview Q&A**: Deferred.
+
+---
+
+## Next weekend plan
+
+1. Buy neduresume.in (₹700)
+2. Deploy to Vercel
+3. Razorpay payment integration (complete KYC first)
+4. Resend email on resume generation
+5. Soft launch with 20 friends
