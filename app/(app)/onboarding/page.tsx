@@ -38,6 +38,7 @@ export default function OnboardingPage() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<BasicsData>({
     resolver: zodResolver(basicsSchema),
@@ -98,6 +99,7 @@ export default function OnboardingPage() {
     }
 
     setSaving(true);
+    setSaveError(null);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -120,7 +122,11 @@ export default function OnboardingPage() {
     });
 
     if (error) {
-      toast.error("Couldn't save profile: " + error.message);
+      const msg = error.code === "42501"
+        ? "Permission denied — please sign out and sign in again, then retry."
+        : `Couldn't save profile: ${error.message}`;
+      setSaveError(msg);
+      toast.error(msg);
       setSaving(false);
       return;
     }
@@ -260,6 +266,12 @@ export default function OnboardingPage() {
               <p className="text-[#6b6b6b] text-sm">These appear on your resume. Edit anything that looks wrong.</p>
             </div>
 
+            {saveError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+                {saveError}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit(onSubmitBasics)} className="flex flex-col gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
@@ -282,7 +294,7 @@ export default function OnboardingPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="graduation_year">Graduation year</Label>
-                  <Input id="graduation_year" type="number" placeholder="e.g. 2022" {...register("graduation_year")} />
+                  <Input id="graduation_year" type="text" inputMode="numeric" placeholder="e.g. 2022" {...register("graduation_year")} />
                 </div>
               </div>
 

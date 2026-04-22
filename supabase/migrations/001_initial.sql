@@ -39,7 +39,8 @@ create policy "Users insert own profile" on public.profiles
   for insert with check (auth.uid() = user_id);
 
 create policy "Users update own profile" on public.profiles
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 create policy "Users view own resumes" on public.resumes
   for select using (auth.uid() = user_id);
@@ -48,7 +49,8 @@ create policy "Users insert own resumes" on public.resumes
   for insert with check (auth.uid() = user_id);
 
 create policy "Users update own resumes" on public.resumes
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- Indexes
 create index resumes_user_id_idx on public.resumes(user_id);
