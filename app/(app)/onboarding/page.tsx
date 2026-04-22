@@ -130,7 +130,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fffaa7]">
+    <div className="min-h-screen bg-[#f7f3ea]">
       <AppHeader />
 
       <div className="max-w-2xl mx-auto px-6 py-12">

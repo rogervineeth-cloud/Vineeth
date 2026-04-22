@@ -21,6 +21,7 @@ type FormData = z.infer<typeof schema>;
 export default function SignupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
@@ -28,30 +29,63 @@ export default function SignupPage() {
   async function onSubmit(data: FormData) {
     setLoading(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding` },
     });
     if (error) {
       toast.error(error.message);
       setLoading(false);
       return;
     }
-    toast.success("Account created! Taking you to setup.");
-    router.push("/onboarding");
+    // If session exists immediately, email confirmation is disabled — go straight in
+    if (authData.session) {
+      toast.success("Account created!");
+      router.push("/onboarding");
+      return;
+    }
+    // Email confirmation required — show "check your inbox" state
+    setEmailSent(true);
+    setLoading(false);
   }
 
   async function handleGoogle() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/onboarding` },
     });
     if (error) toast.error(error.message);
   }
 
+  if (emailSent) {
+    return (
+      <div className="min-h-screen bg-[#f7f3ea] flex flex-col items-center justify-center px-6">
+        <div className="w-full max-w-sm text-center">
+          <Link href="/" className="block font-serif italic text-2xl text-[#1f5c3a] mb-8">
+            Neduresume
+          </Link>
+          <div className="bg-white rounded-xl border border-stone-200 p-8 shadow-sm">
+            <div className="w-12 h-12 rounded-full bg-[#1f5c3a]/10 flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">✉️</span>
+            </div>
+            <h2 className="text-lg font-semibold text-[#1a1a1a] mb-2">Check your inbox</h2>
+            <p className="text-sm text-[#6b6b6b] mb-6">
+              We sent a confirmation link to your email. Click it to activate your account and continue.
+            </p>
+            <p className="text-xs text-[#6b6b6b]">
+              Already confirmed?{" "}
+              <Link href="/login" className="text-[#1f5c3a] hover:underline">Sign in</Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#fffaa7] flex flex-col items-center justify-center px-6">
+    <div className="min-h-screen bg-[#f7f3ea] flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <Link href="/" className="block text-center font-serif italic text-2xl text-[#1f5c3a] mb-8">
           Neduresume
@@ -59,7 +93,7 @@ export default function SignupPage() {
 
         <div className="bg-white rounded-xl border border-stone-200 p-8 shadow-sm">
           <h1 className="text-xl font-semibold text-[#1a1a1a] mb-1">Create your account</h1>
-          <p className="text-sm text-[#6b6b6b] mb-6">Free to start. First resume on us.</p>
+          <p className="text-sm text-[#6b6b6b] mb-6">Free to start. Generate and preview your first resume.</p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -68,6 +102,7 @@ export default function SignupPage() {
                 id="email"
                 type="email"
                 placeholder="you@example.com"
+                autoComplete="email"
                 {...register("email")}
               />
               {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
@@ -79,6 +114,7 @@ export default function SignupPage() {
                 id="password"
                 type="password"
                 placeholder="Min 8 characters"
+                autoComplete="new-password"
                 {...register("password")}
               />
               {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
@@ -111,9 +147,7 @@ export default function SignupPage() {
 
         <p className="text-center text-sm text-[#6b6b6b] mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-[#1f5c3a] hover:underline">
-            Sign in
-          </Link>
+          <Link href="/login" className="text-[#1f5c3a] hover:underline">Sign in</Link>
         </p>
       </div>
     </div>

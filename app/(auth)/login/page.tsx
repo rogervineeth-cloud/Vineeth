@@ -55,7 +55,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fffaa7] flex flex-col items-center justify-center px-6">
+    <div className="min-h-screen bg-[#f7f3ea] flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <Link href="/" className="block text-center font-serif italic text-2xl text-[#1f5c3a] mb-8">
           Neduresume

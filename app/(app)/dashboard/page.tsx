@@ -80,7 +80,7 @@ export default function DashboardPage() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-[#fffaa7]">
+    <div className="min-h-screen bg-[#f7f3ea]">
       <AppHeader />
 
       <div className="max-w-5xl mx-auto px-6 py-12">

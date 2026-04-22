@@ -5,28 +5,36 @@ import { Button } from "@/components/ui/button";
 
 const plans = [
   {
+    name: "Free Preview",
+    price: "₹0",
+    resumes: "Unlimited previews",
+    popular: false,
+    free: true,
+    features: ["Generate resumes", "Watermarked preview", "ATS score & keywords", "No download"],
+  },
+  {
     name: "Starter",
     price: "₹100",
-    resumes: "1 resume",
+    resumes: "1 download",
     popular: false,
+    free: false,
+    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
   },
   {
     name: "Fresher",
     price: "₹299",
-    resumes: "5 resumes",
+    resumes: "5 downloads",
     popular: true,
+    free: false,
+    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
   },
   {
     name: "Job Hunter",
     price: "₹599",
-    resumes: "12 resumes",
+    resumes: "12 downloads",
     popular: false,
-  },
-  {
-    name: "Placement Pro",
-    price: "₹999",
-    resumes: "25 resumes",
-    popular: false,
+    free: false,
+    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
   },
 ];
 
@@ -55,9 +63,9 @@ const faqs = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#fffaa7]">
+    <div className="min-h-screen bg-[#f7f3ea]">
       {/* Header */}
-      <header className="border-b border-stone-200/60 sticky top-0 bg-[#fffaa7]/90 backdrop-blur-sm z-10">
+      <header className="border-b border-stone-200/60 sticky top-0 bg-[#f7f3ea]/90 backdrop-blur-sm z-10">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="font-serif italic text-xl text-[#1f5c3a] font-bold">Neduresume</span>
           <Link href="/login" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">
@@ -76,15 +84,16 @@ export default function Home() {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Button size="lg" asChild className="w-full sm:w-auto text-base px-10">
-            <Link href="/signup">Build mine — ₹100</Link>
+            <Link href="/signup">Try free — no card needed</Link>
           </Button>
           <a
-            href="#how-it-works"
+            href="#pricing"
             className="text-[#1f5c3a] text-sm font-medium hover:underline underline-offset-4"
           >
-            See how it works ↓
+            See pricing ↓
           </a>
         </div>
+        <p className="text-xs text-[#6b6b6b] mt-4">Free preview forever · Download from ₹100</p>
       </section>
 
       {/* How It Works */}
@@ -132,12 +141,19 @@ export default function Home() {
               className={`relative rounded-xl border p-6 flex flex-col gap-4 ${
                 plan.popular
                   ? "border-[#1f5c3a] bg-[#1f5c3a] text-white shadow-lg"
+                  : plan.free
+                  ? "border-stone-200 bg-stone-50"
                   : "border-stone-200 bg-white"
               }`}
             >
               {plan.popular && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
                   Most popular
+                </span>
+              )}
+              {plan.free && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-stone-200 text-stone-700 text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
+                  Always free
                 </span>
               )}
               <div>
@@ -150,7 +166,7 @@ export default function Home() {
                 </p>
               </div>
               <ul className="flex flex-col gap-2 text-sm flex-1">
-                {["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"].map((f) => (
+                {plan.features.map((f) => (
                   <li key={f} className="flex items-center gap-2">
                     <Check className={`w-4 h-4 shrink-0 ${plan.popular ? "text-white" : "text-[#1f5c3a]"}`} />
                     <span className={plan.popular ? "text-white/90" : "text-[#1a1a1a]"}>{f}</span>
@@ -163,7 +179,7 @@ export default function Home() {
                 size="sm"
                 className={plan.popular ? "bg-white text-[#1f5c3a] hover:bg-white/90" : ""}
               >
-                <Link href="/signup">Get started</Link>
+                <Link href="/signup">{plan.free ? "Start free" : "Get started"}</Link>
               </Button>
             </div>
           ))}

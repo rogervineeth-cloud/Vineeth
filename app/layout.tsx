@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${instrumentSerif.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#fffaa7]" style={{ fontFamily: "var(--font-geist-sans), sans-serif" }}>
+      <body className="min-h-full flex flex-col bg-[#f7f3ea]" style={{ fontFamily: "var(--font-geist-sans), sans-serif" }}>
         {children}
         <Toaster richColors position="top-right" />
       </body>
