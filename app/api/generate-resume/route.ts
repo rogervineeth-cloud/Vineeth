@@ -116,17 +116,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ resume_json: resumeJson });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    // Log full error server-side only
     console.error("Generate resume error:", msg);
-    // Surface specific error types to help diagnose in production
-    if (msg.includes("authentication") || msg.includes("API key") || msg.includes("401")) {
-      return NextResponse.json({ error: "API key error — contact support." }, { status: 500 });
+
+    // Return friendly messages — never leak raw API response to the browser
+    if (msg.includes("401") || msg.includes("authentication") || msg.includes("API key")) {
+      return NextResponse.json({ error: "Configuration error. Please contact support." }, { status: 500 });
+    }
+    if (msg.includes("credit") || msg.includes("402") || msg.includes("billing")) {
+      return NextResponse.json({ error: "Service temporarily unavailable. Please try again later." }, { status: 500 });
     }
     if (msg.includes("timeout") || msg.includes("ETIMEDOUT")) {
       return NextResponse.json({ error: "Generation timed out — please try again." }, { status: 500 });
     }
-    return NextResponse.json(
-      { error: `Generation failed: ${msg.slice(0, 120)}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Resume generation failed. Please try again." }, { status: 500 });
   }
 }
