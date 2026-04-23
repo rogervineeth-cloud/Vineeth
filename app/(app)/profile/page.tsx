@@ -541,7 +541,7 @@ function ProfilePageInner() {
                     <option value="">Select a resume…</option>
                     {resumes.map((r) => (
                       <option key={r.id} value={r.id}>
-                        {r.tailored_role} — {new Date(r.created_at).toLocaleDateString("en-IN")}
+                        {r.tailored_role} — {new Date(r.created_at).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" })}
                       </option>
                     ))}
                   </select>
