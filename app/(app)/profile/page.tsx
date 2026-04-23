@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -69,7 +69,7 @@ function emptyProj(): ProjEntry {
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 // ── Main component ─────────────────────────────────────────────────────────
-export default function ProfilePage() {
+function ProfilePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromPreview = searchParams.get("from") === "preview";
@@ -603,5 +603,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <Label className="text-xs text-[#6b6b6b]">{label}</Label>
       {children}
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f3ea]"><div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profile…</p></div></div>}>
+      <ProfilePageInner />
+    </Suspense>
   );
 }
