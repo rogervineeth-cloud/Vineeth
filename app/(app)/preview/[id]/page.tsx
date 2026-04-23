@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 
 type ResumeJson = {
   summary: string;
@@ -120,10 +120,22 @@ export default function PreviewPage() {
     setDownloading(true);
     try {
       const res = await fetch(`/api/download-pdf/${id}`);
-      if (!res.ok) {
-        toast.error("PDF generation failed. Try again.");
+
+      if (res.status === 402) {
+        toast.error("Download requires a paid plan.", {
+          action: { label: "Upgrade", onClick: () => window.location.href = "/#pricing" },
+          duration: 6000,
+        });
         return;
       }
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const debugId = body.debug_id ? ` (ref: ${body.debug_id})` : "";
+        toast.error(`Couldn't generate PDF. Our team was notified.${debugId}`);
+        return;
+      }
+
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -133,7 +145,7 @@ export default function PreviewPage() {
       URL.revokeObjectURL(url);
       toast.success("Resume downloaded!");
     } catch {
-      toast.error("Download failed. Try again.");
+      toast.error("Couldn't generate PDF. Our team was notified.");
     } finally {
       setDownloading(false);
     }
@@ -292,8 +304,10 @@ export default function PreviewPage() {
             </div>
 
             <Button size="lg" className="w-full mb-6" onClick={handleDownload} disabled={downloading}>
-              <Download className="w-4 h-4 mr-2" />
-              {downloading ? "Generating PDF…" : "Download PDF"}
+              {downloading
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating PDF…</>
+                : <><Download className="w-4 h-4 mr-2" />Download PDF</>
+              }
             </Button>
 
             {resume.matched_keywords?.length > 0 && (
