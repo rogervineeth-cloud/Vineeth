@@ -74,6 +74,7 @@ function ProfilePageInner() {
   const searchParams = useSearchParams();
   const fromPreview = searchParams.get("from") === "preview";
   const fromResumeId = searchParams.get("resumeId") ?? "";
+  const fromOnboarding = searchParams.get("from") === "onboarding";
 
   const [userId, setUserId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -311,6 +312,19 @@ function ProfilePageInner() {
           </div>
         </div>
 
+        {/* Post-onboarding nudge */}
+        {!fromPreview && loaded && experience.every(e => !e.company) && education.every(e => !e.institution) && (
+          <div className="mb-6 bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex-1">
+              <p className="font-semibold text-[#1a1a1a] mb-0.5">Complete your profile to generate a resume</p>
+              <p className="text-sm text-[#6b6b6b]">Add at least one work experience or education entry below. The AI uses this as its source of truth — the more you add, the better your resume.</p>
+            </div>
+            <Button asChild size="sm" className="shrink-0">
+              <a href="#experience">Add experience ↓</a>
+            </Button>
+          </div>
+        )}
+
         {/* From-preview banner */}
         {fromPreview && (
           <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
@@ -379,6 +393,7 @@ function ProfilePageInner() {
           </Section>
 
           {/* ── Experience ── */}
+          <div id="experience" />
           <Section
             title="Work experience"
             subtitle="Add your roles. Bullets should start with action verbs."

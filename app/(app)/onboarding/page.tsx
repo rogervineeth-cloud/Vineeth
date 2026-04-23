@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Upload, X } from "lucide-react";
+import { Upload, Link2, FileText, PenLine, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AppHeader } from "@/components/app-header";
 
+// ── Types ──────────────────────────────────────────────────────────────────
+type Path = "linkedin" | "resume" | "scratch";
+
+type ExtractedProfile = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  city?: string;
+  graduation_year?: number | null;
+  summary?: string | null;
+  experience?: Array<{ company: string; role: string; duration: string; location: string; bullets: string[] }>;
+  education?: Array<{ institution: string; degree: string; year: string; location: string; cgpa?: string }>;
+  skills?: string[];
+  projects?: Array<{ name: string; description: string; tech: string[] }>;
+};
+
 const basicsSchema = z.object({
   full_name: z.string().min(1, "Name is required"),
-  email: z.string().email(),
+  email: z.string().email("Enter a valid email"),
   phone: z.string().optional(),
   current_city: z.string().optional(),
   graduation_year: z.string().optional(),
@@ -23,20 +39,19 @@ const basicsSchema = z.object({
 
 type BasicsData = z.infer<typeof basicsSchema>;
 
-type ExtractedData = {
-  name: string;
-  email: string;
-  phone: string;
-  city: string;
-};
-
+// ── Component ──────────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [linkedinText, setLinkedinText] = useState("");
-  const [linkedinData, setLinkedinData] = useState<Record<string, unknown>>({});
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+
+  // step 0 = path selection, 1 = upload (linkedin/resume only), 2 = roles, 3 = basics
+  const [path, setPath] = useState<Path | null>(null);
+  const [step, setStep] = useState(0);
+
   const [uploading, setUploading] = useState(false);
+  const [uploadDone, setUploadDone] = useState(false);
+  const [extractedProfile, setExtractedProfile] = useState<ExtractedProfile | null>(null);
+
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -44,34 +59,60 @@ export default function OnboardingPage() {
     resolver: zodResolver(basicsSchema),
   });
 
-  // Step 1: LinkedIn PDF upload
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Progress dots: scratch = 2 steps (roles + basics), others = 3 (upload + roles + basics)
+  const isScratch = path === "scratch";
+  const totalSteps = isScratch ? 2 : 3;
+  const displayStep = isScratch ? step - 1 : step; // normalise for dot rendering
+
+  // ── Path selection ─────────────────────────────────────────────────────
+  function choosePath(chosen: Path) {
+    setPath(chosen);
+    setStep(chosen === "scratch" ? 2 : 1);
+  }
+
+  // ── Upload handler (LinkedIn PDF or any resume PDF) ────────────────────
+  const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
+    setUploadDone(false);
+
     try {
       const form = new FormData();
       form.append("file", file);
 
-      const res = await fetch("/api/parse-linkedin", { method: "POST", body: form });
+      const res = await fetch("/api/parse-resume", { method: "POST", body: form });
       const data = await res.json();
 
-      if (data.error) {
-        toast.error("Couldn't parse the PDF. You can fill in your details manually below.");
+      if (data.error && !data.extracted) {
+        toast.error(data.error || "Couldn't parse the file. You can fill in your details below.");
         return;
       }
 
-      setLinkedinText(data.text);
-      setLinkedinData(data.extracted);
+      const ep: ExtractedProfile = data.extracted ?? {};
+      setExtractedProfile(ep);
+      setUploadDone(true);
 
-      const extracted: ExtractedData = data.extracted;
-      if (extracted.name) setValue("full_name", extracted.name);
-      if (extracted.email) setValue("email", extracted.email);
-      if (extracted.phone) setValue("phone", extracted.phone);
-      if (extracted.city) setValue("current_city", extracted.city);
+      // Pre-fill basics form from extracted contact info
+      if (ep.name) setValue("full_name", ep.name);
+      if (ep.email) setValue("email", ep.email);
+      if (ep.phone) setValue("phone", ep.phone);
+      if (ep.city) setValue("current_city", ep.city);
+      if (ep.graduation_year) setValue("graduation_year", String(ep.graduation_year));
 
-      toast.success("LinkedIn PDF parsed — please check the extracted details below.");
+      const hasContent =
+        (ep.experience?.length ?? 0) > 0 ||
+        (ep.education?.length ?? 0) > 0 ||
+        (ep.skills?.length ?? 0) > 0;
+
+      if (hasContent) {
+        toast.success("Resume parsed — experience, education and skills extracted. Review your details in Step 3.");
+      } else if (data.partial) {
+        toast.warning("We could read the file but couldn't extract structured data. Fill in your details below.");
+      } else {
+        toast.success("File parsed — contact details extracted. You can fill in experience and education on your profile.");
+      }
     } catch {
       toast.error("Upload failed. Fill in your details manually.");
     } finally {
@@ -79,19 +120,16 @@ export default function OnboardingPage() {
     }
   }, [setValue]);
 
-  // Step 2: Role selection
+  // ── Role toggle ────────────────────────────────────────────────────────
   function toggleRole(role: string) {
     setSelectedRoles((prev) => {
       if (prev.includes(role)) return prev.filter((r) => r !== role);
-      if (prev.length >= 3) {
-        toast.info("Pick up to 3 roles.");
-        return prev;
-      }
+      if (prev.length >= 3) { toast.info("Pick up to 3 roles."); return prev; }
       return [...prev, role];
     });
   }
 
-  // Step 3: Save profile and redirect
+  // ── Save and redirect ──────────────────────────────────────────────────
   async function onSubmitBasics(data: BasicsData) {
     if (selectedRoles.length === 0) {
       toast.error("Please go back and pick at least one target role.");
@@ -109,21 +147,30 @@ export default function OnboardingPage() {
       return;
     }
 
+    // Build profile_data from whatever was extracted
+    const profileData = extractedProfile ? {
+      summary: extractedProfile.summary ?? undefined,
+      experience: extractedProfile.experience ?? [],
+      education: extractedProfile.education ?? [],
+      skills: extractedProfile.skills ?? [],
+      projects: extractedProfile.projects ?? [],
+    } : null;
+
     const { error } = await supabase.from("profiles").upsert({
       user_id: user.id,
       full_name: data.full_name,
       email: data.email,
-      phone: data.phone ?? null,
-      current_city: data.current_city ?? null,
+      phone: data.phone || null,
+      current_city: data.current_city || null,
       graduation_year: data.graduation_year ? parseInt(data.graduation_year) : null,
-      linkedin_data: linkedinData,
       target_roles: selectedRoles,
+      profile_data: profileData,
       onboarded_at: new Date().toISOString(),
     });
 
     if (error) {
       const msg = error.code === "42501"
-        ? "Permission denied — please sign out and sign in again, then retry."
+        ? "Permission denied — please sign out and sign in again."
         : `Couldn't save profile: ${error.message}`;
       setSaveError(msg);
       toast.error(msg);
@@ -131,83 +178,159 @@ export default function OnboardingPage() {
       return;
     }
 
-    toast.success("Profile saved! Review your details, then start generating.");
-    router.push("/profile");
+    router.push("/profile?from=onboarding");
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
       <AppHeader />
 
       <div className="max-w-2xl mx-auto px-6 py-12">
-        {/* Progress indicator */}
-        <div className="flex items-center gap-2 mb-10">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
-                  s < step
-                    ? "bg-[#1f5c3a] text-white"
-                    : s === step
-                    ? "bg-[#1f5c3a] text-white ring-2 ring-[#1f5c3a]/30 ring-offset-1"
-                    : "bg-stone-200 text-[#6b6b6b]"
-                }`}
-              >
-                {s < step ? "✓" : s}
-              </div>
-              {s < 3 && <div className={`h-px w-8 ${s < step ? "bg-[#1f5c3a]" : "bg-stone-200"}`} />}
-            </div>
-          ))}
-          <span className="ml-2 text-xs text-[#6b6b6b]">Step {step} of 3</span>
-        </div>
 
-        {/* STEP 1: LinkedIn PDF */}
+        {/* Progress dots — only shown after path is chosen */}
+        {step > 0 && (
+          <div className="flex items-center gap-2 mb-10">
+            {Array.from({ length: totalSteps }).map((_, i) => {
+              const dotStep = i + 1;
+              const active = displayStep === dotStep;
+              const done = displayStep > dotStep;
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
+                    done ? "bg-[#1f5c3a] text-white" : active ? "bg-[#1f5c3a] text-white ring-2 ring-[#1f5c3a]/30 ring-offset-1" : "bg-stone-200 text-[#6b6b6b]"
+                  }`}>
+                    {done ? "✓" : dotStep}
+                  </div>
+                  {i < totalSteps - 1 && <div className={`h-px w-8 ${done ? "bg-[#1f5c3a]" : "bg-stone-200"}`} />}
+                </div>
+              );
+            })}
+            <span className="ml-2 text-xs text-[#6b6b6b]">Step {displayStep} of {totalSteps}</span>
+          </div>
+        )}
+
+        {/* ── STEP 0: Path selection ── */}
+        {step === 0 && (
+          <div className="flex flex-col gap-8">
+            <div>
+              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">Let&apos;s build your profile</h1>
+              <p className="text-[#6b6b6b] text-sm">How would you like to get started? Choose the option that fits you best.</p>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {/* Option A: LinkedIn PDF */}
+              <button
+                type="button"
+                onClick={() => choosePath("linkedin")}
+                className="group text-left bg-white border-2 border-stone-200 hover:border-[#1f5c3a] rounded-xl p-6 flex items-start gap-5 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-[#0077b5]/10 flex items-center justify-center shrink-0 group-hover:bg-[#0077b5]/15 transition-colors">
+                  <Link2 className="w-6 h-6 text-[#0077b5]" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[#1a1a1a] mb-1">Import from LinkedIn</p>
+                  <p className="text-sm text-[#6b6b6b]">Export your LinkedIn profile as a PDF and upload it. We&apos;ll extract your experience, education, and skills automatically.</p>
+                  <p className="text-xs text-[#6b6b6b] mt-2 italic">LinkedIn → Me → View profile → More → Save to PDF</p>
+                </div>
+              </button>
+
+              {/* Option B: Existing resume */}
+              <button
+                type="button"
+                onClick={() => choosePath("resume")}
+                className="group text-left bg-white border-2 border-stone-200 hover:border-[#1f5c3a] rounded-xl p-6 flex items-start gap-5 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-[#1f5c3a]/10 flex items-center justify-center shrink-0 group-hover:bg-[#1f5c3a]/15 transition-colors">
+                  <FileText className="w-6 h-6 text-[#1f5c3a]" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[#1a1a1a] mb-1">Upload my existing resume</p>
+                  <p className="text-sm text-[#6b6b6b]">Upload a PDF of your current resume. We&apos;ll read it and pre-fill your profile — you can edit anything before generating.</p>
+                  <p className="text-xs text-[#6b6b6b] mt-2 italic">Supports any PDF resume · Max 5MB</p>
+                </div>
+              </button>
+
+              {/* Option C: From scratch */}
+              <button
+                type="button"
+                onClick={() => choosePath("scratch")}
+                className="group text-left bg-white border-2 border-stone-200 hover:border-[#1f5c3a] rounded-xl p-6 flex items-start gap-5 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
+                  <PenLine className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[#1a1a1a] mb-1">I&apos;ll fill it in myself</p>
+                  <p className="text-sm text-[#6b6b6b]">No PDF? No problem. Pick your target roles and fill in your basics — you&apos;ll complete your profile details on the next screen.</p>
+                  <p className="text-xs text-[#6b6b6b] mt-2 italic">Good for freshers or anyone starting fresh</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 1: Upload (LinkedIn or resume) ── */}
         {step === 1 && (
           <div className="flex flex-col gap-6">
             <div>
-              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">Upload your LinkedIn PDF</h1>
+              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">
+                {path === "linkedin" ? "Upload your LinkedIn PDF" : "Upload your resume"}
+              </h1>
               <p className="text-[#6b6b6b] text-sm">
-                On LinkedIn: your profile → More → Save to PDF. Then upload here.
+                {path === "linkedin"
+                  ? "Go to LinkedIn → Me → View profile → More → Save to PDF. Then upload it here."
+                  : "Upload your existing resume as a PDF. We'll extract your details automatically."}
               </p>
             </div>
 
             <label className="border-2 border-dashed border-stone-300 rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer hover:border-[#1f5c3a] transition-colors bg-white">
               <Upload className="w-8 h-8 text-[#6b6b6b]" />
               <span className="text-sm font-medium text-[#1a1a1a]">
-                {uploading ? "Parsing PDF…" : "Click to upload LinkedIn PDF"}
+                {uploading ? "Parsing your file…" : uploadDone ? "✓ File parsed successfully" : "Click to upload PDF"}
               </span>
               <span className="text-xs text-[#6b6b6b]">PDF only · Max 5MB</span>
               <input
                 type="file"
                 accept="application/pdf"
                 className="hidden"
-                onChange={handleFileUpload}
+                onChange={handleUpload}
                 disabled={uploading}
               />
             </label>
 
-            {linkedinText && (
-              <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
-                ✓ PDF parsed successfully — details extracted below (you can edit them in Step 3).
+            {uploadDone && extractedProfile && (
+              <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800 flex flex-col gap-1">
+                <p className="font-medium">✓ Extracted successfully</p>
+                <ul className="text-xs space-y-0.5 mt-1">
+                  {extractedProfile.name && <li>· Name: {extractedProfile.name}</li>}
+                  {(extractedProfile.experience?.length ?? 0) > 0 && <li>· {extractedProfile.experience!.length} work experience {extractedProfile.experience!.length === 1 ? "entry" : "entries"}</li>}
+                  {(extractedProfile.education?.length ?? 0) > 0 && <li>· {extractedProfile.education!.length} education {extractedProfile.education!.length === 1 ? "entry" : "entries"}</li>}
+                  {(extractedProfile.skills?.length ?? 0) > 0 && <li>· {extractedProfile.skills!.length} skills</li>}
+                </ul>
+                <p className="text-xs mt-1 text-green-700">You can review and edit everything on your profile page.</p>
               </div>
             )}
 
             <div className="flex justify-between pt-2">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] underline underline-offset-4"
-              >
-                Skip — I&apos;ll fill manually
+              <button type="button" onClick={() => setStep(0)} className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] underline underline-offset-4">
+                ← Back
               </button>
-              <Button onClick={() => setStep(2)} disabled={uploading}>
-                Continue
-              </Button>
+              <div className="flex items-center gap-3">
+                {!uploadDone && (
+                  <button type="button" onClick={() => setStep(2)} className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] underline underline-offset-4">
+                    Skip — fill manually
+                  </button>
+                )}
+                <Button onClick={() => setStep(2)} disabled={uploading}>
+                  Continue
+                </Button>
+              </div>
             </div>
           </div>
         )}
 
-        {/* STEP 2: Target roles */}
+        {/* ── STEP 2: Target roles ── */}
         {step === 2 && (
           <div className="flex flex-col gap-6">
             <div>
@@ -227,49 +350,42 @@ export default function OnboardingPage() {
                       : "bg-white text-[#1a1a1a] border-stone-200 hover:border-[#1f5c3a]"
                   }`}
                 >
-                  {selectedRoles.includes(role) && (
-                    <X className="inline w-3 h-3 mr-1 -mt-0.5" />
-                  )}
+                  {selectedRoles.includes(role) && <X className="inline w-3 h-3 mr-1 -mt-0.5" />}
                   {role}
                 </button>
               ))}
             </div>
 
             {selectedRoles.length > 0 && (
-              <p className="text-sm text-[#1f5c3a] font-medium">
-                Selected: {selectedRoles.join(", ")}
-              </p>
+              <p className="text-sm text-[#1f5c3a] font-medium">Selected: {selectedRoles.join(", ")}</p>
             )}
 
             <div className="flex justify-between pt-2">
-              <Button variant="ghost" onClick={() => setStep(1)}>Back</Button>
-              <Button
-                onClick={() => {
-                  if (selectedRoles.length === 0) {
-                    toast.error("Pick at least one role.");
-                    return;
-                  }
-                  setStep(3);
-                }}
-              >
+              <Button variant="ghost" onClick={() => setStep(isScratch ? 0 : 1)}>Back</Button>
+              <Button onClick={() => {
+                if (selectedRoles.length === 0) { toast.error("Pick at least one role."); return; }
+                setStep(3);
+              }}>
                 Continue
               </Button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Basics */}
+        {/* ── STEP 3: Confirm basics ── */}
         {step === 3 && (
           <div className="flex flex-col gap-6">
             <div>
-              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">Confirm your basics</h1>
-              <p className="text-[#6b6b6b] text-sm">These appear on your resume. Edit anything that looks wrong.</p>
+              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">Confirm your details</h1>
+              <p className="text-[#6b6b6b] text-sm">
+                {extractedProfile
+                  ? "We've pre-filled these from your uploaded file. Edit anything that looks wrong."
+                  : "These will appear on your resume. You can change them any time from your profile."}
+              </p>
             </div>
 
             {saveError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-                {saveError}
-              </div>
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{saveError}</div>
             )}
 
             <form onSubmit={handleSubmit(onSubmitBasics)} className="flex flex-col gap-4">
@@ -285,7 +401,7 @@ export default function OnboardingPage() {
                   {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="phone">Phone (optional)</Label>
+                  <Label htmlFor="phone">Phone</Label>
                   <Input id="phone" placeholder="+91 98765 43210" {...register("phone")} />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -294,9 +410,18 @@ export default function OnboardingPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="graduation_year">Graduation year</Label>
-                  <Input id="graduation_year" type="text" inputMode="numeric" placeholder="e.g. 2022" {...register("graduation_year")} />
+                  <Input id="graduation_year" inputMode="numeric" placeholder="e.g. 2022" {...register("graduation_year")} />
                 </div>
               </div>
+
+              {extractedProfile && (
+                <div className="bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-lg px-4 py-3 text-sm text-[#1a1a1a]">
+                  <p className="font-medium mb-0.5">Profile data ready to save</p>
+                  <p className="text-xs text-[#6b6b6b]">
+                    Your experience, education, and skills extracted from the file will be saved and editable on your profile page.
+                  </p>
+                </div>
+              )}
 
               <div className="flex justify-between pt-2">
                 <Button type="button" variant="ghost" onClick={() => setStep(2)}>Back</Button>
