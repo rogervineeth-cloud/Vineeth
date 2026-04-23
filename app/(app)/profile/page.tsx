@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, X, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, X, GripVertical, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
 import { AppHeader } from "@/components/app-header";
@@ -289,6 +289,13 @@ function ProfilePageInner() {
     );
   }
 
+  // ── Completeness checks ────────────────────────────────────────────────
+  const sec1Done = !!(basics.full_name.trim() && basics.email.trim());
+  const sec2Done = targetRoles.length > 0;
+  const sec3Done = experience.some((e) => e.company.trim());
+  const sec4Done = education.some((e) => e.institution.trim());
+  const sec5Done = projects.some((p) => p.name.trim());
+
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
       <AppHeader />
@@ -312,33 +319,19 @@ function ProfilePageInner() {
           </div>
         </div>
 
-        {/* Post-onboarding nudge */}
-        {!fromPreview && loaded && experience.every(e => !e.company) && education.every(e => !e.institution) && (
-          <div className="mb-6 bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex-1">
-              <p className="font-semibold text-[#1a1a1a] mb-0.5">Complete your profile to generate a resume</p>
-              <p className="text-sm text-[#6b6b6b]">Add at least one work experience or education entry below. The AI uses this as its source of truth — the more you add, the better your resume.</p>
-            </div>
-            <Button asChild size="sm" className="shrink-0">
-              <a href="#experience">Add experience ↓</a>
-            </Button>
-          </div>
-        )}
-
         {/* From-preview banner */}
         {fromPreview && (
-          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+          <div className="mb-8 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
             <strong>Updating your profile?</strong> Make your changes here, then{" "}
             <Link href="/create" className="underline underline-offset-2 font-semibold">generate a new resume</Link>.
-            {fromResumeId && (
-              <span className="ml-1">Regenerating uses 1 credit (free within 24 h of the same JD).</span>
-            )}
+            {fromResumeId && <span className="ml-1">Regenerating uses 1 credit (free within 24 h of the same JD).</span>}
           </div>
         )}
 
-        <div className="flex flex-col gap-8">
-          {/* ── Basic info ── */}
-          <Section title="Basic info">
+        <div className="flex flex-col">
+
+          {/* ── 1. Basic Info ── */}
+          <NumberedSection num={1} title="Basic Info" optional={false} done={sec1Done}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Full name *">
                 <Input value={basics.full_name} onChange={(e) => setBasics((b) => ({ ...b, full_name: e.target.value }))} placeholder="Your full name" />
@@ -356,10 +349,22 @@ function ProfilePageInner() {
                 <Input value={basics.graduation_year} onChange={(e) => setBasics((b) => ({ ...b, graduation_year: e.target.value }))} inputMode="numeric" placeholder="e.g. 2022" />
               </Field>
             </div>
-          </Section>
+            <div className="mt-4">
+              <p className="text-sm font-medium text-[#1a1a1a] mb-1">Professional summary <span className="text-xs text-[#6b6b6b] font-normal">(optional)</span></p>
+              <Textarea
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                placeholder="e.g. Distribution sales professional with 8 years of experience across FMCG and pharma. Seeking a regional sales leadership role."
+                className="min-h-[90px] bg-white resize-none text-sm"
+              />
+            </div>
+          </NumberedSection>
 
-          {/* ── Target roles ── */}
-          <Section title="Target roles" subtitle="Pick up to 3. The AI will tailor keywords to these roles.">
+          <Divider />
+
+          {/* ── 2. Target Roles ── */}
+          <NumberedSection num={2} title="Target Roles" optional={false} done={sec2Done}>
+            <p className="text-xs text-[#6b6b6b] mb-3">Pick up to 3. The AI will tailor your resume keywords to these roles.</p>
             <div className="flex flex-wrap gap-2">
               {INDIAN_JOB_ROLES.map((role) => (
                 <button
@@ -378,157 +383,137 @@ function ProfilePageInner() {
               ))}
             </div>
             {targetRoles.length > 0 && (
-              <p className="text-sm text-[#1f5c3a] font-medium mt-2">Selected: {targetRoles.join(", ")}</p>
+              <p className="text-sm text-[#1f5c3a] font-medium mt-3">Selected: {targetRoles.join(", ")}</p>
             )}
-          </Section>
+          </NumberedSection>
 
-          {/* ── Summary ── */}
-          <Section title="Professional summary" subtitle="Optional. 2-3 sentences about your experience and career goal.">
-            <Textarea
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              placeholder="e.g. Software engineer with 3 years of experience in full-stack development, specialising in React and Node.js. Looking for a senior role in product-led companies."
-              className="min-h-[100px] bg-white resize-none text-sm"
-            />
-          </Section>
+          <Divider />
 
-          {/* ── Experience ── */}
-          <div id="experience" />
-          <Section
-            title="Work experience"
-            subtitle="Add your roles. Bullets should start with action verbs."
-            action={<button type="button" onClick={addExp} className="text-sm text-[#1f5c3a] font-medium flex items-center gap-1 hover:underline"><Plus className="w-4 h-4" />Add role</button>}
-          >
-            {experience.map((exp, ei) => (
-              <div key={exp.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-[#1a1a1a]">{exp.company || `Role ${ei + 1}`}</p>
-                  {experience.length > 1 && (
-                    <button type="button" onClick={() => removeExp(exp.id)} className="text-[#6b6b6b] hover:text-red-500 transition-colors shrink-0">
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input value={exp.company} onChange={(e) => updateExp(exp.id, "company", e.target.value)} placeholder="Company name" className="text-sm" />
-                  <Input value={exp.role} onChange={(e) => updateExp(exp.id, "role", e.target.value)} placeholder="Your role / title" className="text-sm" />
-                  <Input value={exp.duration} onChange={(e) => updateExp(exp.id, "duration", e.target.value)} placeholder="Duration e.g. Jan 2022 – Mar 2024" className="text-sm" />
-                  <Input value={exp.location} onChange={(e) => updateExp(exp.id, "location", e.target.value)} placeholder="Location e.g. Bengaluru" className="text-sm" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs text-[#6b6b6b] font-medium">Bullets (start with action verbs):</p>
-                  {exp.bullets.map((bullet, bi) => (
-                    <div key={bi} className="flex items-center gap-2">
-                      <div className="flex flex-col gap-0.5">
-                        <button type="button" onClick={() => moveBullet(exp.id, bi, -1)} disabled={bi === 0} className="text-[#6b6b6b] hover:text-[#1a1a1a] disabled:opacity-30">
-                          <ChevronUp className="w-3 h-3" />
-                        </button>
-                        <button type="button" onClick={() => moveBullet(exp.id, bi, 1)} disabled={bi === exp.bullets.length - 1} className="text-[#6b6b6b] hover:text-[#1a1a1a] disabled:opacity-30">
-                          <ChevronDown className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <GripVertical className="w-3.5 h-3.5 text-stone-300 shrink-0" />
-                      <Input
-                        value={bullet}
-                        onChange={(e) => updateBullet(exp.id, bi, e.target.value)}
-                        placeholder="Led the migration of legacy PHP app to React, reducing load time by 40%"
-                        className="text-sm flex-1"
-                      />
-                      <button type="button" onClick={() => removeBullet(exp.id, bi)} className="text-[#6b6b6b] hover:text-red-500 transition-colors shrink-0">
+          {/* ── 3. Experience ── */}
+          <NumberedSection num={3} title="Experience" optional={true} done={sec3Done}>
+            <p className="text-xs text-[#6b6b6b] mb-4">Add your work history. Start each bullet with a strong action verb (Led, Built, Delivered…).</p>
+            <div className="flex flex-col gap-4">
+              {experience.map((exp, ei) => (
+                <div key={exp.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-[#1a1a1a]">{exp.company || `Role ${ei + 1}`}</p>
+                    {experience.length > 1 && (
+                      <button type="button" onClick={() => removeExp(exp.id)} className="text-[#6b6b6b] hover:text-red-500 transition-colors">
                         <X className="w-4 h-4" />
                       </button>
-                    </div>
-                  ))}
-                  <button type="button" onClick={() => addBullet(exp.id)} className="text-xs text-[#1f5c3a] flex items-center gap-1 hover:underline mt-1 w-fit">
-                    <Plus className="w-3 h-3" />Add bullet
-                  </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input value={exp.company} onChange={(e) => updateExp(exp.id, "company", e.target.value)} placeholder="Company name" className="text-sm" />
+                    <Input value={exp.role} onChange={(e) => updateExp(exp.id, "role", e.target.value)} placeholder="Your role / title" className="text-sm" />
+                    <Input value={exp.duration} onChange={(e) => updateExp(exp.id, "duration", e.target.value)} placeholder="Duration e.g. Jan 2022 – Mar 2024" className="text-sm" />
+                    <Input value={exp.location} onChange={(e) => updateExp(exp.id, "location", e.target.value)} placeholder="Location e.g. Bengaluru" className="text-sm" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-[#6b6b6b] font-medium">Key achievements / responsibilities:</p>
+                    {exp.bullets.map((bullet, bi) => (
+                      <div key={bi} className="flex items-center gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <button type="button" onClick={() => moveBullet(exp.id, bi, -1)} disabled={bi === 0} className="text-[#6b6b6b] hover:text-[#1a1a1a] disabled:opacity-30"><ChevronUp className="w-3 h-3" /></button>
+                          <button type="button" onClick={() => moveBullet(exp.id, bi, 1)} disabled={bi === exp.bullets.length - 1} className="text-[#6b6b6b] hover:text-[#1a1a1a] disabled:opacity-30"><ChevronDown className="w-3 h-3" /></button>
+                        </div>
+                        <GripVertical className="w-3.5 h-3.5 text-stone-300 shrink-0" />
+                        <Input value={bullet} onChange={(e) => updateBullet(exp.id, bi, e.target.value)} placeholder="Led the migration of legacy PHP app to React, reducing load time by 40%" className="text-sm flex-1" />
+                        <button type="button" onClick={() => removeBullet(exp.id, bi)} className="text-[#6b6b6b] hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => addBullet(exp.id)} className="text-xs text-[#1f5c3a] flex items-center gap-1 hover:underline mt-1 w-fit">
+                      <Plus className="w-3 h-3" />Add bullet
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </Section>
-
-          {/* ── Skills ── */}
-          <Section
-            title="Skills"
-            subtitle="Type a skill and press Enter or comma to add it."
-          >
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {skills.map((skill) => (
-                <span key={skill} className="flex items-center gap-1 text-sm bg-[#1f5c3a]/10 text-[#1f5c3a] px-2.5 py-1 rounded-full border border-[#1f5c3a]/20">
-                  {skill}
-                  <button type="button" onClick={() => removeSkill(skill)} className="hover:text-red-500 transition-colors">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
               ))}
             </div>
-            <Input
-              value={skillInput}
-              onChange={(e) => setSkillInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === ",") {
-                  e.preventDefault();
-                  addSkill(skillInput);
-                }
-              }}
-              onBlur={() => { if (skillInput.trim()) addSkill(skillInput); }}
-              placeholder="e.g. React, SQL, Power BI — press Enter to add"
-              className="bg-white text-sm"
-            />
-          </Section>
+            <button type="button" onClick={addExp} className="mt-3 text-sm text-[#1f5c3a] font-medium flex items-center gap-1.5 hover:underline">
+              <Plus className="w-4 h-4" />Add another role
+            </button>
 
-          {/* ── Education ── */}
-          <Section
-            title="Education"
-            action={<button type="button" onClick={addEdu} className="text-sm text-[#1f5c3a] font-medium flex items-center gap-1 hover:underline"><Plus className="w-4 h-4" />Add entry</button>}
-          >
-            {education.map((edu, ei) => (
-              <div key={edu.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-[#1a1a1a]">{edu.institution || `Education ${ei + 1}`}</p>
-                  {education.length > 1 && (
-                    <button type="button" onClick={() => removeEdu(edu.id)} className="text-[#6b6b6b] hover:text-red-500 transition-colors shrink-0">
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input value={edu.institution} onChange={(e) => updateEdu(edu.id, "institution", e.target.value)} placeholder="Institution name" className="text-sm" />
-                  <Input value={edu.degree} onChange={(e) => updateEdu(edu.id, "degree", e.target.value)} placeholder="Degree e.g. B.Tech Computer Science" className="text-sm" />
-                  <Input value={edu.year} onChange={(e) => updateEdu(edu.id, "year", e.target.value)} placeholder="Year e.g. 2022 or 2020–2024" className="text-sm" />
-                  <Input value={edu.location} onChange={(e) => updateEdu(edu.id, "location", e.target.value)} placeholder="City / State" className="text-sm" />
-                  <Input value={edu.cgpa} onChange={(e) => updateEdu(edu.id, "cgpa", e.target.value)} placeholder="CGPA / % (optional)" className="text-sm" />
-                </div>
+            {/* Skills lives here — related to professional background */}
+            <div className="mt-6 pt-5 border-t border-stone-200">
+              <p className="text-sm font-semibold text-[#1a1a1a] mb-1">Skills</p>
+              <p className="text-xs text-[#6b6b6b] mb-3">Type a skill and press Enter or comma to add it.</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {skills.map((skill) => (
+                  <span key={skill} className="flex items-center gap-1 text-sm bg-[#1f5c3a]/10 text-[#1f5c3a] px-2.5 py-1 rounded-full border border-[#1f5c3a]/20">
+                    {skill}
+                    <button type="button" onClick={() => removeSkill(skill)} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
+                  </span>
+                ))}
               </div>
-            ))}
-          </Section>
+              <Input
+                value={skillInput}
+                onChange={(e) => setSkillInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addSkill(skillInput); } }}
+                onBlur={() => { if (skillInput.trim()) addSkill(skillInput); }}
+                placeholder="e.g. React, SQL, Power BI — press Enter to add"
+                className="bg-white text-sm"
+              />
+            </div>
+          </NumberedSection>
 
-          {/* ── Projects ── */}
-          <Section
-            title="Projects"
-            subtitle="Optional. Include personal, academic, or open-source work."
-            action={<button type="button" onClick={addProj} className="text-sm text-[#1f5c3a] font-medium flex items-center gap-1 hover:underline"><Plus className="w-4 h-4" />Add project</button>}
-          >
+          <Divider />
+
+          {/* ── 4. Education ── */}
+          <NumberedSection num={4} title="Education" optional={false} done={sec4Done}>
+            <div className="flex flex-col gap-4">
+              {education.map((edu, ei) => (
+                <div key={edu.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-[#1a1a1a]">{edu.institution || `Education ${ei + 1}`}</p>
+                    {education.length > 1 && (
+                      <button type="button" onClick={() => removeEdu(edu.id)} className="text-[#6b6b6b] hover:text-red-500 transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input value={edu.institution} onChange={(e) => updateEdu(edu.id, "institution", e.target.value)} placeholder="Institution name" className="text-sm" />
+                    <Input value={edu.degree} onChange={(e) => updateEdu(edu.id, "degree", e.target.value)} placeholder="Degree e.g. B.Tech Computer Science" className="text-sm" />
+                    <Input value={edu.year} onChange={(e) => updateEdu(edu.id, "year", e.target.value)} placeholder="Year e.g. 2022 or 2020–2024" className="text-sm" />
+                    <Input value={edu.location} onChange={(e) => updateEdu(edu.id, "location", e.target.value)} placeholder="City / State" className="text-sm" />
+                    <Input value={edu.cgpa} onChange={(e) => updateEdu(edu.id, "cgpa", e.target.value)} placeholder="CGPA / % (optional)" className="text-sm" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={addEdu} className="mt-3 text-sm text-[#1f5c3a] font-medium flex items-center gap-1.5 hover:underline">
+              <Plus className="w-4 h-4" />Add another entry
+            </button>
+          </NumberedSection>
+
+          <Divider />
+
+          {/* ── 5. Projects ── */}
+          <NumberedSection num={5} title="Projects" optional={true} done={sec5Done}>
+            <p className="text-xs text-[#6b6b6b] mb-4">Include personal, academic, or open-source work. Great for freshers.</p>
             {projects.length === 0 && (
-              <p className="text-sm text-[#6b6b6b]">No projects added yet.</p>
+              <p className="text-sm text-[#6b6b6b] mb-3">No projects added yet.</p>
             )}
-            {projects.map((proj, pi) => (
-              <div key={proj.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-[#1a1a1a]">{proj.name || `Project ${pi + 1}`}</p>
-                  <button type="button" onClick={() => removeProj(proj.id)} className="text-[#6b6b6b] hover:text-red-500 transition-colors shrink-0">
-                    <X className="w-4 h-4" />
-                  </button>
+            <div className="flex flex-col gap-4">
+              {projects.map((proj, pi) => (
+                <div key={proj.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-[#1a1a1a]">{proj.name || `Project ${pi + 1}`}</p>
+                    <button type="button" onClick={() => removeProj(proj.id)} className="text-[#6b6b6b] hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
+                  </div>
+                  <Input value={proj.name} onChange={(e) => updateProj(proj.id, "name", e.target.value)} placeholder="Project name" className="text-sm" />
+                  <Textarea value={proj.description} onChange={(e) => updateProj(proj.id, "description", e.target.value)} placeholder="What did it do? What was your role and impact?" className="min-h-[80px] bg-white resize-none text-sm" />
+                  <Input value={proj.tech.join(", ")} onChange={(e) => updateProjTech(proj.id, e.target.value)} placeholder="Tech stack, comma-separated e.g. React, Node.js, PostgreSQL" className="text-sm" />
                 </div>
-                <Input value={proj.name} onChange={(e) => updateProj(proj.id, "name", e.target.value)} placeholder="Project name" className="text-sm" />
-                <Textarea value={proj.description} onChange={(e) => updateProj(proj.id, "description", e.target.value)} placeholder="What did it do? What was your contribution and impact?" className="min-h-[80px] bg-white resize-none text-sm" />
-                <Input value={proj.tech.join(", ")} onChange={(e) => updateProjTech(proj.id, e.target.value)} placeholder="Tech stack, comma-separated e.g. React, Node.js, PostgreSQL" className="text-sm" />
-              </div>
-            ))}
-          </Section>
+              ))}
+            </div>
+            <button type="button" onClick={addProj} className="mt-3 text-sm text-[#1f5c3a] font-medium flex items-center gap-1.5 hover:underline">
+              <Plus className="w-4 h-4" />Add project
+            </button>
+          </NumberedSection>
 
           {/* ── Generate CTA ── */}
-          <div className="bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="mt-10 bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <p className="font-semibold text-[#1a1a1a]">Ready to generate?</p>
               <p className="text-sm text-[#6b6b6b]">Paste a job description and we&apos;ll tailor this profile into a resume in ~25 seconds.</p>
@@ -538,16 +523,16 @@ function ProfilePageInner() {
             </Button>
           </div>
 
-          {/* ── Issue reporter ── */}
-          <Section
-            title="Report a generation issue"
-            subtitle="Did the AI get something wrong in a previous resume? Let us know — we may refund your credit."
-          >
-            {resumes.length === 0 ? (
-              <p className="text-sm text-[#6b6b6b]">No resumes generated yet.</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <Field label="Which resume?">
+          {/* ── Issue reporter (collapsed by default) ── */}
+          {resumes.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-stone-200">
+              <details className="group">
+                <summary className="text-xs text-[#6b6b6b] cursor-pointer hover:text-[#1a1a1a] list-none flex items-center gap-1">
+                  <span className="group-open:hidden">▶</span>
+                  <span className="hidden group-open:inline">▼</span>
+                  AI got something wrong in a previous resume? Report it
+                </summary>
+                <div className="mt-4 flex flex-col gap-3">
                   <select
                     value={issueResumeId}
                     onChange={(e) => setIssueResumeId(e.target.value)}
@@ -560,56 +545,56 @@ function ProfilePageInner() {
                       </option>
                     ))}
                   </select>
-                </Field>
-                <Field label="Describe the issue">
                   <Textarea
                     value={issueDesc}
                     onChange={(e) => setIssueDesc(e.target.value)}
                     placeholder="e.g. The AI added a skill I never mentioned, or experience bullets were completely wrong."
-                    className="min-h-[100px] bg-white resize-none text-sm"
+                    className="min-h-[90px] bg-white resize-none text-sm"
                   />
-                </Field>
-                <Button
-                  variant="outline"
-                  onClick={submitIssue}
-                  disabled={submittingIssue}
-                  className="w-fit"
-                >
-                  {submittingIssue ? "Submitting…" : "Submit issue"}
-                </Button>
-              </div>
-            )}
-          </Section>
+                  <Button variant="outline" onClick={submitIssue} disabled={submittingIssue} className="w-fit text-sm">
+                    {submittingIssue ? "Submitting…" : "Submit issue"}
+                  </Button>
+                </div>
+              </details>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// ── Small layout helpers ───────────────────────────────────────────────────
-function Section({
-  title,
-  subtitle,
-  action,
-  children,
+// ── Layout helpers ─────────────────────────────────────────────────────────
+function NumberedSection({
+  num, title, optional, done, children,
 }: {
-  title: string;
-  subtitle?: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
+  num: number; title: string; optional: boolean; done: boolean; children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="font-semibold text-[#1a1a1a]">{title}</h2>
-          {subtitle && <p className="text-xs text-[#6b6b6b] mt-0.5">{subtitle}</p>}
-        </div>
-        {action}
+    <div className="py-8">
+      <div className="flex items-center gap-3 mb-5">
+        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-[#1f5c3a] text-white text-sm font-bold shrink-0">
+          {num}
+        </span>
+        <h2 className="text-lg font-semibold text-[#1a1a1a]">{title}</h2>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+          optional ? "bg-stone-100 text-[#6b6b6b]" : "bg-[#1f5c3a]/10 text-[#1f5c3a]"
+        }`}>
+          {optional ? "Optional" : "Required"}
+        </span>
+        {done && (
+          <span className="ml-auto flex items-center gap-1 text-xs font-medium text-[#1f5c3a]">
+            <Check className="w-4 h-4" />Done
+          </span>
+        )}
       </div>
       {children}
     </div>
   );
+}
+
+function Divider() {
+  return <hr className="border-stone-200" />;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
