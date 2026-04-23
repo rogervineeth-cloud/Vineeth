@@ -344,10 +344,16 @@ export default function PreviewPage() {
               </div>
             )}
 
-            <div className="mt-6 pt-4 border-t border-stone-100">
-              <p className="text-xs text-[#6b6b6b] text-center">
+            <div className="mt-6 pt-4 border-t border-stone-100 flex flex-col gap-2">
+              <p className="text-xs text-[#6b6b6b] text-center mb-2">
                 Tailored for: <span className="font-medium text-[#1a1a1a]">{resume.tailored_role}</span>
               </p>
+              <Button variant="outline" size="sm" className="w-full text-xs" asChild>
+                <Link href={`/profile?from=preview&resumeId=${id}`}>Update profile &amp; regenerate →</Link>
+              </Button>
+              <Button variant="ghost" size="sm" className="w-full text-xs text-[#6b6b6b]" asChild>
+                <Link href="/create">Generate for a different job →</Link>
+              </Button>
             </div>
           </div>
         </div>

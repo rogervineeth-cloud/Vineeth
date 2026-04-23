@@ -38,6 +38,9 @@ export function AppHeader() {
               <Link href="/dashboard" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">
                 Dashboard
               </Link>
+              <Link href="/profile" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">
+                Profile
+              </Link>
               <Button variant="ghost" size="sm" onClick={signOut} className="text-sm">
                 Sign out
               </Button>

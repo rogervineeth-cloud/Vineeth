@@ -18,12 +18,26 @@ const inputSchema = z.object({
     graduation_year: z.number().nullable().optional(),
     target_roles: z.array(z.string()).optional(),
     linkedin_data: z.record(z.string(), z.unknown()).nullable().optional(),
+    // Rich profile data from the /profile editor
+    summary: z.string().optional(),
+    experience: z.array(z.object({
+      company: z.string(), role: z.string(), duration: z.string(),
+      location: z.string(), bullets: z.array(z.string()),
+    })).optional(),
+    skills: z.array(z.string()).optional(),
+    education: z.array(z.object({
+      institution: z.string(), degree: z.string(), year: z.string(),
+      location: z.string(), cgpa: z.string().optional(),
+    })).optional(),
+    projects: z.array(z.object({
+      name: z.string(), description: z.string(), tech: z.array(z.string()),
+    })).optional(),
   }),
 });
 
 const SYSTEM_PROMPT = `You are an expert Indian career coach and ATS-optimization specialist. You help students and job seekers in India tailor their resumes to specific job descriptions.
 
-You will receive a user's background (from LinkedIn) and a target job description.
+You will receive the user's structured profile (experience, skills, education, projects) and a target job description. Use the profile data as the source of truth — never invent experience. If the profile has experience/skills/education entries, use them as the base and tailor bullets to the JD. If the profile is sparse, write a strong summary and skills section from whatever is available.
 
 Your task:
 1. KEYWORDS: Extract 8-12 critical keywords/skills from the JD (technical skills, tools, methodologies, soft skills explicitly mentioned)

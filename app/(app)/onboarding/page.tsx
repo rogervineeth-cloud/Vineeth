@@ -131,8 +131,8 @@ export default function OnboardingPage() {
       return;
     }
 
-    toast.success("Profile saved! Let's build your first resume.");
-    router.push("/create");
+    toast.success("Profile saved! Review your details, then start generating.");
+    router.push("/profile");
   }
 
   return (

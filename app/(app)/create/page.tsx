@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { AppHeader } from "@/components/app-header";
+import { UserCircle } from "lucide-react";
 
 const PROGRESS_STEPS = [
   { label: "Analyzing job description…", pct: 15 },
@@ -17,6 +18,14 @@ const PROGRESS_STEPS = [
   { label: "Finalizing…", pct: 95 },
 ];
 
+type ProfileData = {
+  summary?: string;
+  experience?: Array<{ company: string; role: string; duration: string; location: string; bullets: string[] }>;
+  skills?: string[];
+  education?: Array<{ institution: string; degree: string; year: string; location: string; cgpa?: string }>;
+  projects?: Array<{ name: string; description: string; tech: string[] }>;
+};
+
 type Profile = {
   full_name: string;
   email: string;
@@ -25,11 +34,27 @@ type Profile = {
   graduation_year: number | null;
   target_roles: string[] | null;
   linkedin_data: Record<string, unknown> | null;
+  profile_data: ProfileData | null;
 };
 
 type PlanCheck =
   | { allowed: true; remaining: number }
-  | { allowed: false; reason: "NO_PLAN" | "CREDITS_EXHAUSTED"; used: number; allotted: number };
+  | { allowed: false; reason: "NO_PLAN" | "CREDITS_EXHAUSTED"; allotted: number };
+
+type Completeness =
+  | { complete: true }
+  | { complete: false; missing: string };
+
+function checkCompleteness(profile: Profile | null): Completeness {
+  if (!profile) return { complete: false, missing: "profile" };
+  if (!profile.full_name?.trim()) return { complete: false, missing: "name" };
+  if (!profile.target_roles?.length) return { complete: false, missing: "target roles" };
+  const pd = profile.profile_data;
+  const hasExp = (pd?.experience?.length ?? 0) > 0;
+  const hasEdu = (pd?.education?.length ?? 0) > 0;
+  if (!hasExp && !hasEdu) return { complete: false, missing: "at least one experience or education entry" };
+  return { complete: true };
+}
 
 export default function CreatePage() {
   const router = useRouter();
@@ -40,6 +65,7 @@ export default function CreatePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [planCheck, setPlanCheck] = useState<PlanCheck | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -48,8 +74,10 @@ export default function CreatePage() {
 
       const [profileRes, plansRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
-        supabase.from("user_plans").select("resumes_used,resumes_allotted,expires_at")
-          .eq("user_id", user.id).gt("expires_at", new Date().toISOString()),
+        supabase.from("user_plans")
+          .select("resumes_used,resumes_allotted,expires_at")
+          .eq("user_id", user.id)
+          .gt("expires_at", new Date().toISOString()),
       ]);
 
       if (profileRes.data) setProfile(profileRes.data as Profile);
@@ -60,10 +88,11 @@ export default function CreatePage() {
         setPlanCheck({ allowed: true, remaining: active.resumes_allotted - active.resumes_used });
       } else if (plans.length > 0) {
         const latest = plans[0];
-        setPlanCheck({ allowed: false, reason: "CREDITS_EXHAUSTED", used: latest.resumes_used, allotted: latest.resumes_allotted });
+        setPlanCheck({ allowed: false, reason: "CREDITS_EXHAUSTED", allotted: latest.resumes_allotted });
       } else {
-        setPlanCheck({ allowed: false, reason: "NO_PLAN", used: 0, allotted: 0 });
+        setPlanCheck({ allowed: false, reason: "NO_PLAN", allotted: 0 });
       }
+      setLoaded(true);
     });
   }, []);
 
@@ -73,8 +102,8 @@ export default function CreatePage() {
       return;
     }
     if (!profile) {
-      toast.error("Please complete onboarding first.");
-      router.push("/onboarding");
+      toast.error("Please complete your profile first.");
+      router.push("/profile");
       return;
     }
     if (planCheck && !planCheck.allowed) {
@@ -101,6 +130,8 @@ export default function CreatePage() {
       }
     }, 4500);
 
+    const pd = profile.profile_data ?? {};
+
     try {
       const res = await fetch("/api/generate-resume", {
         method: "POST",
@@ -115,6 +146,12 @@ export default function CreatePage() {
             graduation_year: profile.graduation_year,
             target_roles: profile.target_roles,
             linkedin_data: profile.linkedin_data,
+            // Rich profile fields from the editor
+            summary: pd.summary,
+            experience: pd.experience,
+            skills: pd.skills,
+            education: pd.education,
+            projects: pd.projects,
           },
         }),
       });
@@ -170,13 +207,6 @@ export default function CreatePage() {
         return;
       }
 
-      // Refresh plan check after consuming a credit
-      if (planCheck?.allowed) {
-        setPlanCheck((prev) =>
-          prev?.allowed ? { ...prev, remaining: prev.remaining - 1 } : prev
-        );
-      }
-
       router.push(`/preview/${savedResume.id}`);
     } catch (err) {
       clearInterval(interval);
@@ -189,6 +219,7 @@ export default function CreatePage() {
     }
   }
 
+  const completeness = checkCompleteness(profile);
   const noPlan = planCheck && !planCheck.allowed;
 
   return (
@@ -201,32 +232,45 @@ export default function CreatePage() {
             <div className="mb-8">
               <h1 className="font-serif italic text-4xl text-[#1a1a1a] mb-3">Paste the job description</h1>
               <p className="text-[#6b6b6b]">
-                Copy the full JD from Naukri, LinkedIn Jobs, or any company website. The more detail, the better the tailoring.
+                Copy the full JD from Naukri, LinkedIn Jobs, or any company website.
               </p>
             </div>
 
-            {/* Plan status banners */}
+            {/* Profile completeness gate */}
+            {loaded && !completeness.complete && (
+              <div className="mb-6 bg-white border border-stone-200 rounded-xl p-6 flex flex-col sm:flex-row items-center gap-5 shadow-sm">
+                <div className="w-12 h-12 rounded-full bg-[#1f5c3a]/10 flex items-center justify-center shrink-0">
+                  <UserCircle className="w-6 h-6 text-[#1f5c3a]" />
+                </div>
+                <div className="flex-1 text-center sm:text-left">
+                  <p className="font-semibold text-[#1a1a1a] mb-0.5">Finish your profile first</p>
+                  <p className="text-sm text-[#6b6b6b]">
+                    Missing: <span className="font-medium text-[#1a1a1a]">{completeness.missing}</span>.
+                    The AI needs your experience or education to generate a tailored resume.
+                  </p>
+                </div>
+                <Button asChild className="shrink-0">
+                  <Link href="/profile">Edit profile →</Link>
+                </Button>
+              </div>
+            )}
+
+            {/* Plan banners */}
             {planCheck && !planCheck.allowed && planCheck.reason === "NO_PLAN" && (
               <div className="mb-5 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
                 <span>You&apos;ll need a paid plan to generate a resume.</span>
-                <Link href="/pricing" className="font-semibold underline underline-offset-2 whitespace-nowrap">
-                  View plans →
-                </Link>
+                <Link href="/pricing" className="font-semibold underline underline-offset-2 whitespace-nowrap">View plans →</Link>
               </div>
             )}
             {planCheck && !planCheck.allowed && planCheck.reason === "CREDITS_EXHAUSTED" && (
               <div className="mb-5 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
                 <span>You&apos;ve used all {planCheck.allotted} credits in your current plan.</span>
-                <Link href="/pricing" className="font-semibold underline underline-offset-2 whitespace-nowrap">
-                  Buy another pack →
-                </Link>
+                <Link href="/pricing" className="font-semibold underline underline-offset-2 whitespace-nowrap">Buy another pack →</Link>
               </div>
             )}
 
             {genError && (
-              <div className="mb-5 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-                {genError}
-              </div>
+              <div className="mb-5 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{genError}</div>
             )}
 
             <div className="flex flex-col gap-3">
@@ -237,23 +281,21 @@ export default function CreatePage() {
                 onChange={(e) => setJdText(e.target.value)}
                 disabled={generating}
               />
-              <div className="flex items-center justify-between">
-                <span className={`text-xs ${jdText.length < 200 ? "text-[#6b6b6b]" : "text-[#1f5c3a]"}`}>
-                  {jdText.length} characters {jdText.length < 200 ? `(need ${200 - jdText.length} more)` : "✓"}
-                </span>
-              </div>
+              <span className={`text-xs ${jdText.length < 200 ? "text-[#6b6b6b]" : "text-[#1f5c3a]"}`}>
+                {jdText.length} characters {jdText.length < 200 ? `(need ${200 - jdText.length} more)` : "✓"}
+              </span>
             </div>
 
             <div className="mt-6">
               <Button
                 size="lg"
                 onClick={handleGenerate}
-                disabled={jdText.trim().length < 200 || generating || !!noPlan}
+                disabled={jdText.trim().length < 200 || generating || !!noPlan || !completeness.complete}
                 className="w-full sm:w-auto text-base px-10"
               >
                 Generate my resume →
               </Button>
-              {profile && (
+              {profile && completeness.complete && (
                 <p className="text-xs text-[#6b6b6b] mt-3">
                   Generating for <strong>{profile.full_name}</strong>
                   {profile.target_roles?.length ? ` · targeting ${profile.target_roles[0]}` : ""}
