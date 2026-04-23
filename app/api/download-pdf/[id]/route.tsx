@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { canDownloadResume } from "@/lib/plans";
 import { renderToBuffer, Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 
 Font.registerHyphenationCallback((word) => [word]);
@@ -163,6 +164,15 @@ export async function GET(
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Payment gate
+    const allowed = await canDownloadResume(session.user.id, id);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "PAYMENT_REQUIRED", message: "A paid plan is required to download.", upgrade_url: "/pricing" },
+        { status: 402 }
+      );
     }
 
     const [resumeRes, profileRes] = await Promise.all([

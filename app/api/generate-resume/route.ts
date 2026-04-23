@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
+import { canGenerateResume, canGenerateFreeRegen, consumeCredit } from "@/lib/plans";
 
-// Vercel Pro allows up to 300s; Hobby is capped at 10s (upgrade if timeouts occur)
 export const maxDuration = 60;
 
 const inputSchema = z.object({
   jd_text: z.string().min(100, "Job description too short (min 100 chars)"),
   jd_url: z.string().url().optional().or(z.literal("")),
+  regen_of_resume_id: z.string().uuid().optional(),
   user_profile: z.object({
     full_name: z.string(),
     email: z.string(),
@@ -79,33 +81,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { jd_text, jd_url, user_profile } = parsed.data;
+    const { jd_text, jd_url, user_profile, regen_of_resume_id } = parsed.data;
 
-    const client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
+    // Auth
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = session.user.id;
 
-    const userMessage = JSON.stringify({
-      user_profile,
-      jd_text,
-      jd_url: jd_url || null,
-    });
+    // Credit gating
+    let isFreeRegen = false;
+    if (regen_of_resume_id) {
+      isFreeRegen = await canGenerateFreeRegen(userId, regen_of_resume_id);
+    }
+
+    if (!isFreeRegen) {
+      const { allowed, reason } = await canGenerateResume(userId);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: "PAYMENT_REQUIRED", reason, upgrade_url: "/pricing" },
+          { status: 402 }
+        );
+      }
+    }
+
+    // Call Anthropic
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const message = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 3500,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [{ role: "user", content: JSON.stringify({ user_profile, jd_text, jd_url: jd_url || null }) }],
     });
 
     const rawText = message.content[0].type === "text" ? message.content[0].text : "";
 
     let resumeJson;
     try {
-      // Strip any accidental markdown fences
       const cleaned = rawText.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
       resumeJson = JSON.parse(cleaned);
     } catch {
+      // JSON parse failure — do NOT consume credit
       console.error("Failed to parse AI response:", rawText.slice(0, 500));
       return NextResponse.json(
         { error: "AI returned invalid JSON. Please try again." },
@@ -113,13 +132,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ resume_json: resumeJson });
+    // Consume credit only after a successful parse
+    if (!isFreeRegen) {
+      const credited = await consumeCredit(userId);
+      if (!credited) {
+        // Race condition — credit check passed but consume failed; treat as exhausted
+        return NextResponse.json(
+          { error: "PAYMENT_REQUIRED", reason: "CREDITS_EXHAUSTED", upgrade_url: "/pricing" },
+          { status: 402 }
+        );
+      }
+    }
+
+    return NextResponse.json({
+      resume_json: resumeJson,
+      is_free_regen: isFreeRegen,
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    // Log full error server-side only
     console.error("Generate resume error:", msg);
 
-    // Return friendly messages — never leak raw API response to the browser
     if (msg.includes("401") || msg.includes("authentication") || msg.includes("API key")) {
       return NextResponse.json({ error: "Configuration error. Please contact support." }, { status: 500 });
     }
