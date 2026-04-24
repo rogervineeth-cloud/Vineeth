@@ -419,7 +419,7 @@ export default function CreatePage() {
 
             <Textarea
               ref={jdRef as React.Ref<HTMLTextAreaElement>}
-              placeholder="Paste the complete job description here â including responsibilities, requirements, and preferred skillsâ¦"
+              placeholder="Paste the complete job description here, including responsibilities, requirements, and preferred skills."
               className="min-h-[200px] text-sm leading-relaxed resize-none bg-white"
               value={jdText}
               onChange={(e) => setJdText(e.target.value)}
