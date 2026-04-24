@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
       // JSON parse failure — do NOT consume credit
       console.error("Failed to parse AI response:", rawText.slice(0, 500));
       return NextResponse.json(
-        { error: "AI returned invalid JSON. Please try again." },
+        { error: "We hit a glitch drafting your resume. Please try once more." },
         { status: 500 }
       );
     }
