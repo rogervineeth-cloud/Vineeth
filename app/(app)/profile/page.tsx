@@ -510,7 +510,7 @@ function ProfilePageInner() {
         <div className="bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <p className="font-semibold text-[#1a1a1a]">Ready to generate?</p>
-            <p className="text-sm text-[#6b6b6b]">Paste a job description and we&apos;ll tailor this profile into a resume in ~25 seconds.</p>
+            <p className="text-sm text-[#6b6b6b]">Paste a job description and we&apos;ll tailor this profile into a resume in under a minute.</p>
           </div>
           <Button asChild className="shrink-0"><Link href="/create">Generate resume →</Link></Button>
         </div>
