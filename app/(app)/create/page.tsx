@@ -84,7 +84,7 @@ function analyzeJd(text: string): JdAnalysis {
   );
 
   const roleMatch = text.match(
-    /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i(
+    /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i
   );
   const detectedRole = roleMatch ? roleMatch[1].trim().slice(0, 40) : null;
 
