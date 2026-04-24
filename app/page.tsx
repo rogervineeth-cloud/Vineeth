@@ -80,7 +80,7 @@ export default function Home() {
           Your resume, tailored<br />for the role — in one minute.
         </h1>
         <p className="text-[#6b6b6b] text-lg sm:text-xl max-w-2xl mx-auto mb-10">
-          Paste your LinkedIn. Paste the job description. Get an ATS-ready resume built in 60 seconds.
+          Paste your LinkedIn. Paste the job description. Get an ATS-ready resume built in under a minute.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Button size="lg" asChild className="w-full sm:w-auto text-base px-10">
