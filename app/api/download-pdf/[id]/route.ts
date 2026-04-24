@@ -127,7 +127,7 @@ export async function GET(
       return NextResponse.json({ error: "Resume not found" }, { status: 404 });
     }
 
-    const rj = resumeRes.data.resume_json as ResumeJson;
+            const rj = JSON.parse(JSON.stringify(resumeRes.data.resume_json).replace(/\u20B9/g, 'Rs.')) as ResumeJson;
     const profile = profileRes.data;
     const name = profile?.full_name ?? "Candidate";
     const contact = [profile?.email, profile?.phone, profile?.current_city].filter(Boolean).join("  ·  ");
@@ -138,10 +138,6 @@ export async function GET(
     const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-        // Strip non-WinAnsi chars so pdf-lib Helvetica does not throw
-        const origDraw = page.drawText.bind(page);
-        (page as any).drawText = (text: string, opts?: Parameters<typeof origDraw>[1]) =>
-          origDraw(text.replace(/[^\x00-\xFF]/g, (c) => (c === '\u20B9' ? 'Rs.' : '')), opts);
     const ctx: DrawCtx = { page, boldFont, regularFont, y: PAGE_H - MT };
 
     // Name
