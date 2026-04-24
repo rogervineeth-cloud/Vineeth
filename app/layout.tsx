@@ -18,7 +18,7 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "Neduresume — AI Resume Builder for India",
-  description: "Paste your LinkedIn. Paste the job description. Get an ATS-ready resume in 60 seconds.",
+  description: "Paste your LinkedIn. Paste the job description. Get an ATS-ready resume in under a minute.",
 };
 
 export default function RootLayout({
