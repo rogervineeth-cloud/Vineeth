@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AppHeader } from "@/components/app-header";
@@ -155,10 +156,20 @@ export default function CreatePage() {
   const [genStageIdx, setGenStageIdx] = useState(0);
   const [genProgress, setGenProgress] = useState(0);
   const [tipIdx, setTipIdx] = useState(0);
+  const [showRevealDone, setShowRevealDone] = useState(false);
 
   // Result
   const [generatedResume, setGeneratedResume] = useState<GeneratedResume | null>(null);
   const [savedResumeId, setSavedResumeId] = useState<string | null>(null);
+
+  // MagicReveal done: show for 3.5s after generation completes
+  useEffect(() => {
+    if (generatedResume) {
+      setShowRevealDone(true);
+      const t = setTimeout(() => setShowRevealDone(false), 3500);
+      return () => clearTimeout(t);
+    }
+  }, [generatedResume]);
 
   // ââ Load profile & plan âââââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
@@ -287,7 +298,10 @@ export default function CreatePage() {
       }
 
       if (!res.ok) {
-        const msg = data.error || "Generation failed. Try again.";
+        const rawMsg = data.error || "Generation failed. Try again.";
+        const msg = data.code === "AI_PARSE_ERROR" || (rawMsg && rawMsg.toLowerCase().includes("parse"))
+          ? "We hit a glitch drafting your resume. Please try once more."
+          : rawMsg;
         setGenError(msg);
         toast.error(msg);
         setGenerating(false);
@@ -561,72 +575,10 @@ export default function CreatePage() {
         <div className="hidden lg:flex flex-col w-[460px] border-l border-[#e8e0d0] bg-white/40 overflow-y-auto">
 
           {generating ? (
-            /* ââ Generation animation ââ */
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-[#1f5c3a]/10 flex items-center justify-center mb-5">
-                <span className="text-3xl animate-bounce">
-                  {GEN_STAGES[genStageIdx]?.icon}
-                </span>
-              </div>
-
-              <h3 className="font-serif italic text-2xl text-[#1a1a1a] mb-1">
-                Building your resumeâ¦
-              </h3>
-              <p className="text-sm text-[#6b6b6b] mb-7">
-                This takes about 30â60 seconds. Don&apos;t close this tab.
-              </p>
-
-              {/* Progress bar */}
-              <div className="w-full max-w-xs mb-5">
-                <div className="flex justify-between text-xs text-[#6b6b6b] mb-1.5">
-                  <span className="truncate pr-2">{GEN_STAGES[genStageIdx]?.label}</span>
-                  <span className="shrink-0">{genProgress}%</span>
-                </div>
-                <div className="h-2.5 bg-[#e8e0d0] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#1f5c3a] rounded-full transition-all duration-1000 ease-out"
-                    style={{ width: `${genProgress}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Stage checklist */}
-              <div className="w-full max-w-xs space-y-2.5 mb-7">
-                {GEN_STAGES.map((stage, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-center gap-2.5 text-xs transition-all ${
-                      i < genStageIdx
-                        ? "text-[#1f5c3a]"
-                        : i === genStageIdx
-                        ? "text-[#1a1a1a] font-medium"
-                        : "text-[#ccc]"
-                    }`}
-                  >
-                    {i < genStageIdx ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#1f5c3a] shrink-0" />
-                    ) : i === genStageIdx ? (
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-[#1f5c3a] border-t-transparent animate-spin shrink-0" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 shrink-0" />
-                    )}
-                    {stage.label}
-                  </div>
-                ))}
-              </div>
-
-              {/* Rotating tip */}
-              <div className="w-full max-w-xs bg-[#f7f3ea] rounded-xl p-4 text-left">
-                <p className="text-xs font-semibold text-[#1a1a1a] mb-1">
-                  ð¡ Did you know?
-                </p>
-                <p className="text-xs text-[#6b6b6b] leading-relaxed">
-                  {WAIT_TIPS[tipIdx]}
-                </p>
-              </div>
-            </div>
-
-          ) : generatedResume ? (
+              <MagicReveal stage={(genStageIdx + 1) as (1 | 2 | 3 | 4)} atsScore={null} />
+            ) : showRevealDone ? (
+              <MagicReveal stage="done" atsScore={generatedResume?.ats_score ?? null} />
+            ) : generatedResume ? (
             /* ââ Result panel ââ */
             <div className="flex flex-col p-7 h-full">
               <div className="flex items-center gap-3 mb-6">

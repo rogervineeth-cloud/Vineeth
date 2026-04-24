@@ -129,6 +129,17 @@ Total resume content should fit on one A4 page — roughly 450-550 words across 
 
 Return ONLY the JSON object. No preamble like "Here is the resume". No closing remarks. No markdown code fences. If you cannot produce valid JSON, something is wrong — stop and retry your reasoning.`;
 
+
+function extractJson(raw: string): string {
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch) return fenceMatch[1].trim();
+  const firstBrace = raw.indexOf('{');
+  const lastBrace = raw.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return raw.slice(firstBrace, lastBrace + 1);
+  }
+  return raw.trim();
+}
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -182,7 +193,7 @@ export async function POST(req: NextRequest) {
     let resumeJson;
     try {
       const fb = rawText.indexOf('{'), lb = rawText.lastIndexOf('}'); const cleaned = (fb >= 0 && lb > fb ? rawText.slice(fb, lb + 1) : rawText).replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
-      resumeJson = JSON.parse(cleaned);
+      resumeJson = JSON.parse(extractJson(rawText));
     } catch {
       // JSON parse failure — do NOT consume credit
       console.error("Failed to parse AI response:", rawText.slice(0, 500));
