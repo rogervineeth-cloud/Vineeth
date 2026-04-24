@@ -47,7 +47,7 @@ function PlanBadge({ plan }: { plan: UserPlan | null }) {
           <p className="text-xs text-[#6b6b6b]">Preview is free. Download requires a paid pack.</p>
         </div>
         <Link href="/pricing" className="ml-auto shrink-0">
-          <Button size="sm" variant="outline">Upgrade to create a resume →</Button>
+          <Button size="sm" variant="outline">Upgrade to download →</Button>
         </Link>
       </div>
     );
