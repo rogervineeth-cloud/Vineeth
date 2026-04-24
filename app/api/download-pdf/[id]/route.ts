@@ -138,6 +138,10 @@ export async function GET(
     const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+        // Strip non-WinAnsi chars so pdf-lib Helvetica does not throw
+        const origDraw = page.drawText.bind(page);
+        (page as any).drawText = (text: string, opts?: Parameters<typeof origDraw>[1]) =>
+          origDraw(text.replace(/[^\x00-\xFF]/g, (c) => (c === '\u20B9' ? 'Rs.' : '')), opts);
     const ctx: DrawCtx = { page, boldFont, regularFont, y: PAGE_H - MT };
 
     // Name
