@@ -11,7 +11,6 @@ type ResumeJson = {
   projects?: Array<{ name: string; description: string; tech: string[] }>;
   tailored_role?: string;
 };
-
 // ── Layout constants (A4 = 595 x 842 pt) ──────────────────────────────────
 const PAGE_W = 595;
 const PAGE_H = 842;
@@ -127,9 +126,10 @@ export async function GET(
       return NextResponse.json({ error: "Resume not found" }, { status: 404 });
     }
 
-            const rj = JSON.parse(JSON.stringify(resumeRes.data.resume_json).replace(/\u20B9/g, 'Rs.')) as ResumeJson;
+            const rj = JSON.parse(JSON.stringify(resumeRes.data.resume_json).replace(/\u20B9/g, 'Rs.').replace(/[\u2013\u2014]/g, '-').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[^\x00-\xFF]/g, '')) as ResumeJson;
     const profile = profileRes.data;
     const name = profile?.full_name ?? "Candidate";
+    const safeFilename = (rj.tailored_role ?? name).replace(/[^\x20-\x7E]/g, '-').replace(/\s+/g, '_').replace(/-+/g, '-');
     const contact = [profile?.email, profile?.phone, profile?.current_city].filter(Boolean).join("  ·  ");
 
     // ── Build PDF ────────────────────────────────────────────────────────
@@ -243,7 +243,7 @@ export async function GET(
     return new Response(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="resume-${role}.pdf"`,
+        "Content-Disposition": `attachment; filename="resume-${safeFilename}.pdf"`,
       },
     });
   } catch (err) {
