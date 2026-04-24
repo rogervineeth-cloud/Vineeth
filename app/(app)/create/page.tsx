@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AppHeader } from "@/components/app-header";
-import { CheckCircle2, Circle, AlertCircle, Sparkles, FileText } from "lucide-react";
+import { CheckCircle2, AlertCircle, Sparkles, FileText } from "lucide-react";
 
 // ââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -80,11 +80,11 @@ function analyzeJd(text: string): JdAnalysis {
   }
 
   const found = TECH_SKILLS.filter((skill) =>
-    new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text)
+    new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(text)
   );
 
   const roleMatch = text.match(
-    /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i
+    /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i(
   );
   const detectedRole = roleMatch ? roleMatch[1].trim().slice(0, 40) : null;
 
@@ -119,6 +119,16 @@ const GEN_STAGES = [
   { label: "Final polish & formattingâ¦", icon: "â¨", pct: 95, ms: 6000 },
 ];
 
+// Racing checkpoint names for the racer play experience
+const CHECKPOINT_NAMES = [
+  "Grid start",
+  "Turn 1",
+  "Turn 2",
+  "Straight",
+  "Turn 3",
+  "Final lap",
+];
+
 const WAIT_TIPS = [
   "ATS systems scan for exact keyword matches â the AI weaves yours in naturally.",
   "Tip: Action verbs like 'Led', 'Built', 'Scaled' get 23% more recruiter attention.",
@@ -127,7 +137,16 @@ const WAIT_TIPS = [
   "Your resume will be optimised for Naukri, LinkedIn Jobs, and company ATSes.",
 ];
 
-// ââ Component âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ââ Score band helper âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+function scoreBand(score: number): { label: string; color: string; bg: string } {
+  if (score >= 80) return { label: "Excellent match", color: "#1f5c3a", bg: "#1f5c3a" };
+  if (score >= 65) return { label: "Good match", color: "#2d8a55", bg: "#2d7a48" };
+  if (score >= 50) return { label: "Average match", color: "#b45309", bg: "#b45309" };
+  return { label: "Low match", color: "#dc2626", bg: "#dc2626" };
+}
+
+// ââ Component ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export default function CreatePage() {
   const router = useRouter();
@@ -146,7 +165,7 @@ export default function CreatePage() {
     quality: "weak",
   });
 
-  // UI state
+  // UI sta!te
   const [showMissingPopup, setShowMissingPopup] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
@@ -155,6 +174,10 @@ export default function CreatePage() {
   const [genStageIdx, setGenStageIdx] = useState(0);
   const [genProgress, setGenProgress] = useState(0);
   const [tipIdx, setTipIdx] = useState(0);
+
+  // Racer play state
+  const [atsDisplayScore, setAtsDisplayScore] = useState(0);
+  const [showFinish, setShowFinish] = useState(false);
 
   // Result
   const [generatedResume, setGeneratedResume] = useState<GeneratedResume | null>(null);
@@ -199,6 +222,33 @@ export default function CreatePage() {
     const t = setInterval(() => setTipIdx((i) => (i + 1) % WAIT_TIPS.length), 6000);
     return () => clearInterval(t);
   }, [generating]);
+
+  // ââ ATS score count-up animation ââââââââââââââââââââââââââââââââââââââââââ
+  useEffect(() => {
+    if (!generatedResume) {
+      setAtsDisplayScore(0);
+      setShowFinish(false);
+      return;
+    }
+    // Brief "finish line" flash before result
+    setShowFinish(true);
+    const finishTimer = setTimeout(() => setShowFinish(false), 2000);
+
+    // Count up the ATS score
+    let current = 0;
+    const target = generatedResume.ats_score;
+    const increment = Math.ceil(target / 50);
+    const countTimer = setInterval(() => {
+      current = Math.min(current + increment, target);
+      setAtsDisplayScore(current);
+      if (current >= target) clearInterval(countTimer);
+    }, 25);
+
+    return () => {
+      clearTimeout(finishTimer);
+      clearInterval(countTimer);
+    };
+  }, [generatedResume]);
 
   // ââ Generate handler ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   async function handleGenerate() {
@@ -362,6 +412,9 @@ export default function CreatePage() {
 
   // Stage the user is currently on
   const currentStage = generatedResume ? 3 : !jdReady ? 1 : !completeness.complete ? 2 : 3;
+
+  // Car position along track (0â100%)
+  const carPct = genProgress === 0 ? 0 : Math.max(genProgress - 3, 0);
 
   // ââ Render ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   return (
@@ -561,80 +614,163 @@ export default function CreatePage() {
         <div className="hidden lg:flex flex-col w-[460px] border-l border-[#e8e0d0] bg-white/40 overflow-y-auto">
 
           {generating ? (
-            /* ââ Generation animation ââ */
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-[#1f5c3a]/10 flex items-center justify-center mb-5">
-                <span className="text-3xl animate-bounce">
-                  {GEN_STAGES[genStageIdx]?.icon}
-                </span>
+            /* ââ RACER PLAY: Race track animation ââ */
+            <div className="flex flex-col items-center justify-center h-full p-7 text-center">
+
+              {/* Racing badge */}
+              <div className="inline-flex items-center gap-1.5 bg-[#1f5c3a] text-white rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest mb-4">
+                <span>ðï¸</span>
+                <span>AI Race in Progress</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
               </div>
 
               <h3 className="font-serif italic text-2xl text-[#1a1a1a] mb-1">
-                Building your resumeâ¦
+                Your resume is in the fast laneâ¦
               </h3>
-              <p className="text-sm text-[#6b6b6b] mb-7">
-                This takes about 30â60 seconds. Don&apos;t close this tab.
+              <p className="text-sm text-[#6b6b6b] mb-6">
+                Checkpoint {genStageIdx + 1}/{GEN_STAGES.length} Â· Don&apos;t close this tab
               </p>
 
-              {/* Progress bar */}
-              <div className="w-full max-w-xs mb-5">
-                <div className="flex justify-between text-xs text-[#6b6b6b] mb-1.5">
-                  <span className="truncate pr-2">{GEN_STAGES[genStageIdx]?.label}</span>
-                  <span className="shrink-0">{genProgress}%</span>
+              {/* Race track progress bar */}
+              <div className="w-full max-w-xs mb-1">
+                <div className="flex justify-between text-xs text-[#9b9080] mb-2">
+                  <span className="font-medium">ð Grid</span>
+                  <span className="font-bold text-[#1f5c3a]">{genProgress}%</span>
+                  <span className="font-medium">ð Finish</span>
                 </div>
-                <div className="h-2.5 bg-[#e8e0d0] rounded-full overflow-hidden">
+
+                {/* Track */}
+                <div className="relative h-6 bg-[#f0ebe0] rounded-full border border-[#d4c9b0] overflow-visible">
+                  {/* Track lane lines */}
+                  <div className="absolute inset-0 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-1000 ease-out"
+                      style={{
+                        width: `${genProgress}%`,
+                        background: "linear-gradient(90deg, #1f5c3a 0%, #2d8a55 60%, #3aaa6a 100%)",
+                      }}
+                    />
+                  </div>
+
+                  {/* Checkpoint markers on track */}
+                  {GEN_STAGES.map((stage, i) => (
+                    <div
+                      key={i}
+                      className="absolute top-0 bottom-0 w-px"
+                      style={{
+                        left: `${stage.pct}%`,
+                        backgroundColor: i < genStageIdx
+                          ? "rgba(255,255,255,0.4)"
+                          : "rgba(180,160,120,0.4)",
+                      }}
+                    />
+                  ))}
+
+                  {/* Racing car â moves along track */}
                   <div
-                    className="h-full bg-[#1f5c3a] rounded-full transition-all duration-1000 ease-out"
-                    style={{ width: `${genProgress}%` }}
-                  />
+                    className="absolute top-1/2 transition-all duration-1000 ease-out z-10"
+                    style={{
+                      left: `${carPct}%`,
+                      transform: "translateY(-50%) translateX(-50%)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "20px",
+                        lineHeight: 1,
+                        display: "block",
+                        filter: "drop-shadow(1px 2px 3px rgba(0,0,0,0.25))",
+                      }}
+                    >
+                      ðï¸
+                    </span>
+                  </div>
+                </div>
+
+                {/* Current stage label */}
+                <div className="text-xs text-[#6b6b6b] text-center mt-2 h-4 truncate">
+                  {GEN_STAGES[genStageIdx]?.label}
                 </div>
               </div>
 
-              {/* Stage checklist */}
-              <div className="w-full max-w-xs space-y-2.5 mb-7">
+              {/* Checkpoint list */}
+              <div className="w-full max-w-xs space-y-1.5 mt-4 mb-5">
                 {GEN_STAGES.map((stage, i) => (
                   <div
                     key={i}
-                    className={`flex items-center gap-2.5 text-xs transition-all ${
+                    className={`flex items-center gap-2.5 text-xs rounded-lg px-3 py-2 transition-all duration-500 ${
                       i < genStageIdx
-                        ? "text-[#1f5c3a]"
+                        ? "bg-[#1f5c3a]/5 text-[#1f5c3a]"
                         : i === genStageIdx
-                        ? "text-[#1a1a1a] font-medium"
-                        : "text-[#ccc]"
+                        ? "bg-[#1f5c3a]/10 text-[#1a1a1a] font-semibold ring-1 ring-[#1f5c3a]/20"
+                        : "text-[#bbb]"
                     }`}
                   >
-                    {i < genStageIdx ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#1f5c3a] shrink-0" />
-                    ) : i === genStageIdx ? (
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-[#1f5c3a] border-t-transparent animate-spin shrink-0" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 shrink-0" />
+                    {/* Checkpoint number badge */}
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[9px] font-bold transition-all duration-500 ${
+                        i < genStageIdx
+                          ? "bg-[#1f5c3a] text-white"
+                          : i === genStageIdx
+                          ? "bg-[#1f5c3a] text-white"
+                          : "bg-[#e8e0d0] text-[#bbb]"
+                      }`}
+                    >
+                      {i < genStageIdx ? "â" : i + 1}
+                    </div>
+
+                    {/* Label */}
+                    <span className="flex-1 text-left">{stage.label}</span>
+
+                    {/* Right-side indicator */}
+                    {i < genStageIdx && (
+                      <span className="text-[10px] text-[#1f5c3a] font-medium shrink-0">
+                        {CHECKPOINT_NAMES[i]}
+                      </span>
                     )}
-                    {stage.label}
+                    {i === genStageIdx && (
+                      <div className="w-2 h-2 rounded-full bg-[#1f5c3a] animate-ping shrink-0" />
+                    )}
                   </div>
                 ))}
               </div>
 
-              {/* Rotating tip */}
-              <div className="w-full max-w-xs bg-[#f7f3ea] rounded-xl p-4 text-left">
-                <p className="text-xs font-semibold text-[#1a1a1a] mb-1">
-                  ð¡ Did you know?
+              {/* Pit crew intel */}
+              <div className="w-full max-w-xs bg-[#f7f3ea] rounded-xl p-4 text-left border border-[#e8e0d0]">
+                <p className="text-xs font-semibold text-[#1a1a1a] mb-1.5 flex items-center gap-1.5">
+                  <span>ð§</span>
+                  <span>Pit Crew Intel</span>
                 </p>
-                <p className="text-xs text-[#6b6b6b] leading-relaxed">
+                <p className="text-xs text-[#6b6b6b] leading-relaxed transition-all duration-700">
                   {WAIT_TIPS[tipIdx]}
                 </p>
               </div>
             </div>
 
           ) : generatedResume ? (
-            /* ââ Result panel ââ */
+            /* ââ Result panel with finish line celebration ââ */
             <div className="flex flex-col p-7 h-full">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-9 h-9 rounded-full bg-[#1f5c3a] flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-4 h-4 text-white" />
+
+              {/* Finish line flash overlay */}
+              {showFinish && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/95 rounded-r-none animate-in fade-in duration-300">
+                  <div className="text-5xl mb-3">ð</div>
+                  <h3 className="font-serif italic text-2xl text-[#1a1a1a] text-center">
+                    You crossed the finish line!
+                  </h3>
+                  <p className="text-sm text-[#6b6b6b] mt-2 text-center">
+                    Resume built in record time ð
+                  </p>
+                </div>
+              )}
+
+              {/* Result header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-full bg-[#1f5c3a] flex items-center justify-center shrink-0 text-lg">
+                  ð
                 </div>
                 <div>
-                  <p className="font-semibold text-[#1a1a1a] text-sm">
+                  <p className="font-semibold text-[#1a1a1a] text-sm leading-tight">
                     Resume ready!
                   </p>
                   <p className="text-xs text-[#6b6b6b]">
@@ -643,22 +779,53 @@ export default function CreatePage() {
                 </div>
               </div>
 
-              {/* ATS Score */}
-              <div className="bg-[#1f5c3a] text-white rounded-2xl p-5 mb-4">
-                <p className="text-xs opacity-70 mb-0.5">ATS Match Score</p>
-                <div className="flex items-end gap-1.5">
-                  <span className="font-serif italic text-5xl">
-                    {generatedResume.ats_score}
-                  </span>
-                  <span className="text-xl opacity-50 pb-1">/100</span>
-                </div>
-                <div className="mt-3 h-1.5 bg-white/20 rounded-full overflow-hidden">
+              {/* ATS Score â animated count-up */}
+              {(() => {
+                const band = scoreBand(generatedResume.ats_score);
+                return (
                   <div
-                    className="h-full bg-white rounded-full transition-all duration-1000"
-                    style={{ width: `${generatedResume.ats_score}%` }}
-                  />
-                </div>
-              </div>
+                    className="text-white rounded-2xl p-5 mb-4 transition-all duration-500"
+                    style={{ backgroundColor: band.bg }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs opacity-70 uppercase tracking-wider font-medium">
+                        ATS Match Score
+                      </p>
+                      <span className="text-xs font-semibold bg-white/20 px-2 py-0.5 rounded-full">
+                        {band.label}
+                      </span>
+                    </div>
+                    <div className="flex items-end gap-1.5 mb-3">
+                      <span
+                        className="font-serif italic leading-none tabular-nums"
+                        style={{ fontSize: "56px" }}
+                      >
+                        {atsDisplayScore}
+                      </span>
+                      <span className="text-2xl opacity-50 pb-2">/100</span>
+                    </div>
+                    {/* Score bar */}
+                    <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-white rounded-full transition-all duration-1000 ease-out"
+                        style={{ width: `${atsDisplayScore}%` }}
+                      />
+                    </div>
+                    {/* Checkpoint markers on score bar */}
+                    <div className="flex justify-between mt-1.5">
+                      {[25, 50, 75].map((pct) => (
+                        <div
+                          key={pct}
+                          className="text-[10px] opacity-50"
+                          style={{ marginLeft: `${pct - 12.5}%` }}
+                        >
+                          |
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Matched keywords */}
               {generatedResume.matched_keywords.length > 0 && (
@@ -700,7 +867,7 @@ export default function CreatePage() {
 
               {/* AI Summary */}
               <div className="bg-[#f7f3ea] rounded-xl p-4 mb-5 flex-1 overflow-hidden">
-                <p className="text-xs font-semibold text-[#1a1a1a] mb-1.5">
+                <p className="t%xt-xs font-semibold text-[#1a1a1a] mb-1.5">
                   ð AI-written summary
                 </p>
                 <p className="text-xs text-[#6b6b6b] leading-relaxed line-clamp-5">
