@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
 
     let resumeJson;
     try {
-      const cleaned = rawText.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
+      const fb = rawText.indexOf('{'), lb = rawText.lastIndexOf('}'); const cleaned = (fb >= 0 && lb > fb ? rawText.slice(fb, lb + 1) : rawText).replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
       resumeJson = JSON.parse(cleaned);
     } catch {
       // JSON parse failure — do NOT consume credit
