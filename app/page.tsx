@@ -179,7 +179,7 @@ export default function Home() {
                 size="sm"
                 className={plan.popular ? "bg-white text-[#1f5c3a] hover:bg-white/90" : ""}
               >
-                <Link href="/signup">{plan.free ? "Start free" : "Get started"}</Link>
+                <Link href={plan.free ? "/signup" : `/signup?plan=${plan.name.toLowerCase().replace(/ /g, "_")}`}>{plan.free ? "Start free" : "Get started"}</Link>
               </Button>
             </div>
           ))}
