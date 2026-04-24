@@ -1,28 +1,34 @@
-test_content_marker"use client";
-import { useState, useEffect } from "react";
+"use client";
+
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { AppHeader } from "@/components/app-header";
-import { UserCircle } from "lucide-react";
+import { CheckCircle2, Circle, AlertCircle, Sparkles, FileText } from "lucide-react";
 
-const PROGRESS_STEPS = [
-  { label: "Analyzing job description…", pct: 15 },
-  { label: "Extracting keywords…", pct: 35 },
-  { label: "Tailoring your experience…", pct: 60 },
-  { label: "Calculating ATS score…", pct: 80 },
-  { label: "Finalizing…", pct: 95 },
-];
+// ââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 type ProfileData = {
   summary?: string;
-  experience?: Array<{ company: string; role: string; duration: string; location: string; bullets: string[] }>;
+  experience?: Array<{
+    company: string;
+    role: string;
+    duration: string;
+    location: string;
+    bullets: string[];
+  }>;
   skills?: string[];
-  education?: Array<{ institution: string; degree: string; year: string; location: string; cgpa?: string }>;
+  education?: Array<{
+    institution: string;
+    degree: string;
+    year: string;
+    location: string;
+    cgpa?: string;
+  }>;
   projects?: Array<{ name: string; description: string; tech: string[] }>;
 };
 
@@ -41,54 +47,139 @@ type PlanCheck =
   | { allowed: true; remaining: number }
   | { allowed: false; reason: "NO_PLAN" | "CREDITS_EXHAUSTED"; allotted: number };
 
-type Completeness =
-  | { complete: true }
-  | { complete: false; missing: string };
+type JdAnalysis = {
+  detectedRole: string | null;
+  keywords: string[];
+  quality: "weak" | "ok" | "good";
+};
 
-function checkCompleteness(profile: Profile | null): Completeness {
-  if (!profile) return { complete: false, missing: "profile" };
-  if (!profile.full_name?.trim()) return { complete: false, missing: "name" };
-  if (!profile.target_roles?.length) return { complete: false, missing: "target roles" };
-  const pd = profile.profile_data;
-  const hasExp = (pd?.experience?.length ?? 0) > 0;
-  const hasEdu = (pd?.education?.length ?? 0) > 0;
-  if (!hasExp && !hasEdu) return { complete: false, missing: "at least one experience or education entry" };
-  return { complete: true };
+type GeneratedResume = {
+  ats_score: number;
+  tailored_role: string;
+  matched_keywords: string[];
+  missing_keywords: string[];
+  summary: string;
+};
+
+// ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+const TECH_SKILLS = [
+  "React", "Node.js", "Python", "Java", "TypeScript", "JavaScript", "AWS",
+  "Docker", "Kubernetes", "SQL", "MongoDB", "GraphQL", "REST API", "Git",
+  "CI/CD", "Linux", "Excel", "Power BI", "Tableau", "Machine Learning",
+  "Deep Learning", "TensorFlow", "PyTorch", "NLP", "Data Analysis", "Agile",
+  "Scrum", "Product Management", "Figma", "UI/UX", "Angular", "Vue.js",
+  "Spring Boot", "Django", "FastAPI", "Salesforce", "SAP", "JIRA",
+  "Google Analytics", "SEO", "Next.js", "PostgreSQL", "MySQL", "Firebase",
+  "Redis", "Kafka", "Elasticsearch", "Go", "Rust", "C++", "Terraform",
+];
+
+function analyzeJd(text: string): JdAnalysis {
+  if (text.length < 100) {
+    return { detectedRole: null, keywords: [], quality: "weak" };
+  }
+
+  const found = TECH_SKILLS.filter((skill) =>
+    new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text)
+  );
+
+  const roleMatch = text.match(
+    /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i
+  );
+  const detectedRole = roleMatch ? roleMatch[1].trim().slice(0, 40) : null;
+
+  const quality =
+    text.length < 300 ? "weak" : text.length < 800 ? "ok" : "good";
+
+  return { detectedRole, keywords: found.slice(0, 12), quality };
 }
+
+function checkCompleteness(profile: Profile | null): {
+  complete: boolean;
+  missing: string;
+} {
+  if (!profile) return { complete: false, missing: "your profile" };
+  if (!profile.full_name?.trim()) return { complete: false, missing: "your name" };
+  if (!profile.target_roles?.length)
+    return { complete: false, missing: "target roles" };
+  const pd = profile.profile_data;
+  if (!(pd?.experience?.length ?? 0) && !(pd?.education?.length ?? 0))
+    return { complete: false, missing: "experience or education" };
+  return { complete: true, missing: "" };
+}
+
+// ââ Generation stages (total ~55 seconds) ââââââââââââââââââââââââââââââââââââ
+
+const GEN_STAGES = [
+  { label: "Reading your job descriptionâ¦", icon: "ð", pct: 8, ms: 3000 },
+  { label: "Extracting key skills & keywordsâ¦", icon: "ð", pct: 25, ms: 9000 },
+  { label: "Matching your experience to JDâ¦", icon: "ð§ ", pct: 45, ms: 13000 },
+  { label: "Rewriting bullets with action verbsâ¦", icon: "âï¸", pct: 65, ms: 14000 },
+  { label: "Calculating ATS match scoreâ¦", icon: "ð", pct: 82, ms: 10000 },
+  { label: "Final polish & formattingâ¦", icon: "â¨", pct: 95, ms: 6000 },
+];
+
+const WAIT_TIPS = [
+  "ATS systems scan for exact keyword matches â the AI weaves yours in naturally.",
+  "Tip: Action verbs like 'Led', 'Built', 'Scaled' get 23% more recruiter attention.",
+  "Indian hiring managers prefer concise 1-page resumes. Yours will fit perfectly.",
+  "87% of Indian hiring managers prefer resumes that mirror the JD language.",
+  "Your resume will be optimised for Naukri, LinkedIn Jobs, and company ATSes.",
+];
+
+// ââ Component âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export default function CreatePage() {
   const router = useRouter();
-  const [jdText, setJdText] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressLabel, setProgressLabel] = useState("");
+  const jdRef = useRef<HTMLTextAreaElement>(null);
+
+  // Data
   const [profile, setProfile] = useState<Profile | null>(null);
   const [planCheck, setPlanCheck] = useState<PlanCheck | null>(null);
-  const [genError, setGenError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  // JD state
+  const [jdText, setJdText] = useState("");
+  const [jdAnalysis, setJdAnalysis] = useState<JdAnalysis>({
+    detectedRole: null,
+    keywords: [],
+    quality: "weak",
+  });
+
+  // UI state
+  const [showMissingPopup, setShowMissingPopup] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  // Generation state
+  const [generating, setGenerating] = useState(false);
+  const [genStageIdx, setGenStageIdx] = useState(0);
+  const [genProgress, setGenProgress] = useState(0);
+  const [tipIdx, setTipIdx] = useState(0);
+
+  // Result
+  const [generatedResume, setGeneratedResume] = useState<GeneratedResume | null>(null);
+  const [savedResumeId, setSavedResumeId] = useState<string | null>(null);
+
+  // ââ Load profile & plan âââââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
-
       const [profileRes, plansRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
-        supabase.from("user_plans")
+        supabase
+          .from("user_plans")
           .select("resumes_used,resumes_allotted,expires_at")
           .eq("user_id", user.id)
           .gt("expires_at", new Date().toISOString()),
       ]);
-
       if (profileRes.data) setProfile(profileRes.data as Profile);
-
       const plans = plansRes.data ?? [];
       const active = plans.find((p) => p.resumes_used < p.resumes_allotted);
       if (active) {
         setPlanCheck({ allowed: true, remaining: active.resumes_allotted - active.resumes_used });
       } else if (plans.length > 0) {
-        const latest = plans[0];
-        setPlanCheck({ allowed: false, reason: "CREDITS_EXHAUSTED", allotted: latest.resumes_allotted });
+        setPlanCheck({ allowed: false, reason: "CREDITS_EXHAUSTED", allotted: plans[0].resumes_allotted });
       } else {
         setPlanCheck({ allowed: false, reason: "NO_PLAN", allotted: 0 });
       }
@@ -96,14 +187,29 @@ export default function CreatePage() {
     });
   }, []);
 
+  // ââ Live JD analysis âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  useEffect(() => {
+    const t = setTimeout(() => setJdAnalysis(analyzeJd(jdText)), 400);
+    return () => clearTimeout(t);
+  }, [jdText]);
+
+  // ââ Rotating tips during generation ââââââââââââââââââââââââââââââââââââââ
+  useEffect(() => {
+    if (!generating) return;
+    const t = setInterval(() => setTipIdx((i) => (i + 1) % WAIT_TIPS.length), 6000);
+    return () => clearInterval(t);
+  }, [generating]);
+
+  // ââ Generate handler ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   async function handleGenerate() {
-    if (jdText.trim().length < 200) {
-      toast.error("Please paste a longer job description (min 200 characters).");
+    const completeness = checkCompleteness(profile);
+    if (!completeness.complete) {
+      setShowMissingPopup(true);
       return;
     }
-    if (!profile) {
-      toast.error("Please complete your profile first.");
-      router.push("/profile");
+    if (jdText.trim().length < 200) {
+      toast.error("Please paste a longer job description (min 200 characters).");
+      jdRef.current?.focus();
       return;
     }
     if (planCheck && !planCheck.allowed) {
@@ -111,27 +217,35 @@ export default function CreatePage() {
         planCheck.reason === "NO_PLAN"
           ? "You need a paid plan to generate a resume."
           : "You've used all credits in your current plan.",
-        { action: { label: "View plans", onClick: () => router.push("/pricing") }, duration: 5000 }
+        {
+          action: { label: "View plans", onClick: () => router.push("/pricing") },
+          duration: 5000,
+        }
       );
       return;
     }
 
     setGenerating(true);
     setGenError(null);
-    setProgress(5);
-    setProgressLabel("Starting…");
+    setGenStageIdx(0);
+    setGenProgress(3);
+    setGeneratedResume(null);
+    setSavedResumeId(null);
 
-    let stepIdx = 0;
-    const interval = setInterval(() => {
-      if (stepIdx < PROGRESS_STEPS.length) {
-        setProgress(PROGRESS_STEPS[stepIdx].pct);
-        setProgressLabel(PROGRESS_STEPS[stepIdx].label);
-        stepIdx++;
-      }
-    }, 4500);
+    // Animate through stages
+    let accumulated = 0;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    GEN_STAGES.forEach((stage, idx) => {
+      timers.push(
+        setTimeout(() => {
+          setGenStageIdx(idx);
+          setGenProgress(stage.pct);
+        }, accumulated)
+      );
+      accumulated += stage.ms;
+    });
 
-    const pd = profile.profile_data ?? {};
-
+    const pd = profile!.profile_data ?? {};
     try {
       const res = await fetch("/api/generate-resume", {
         method: "POST",
@@ -139,14 +253,13 @@ export default function CreatePage() {
         body: JSON.stringify({
           jd_text: jdText,
           user_profile: {
-            full_name: profile.full_name,
-            email: profile.email,
-            phone: profile.phone,
-            current_city: profile.current_city,
-            graduation_year: profile.graduation_year,
-            target_roles: profile.target_roles,
-            linkedin_data: profile.linkedin_data,
-            // Rich profile fields from the editor
+            full_name: profile!.full_name,
+            email: profile!.email,
+            phone: profile!.phone,
+            current_city: profile!.current_city,
+            graduation_year: profile!.graduation_year,
+            target_roles: profile!.target_roles,
+            linkedin_data: profile!.linkedin_data,
             summary: pd.summary,
             experience: pd.experience,
             skills: pd.skills,
@@ -156,17 +269,20 @@ export default function CreatePage() {
         }),
       });
 
-      clearInterval(interval);
+      timers.forEach(clearTimeout);
       const data = await res.json();
 
       if (res.status === 402) {
-        const msg = data.reason === "CREDITS_EXHAUSTED"
-          ? "You've used all credits in your plan."
-          : "You need a paid plan to generate a resume.";
+        const msg =
+          data.reason === "CREDITS_EXHAUSTED"
+            ? "You've used all credits in your plan."
+            : "You need a paid plan to generate a resume.";
         setGenError(msg);
-        toast.error(msg, { action: { label: "View plans", onClick: () => router.push("/pricing") }, duration: 5000 });
+        toast.error(msg, {
+          action: { label: "View plans", onClick: () => router.push("/pricing") },
+        });
         setGenerating(false);
-        setProgress(0);
+        setGenProgress(0);
         return;
       }
 
@@ -175,16 +291,23 @@ export default function CreatePage() {
         setGenError(msg);
         toast.error(msg);
         setGenerating(false);
-        setProgress(0);
+        setGenProgress(0);
         return;
       }
 
-      setProgress(100);
-      setProgressLabel("Done! Saving your resume…");
+      setGenStageIdx(GEN_STAGES.length - 1);
+      setGenProgress(100);
 
+      // Save to Supabase
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { toast.error("Session expired."); router.push("/login"); return; }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Session expired.");
+        router.push("/login");
+        return;
+      }
 
       const resumeJson = data.resume_json;
       const { data: savedResume, error: saveError } = await supabase
@@ -207,119 +330,501 @@ export default function CreatePage() {
         return;
       }
 
-      router.push(`/preview/${savedResume.id}`);
+      // Show result in right panel
+      setGeneratedResume({
+        ats_score: resumeJson.ats_score,
+        tailored_role: resumeJson.tailored_role,
+        matched_keywords: resumeJson.matched_keywords ?? [],
+        missing_keywords: resumeJson.missing_keywords ?? [],
+        summary: resumeJson.summary ?? "",
+      });
+      setSavedResumeId(savedResume.id);
+      setGenerating(false);
     } catch (err) {
-      clearInterval(interval);
+      timers.forEach(clearTimeout);
       console.error(err);
       const msg = "Something went wrong. Please try again.";
       setGenError(msg);
       toast.error(msg);
       setGenerating(false);
-      setProgress(0);
+      setGenProgress(0);
     }
   }
 
+  // ââ Derived state âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   const completeness = checkCompleteness(profile);
-  const noPlan = planCheck && !planCheck.allowed;
+  const jdReady = jdText.trim().length >= 200;
+  const canGenerate =
+    jdReady &&
+    completeness.complete &&
+    (!planCheck || planCheck.allowed) &&
+    !generating;
 
+  // Stage the user is currently on
+  const currentStage = generatedResume ? 3 : !jdReady ? 1 : !completeness.complete ? 2 : 3;
+
+  // ââ Render ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   return (
-    <div className="min-h-screen bg-[#f7f3ea]">
+    <div className="h-screen flex flex-col overflow-hidden bg-[#f7f3ea]">
       <AppHeader />
 
-      <div className="max-w-3xl mx-auto px-6 py-12">
-        {!generating ? (
-          <>
-            <div className="mb-8">
-              <h1 className="font-serif italic text-4xl text-[#1a1a1a] mb-3">Paste the job description</h1>
-              <p className="text-[#6b6b6b]">
-                Copy the full JD from Naukri, LinkedIn Jobs, or any company website.
-              </p>
-            </div>
+      <div className="flex-1 flex overflow-hidden">
+        {/* ââ LEFT PANEL ââ */}
+        <div className="flex-1 flex flex-col overflow-y-auto p-6 lg:p-8 max-w-2xl">
 
-            {/* Profile completeness gate */}
-            {loaded && !completeness.complete && (
-              <div className="mb-6 bg-white border border-stone-200 rounded-xl p-6 flex flex-col sm:flex-row items-center gap-5 shadow-sm">
-                <div className="w-12 h-12 rounded-full bg-[#1f5c3a]/10 flex items-center justify-center shrink-0">
-                  <UserCircle className="w-6 h-6 text-[#1f5c3a]" />
+          {/* Stage progress */}
+          <div className="flex items-center gap-2 mb-8">
+            {[
+              { n: 1, label: "Job Description", done: jdReady },
+              { n: 2, label: "Profile", done: completeness.complete },
+              { n: 3, label: "Generate", done: !!generatedResume },
+            ].map((s, i) => (
+              <div key={s.n} className="flex items-center gap-2">
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    s.done
+                      ? "bg-[#1f5c3a] text-white"
+                      : currentStage === s.n
+                      ? "bg-[#1f5c3a]/10 text-[#1f5c3a] ring-1 ring-[#1f5c3a]/30"
+                      : "bg-white/60 text-[#999]"
+                  }`}
+                >
+                  {s.done ? (
+                    <CheckCircle2 className="w-3 h-3" />
+                  ) : (
+                    <span>{s.n}</span>
+                  )}
+                  {s.label}
                 </div>
-                <div className="flex-1 text-center sm:text-left">
-                  <p className="font-semibold text-[#1a1a1a] mb-0.5">Finish your profile first</p>
-                  <p className="text-sm text-[#6b6b6b]">
-                    Missing: <span className="font-medium text-[#1a1a1a]">{completeness.missing}</span>.
-                    The AI needs your experience or education to generate a tailored resume.
-                  </p>
-                </div>
-                <Button asChild className="shrink-0">
-                  <Link href="/profile">Edit profile →</Link>
-                </Button>
+                {i < 2 && <div className="w-5 h-px bg-[#d4c9b0]" />}
               </div>
-            )}
+            ))}
+          </div>
 
-            {/* Plan banners */}
-            {planCheck && !planCheck.allowed && planCheck.reason === "NO_PLAN" && (
-              <div className="mb-5 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
-                <span>You&apos;ll need a paid plan to generate a resume.</span>
-                <Link href="/pricing" className="font-semibold underline underline-offset-2 whitespace-nowrap">View plans →</Link>
-              </div>
-            )}
-            {planCheck && !planCheck.allowed && planCheck.reason === "CREDITS_EXHAUSTED" && (
-              <div className="mb-5 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
-                <span>You&apos;ve used all {planCheck.allotted} credits in your current plan.</span>
-                <Link href="/pricing" className="font-semibold underline underline-offset-2 whitespace-nowrap">Buy another pack →</Link>
-              </div>
-            )}
-
-            {genError && (
-              <div className="mb-5 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{genError}</div>
-            )}
-
-            <div className="flex flex-col gap-3">
-              <Textarea
-                placeholder="Paste the complete job description here — including responsibilities, requirements, and preferred skills…"
-                className="min-h-[320px] text-sm leading-relaxed resize-none bg-white"
-                value={jdText}
-                onChange={(e) => setJdText(e.target.value)}
-                disabled={generating}
-              />
-              <span className={`text-xs ${jdText.length < 200 ? "text-[#6b6b6b]" : "text-[#1f5c3a]"}`}>
-                {jdText.length} characters {jdText.length < 200 ? `(need ${200 - jdText.length} more)` : "✓"}
-              </span>
-            </div>
-
-            <div className="mt-6">
-              <Button
-                size="lg"
-                onClick={handleGenerate}
-                disabled={jdText.trim().length < 200 || generating || !!noPlan || !completeness.complete}
-                className="w-full sm:w-auto text-base px-10"
-              >
-                Generate my resume →
-              </Button>
-              {profile && completeness.complete && (
-                <p className="text-xs text-[#6b6b6b] mt-3">
-                  Generating for <strong>{profile.full_name}</strong>
-                  {profile.target_roles?.length ? ` · targeting ${profile.target_roles[0]}` : ""}
-                  {planCheck?.allowed ? ` · ${planCheck.remaining} credit${planCheck.remaining !== 1 ? "s" : ""} remaining` : ""}
-                </p>
+          {/* Stage 1 â JD input */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-serif italic text-2xl text-[#1a1a1a]">
+                Paste the job description
+              </h2>
+              {jdAnalysis.detectedRole && (
+                <span className="text-xs bg-[#1f5c3a]/10 text-[#1f5c3a] px-2.5 py-1 rounded-full font-medium">
+                  ð {jdAnalysis.detectedRole}
+                </span>
               )}
             </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 text-center">
-            <div className="w-full max-w-md">
-              <h2 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">Building your resume…</h2>
-              <p className="text-[#6b6b6b] text-sm mb-8">This takes about 25 seconds. Don&apos;t close this tab.</p>
-              <Progress value={progress} className="h-2 mb-4" />
-              <p className="text-sm text-[#1f5c3a] font-medium animate-pulse">{progressLabel}</p>
+            <p className="text-sm text-[#6b6b6b] mb-3">
+              Copy from Naukri, LinkedIn Jobs, or any company careers page.
+            </p>
+
+            <Textarea
+              ref={jdRef as React.Ref<HTMLTextAreaElement>}
+              placeholder="Paste the complete job description here â including responsibilities, requirements, and preferred skillsâ¦"
+              className="min-h-[200px] text-sm leading-relaxed resize-none bg-white"
+              value={jdText}
+              onChange={(e) => setJdText(e.target.value)}
+              disabled={generating}
+            />
+
+            {/* Character counter */}
+            <div className="flex items-center justify-between mt-1.5">
+              <span
+                className={`text-xs ${
+                  jdReady ? "text-[#1f5c3a] font-medium" : "text-[#999]"
+                }`}
+              >
+                {jdText.length < 200
+                  ? `${jdText.length}/200 characters minimum`
+                  : `${jdText.length} characters â`}
+              </span>
+              {jdAnalysis.quality === "good" && (
+                <span className="text-xs text-[#1f5c3a]">Detailed JD â</span>
+              )}
             </div>
-            <div className="flex flex-col gap-2 text-xs text-[#6b6b6b] max-w-xs">
-              <p>✦ Matching keywords from the JD</p>
-              <p>✦ Rewriting bullets with action verbs</p>
-              <p>✦ Calculating your ATS match score</p>
+
+            {/* Live keyword chips */}
+            {jdAnalysis.keywords.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5 items-center">
+                <span className="text-xs text-[#6b6b6b]">Detected skills:</span>
+                {jdAnalysis.keywords.slice(0, 8).map((kw) => (
+                  <span
+                    key={kw}
+                    className="text-xs bg-white border border-[#1f5c3a]/25 text-[#1f5c3a] px-2 py-0.5 rounded-full"
+                  >
+                    {kw}
+                  </span>
+                ))}
+                {jdAnalysis.keywords.length > 8 && (
+                  <span className="text-xs text-[#999]">
+                    +{jdAnalysis.keywords.length - 8} more
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Stage 2 â Profile status */}
+          {loaded && (
+            <div
+              className={`mb-6 rounded-xl p-4 border ${
+                completeness.complete
+                  ? "bg-[#1f5c3a]/5 border-[#1f5c3a]/20"
+                  : "bg-amber-50 border-amber-200"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  {completeness.complete ? (
+                    <CheckCircle2 className="w-4 h-4 text-[#1f5c3a] shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold text-[#1a1a1a]">
+                      {completeness.complete
+                        ? `Profile ready â ${profile?.full_name}`
+                        : "Profile incomplete"}
+                    </p>
+                    {!completeness.complete && (
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        Missing: {completeness.missing}
+                      </p>
+                    )}
+                    {completeness.complete && profile?.target_roles?.length && (
+                      <p className="text-xs text-[#6b6b6b] mt-0.5">
+                        Targeting:{" "}
+                        {profile.target_roles.slice(0, 2).join(", ")}
+                        {planCheck?.allowed
+                          ? ` Â· ${planCheck.remaining} credit${planCheck.remaining !== 1 ? "s" : ""} left`
+                          : ""}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Link href="/profile">
+                  <Button variant="outline" size="sm" className="text-xs h-7 shrink-0">
+                    {completeness.complete ? "Edit" : "Fix now â"}
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Plan warning */}
+          {planCheck && !planCheck.allowed && (
+            <div className="mb-5 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+              <span>
+                {planCheck.reason === "NO_PLAN"
+                  ? "You need a paid plan to generate."
+                  : `All ${planCheck.allotted} credits used.`}
+              </span>
+              <Link
+                href="/pricing"
+                className="font-semibold underline underline-offset-2 whitespace-nowrap"
+              >
+                {planCheck.reason === "NO_PLAN" ? "View plans â" : "Buy more â"}
+              </Link>
+            </div>
+          )}
+
+          {genError && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+              {genError}
+            </div>
+          )}
+
+          {/* Generate button */}
+          <Button
+            size="lg"
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            className="w-full text-base py-6 rounded-xl font-semibold"
+          >
+            {generating ? (
+              "Generatingâ¦"
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate my resume
+              </>
+            )}
+          </Button>
+
+          {!jdReady && !generating && (
+            <p className="text-xs text-center text-[#999] mt-2">
+              Paste a job description above to continue
+            </p>
+          )}
+        </div>
+
+        {/* ââ RIGHT PANEL ââ */}
+        <div className="hidden lg:flex flex-col w-[460px] border-l border-[#e8e0d0] bg-white/40 overflow-y-auto">
+
+          {generating ? (
+            /* ââ Generation animation ââ */
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-[#1f5c3a]/10 flex items-center justify-center mb-5">
+                <span className="text-3xl animate-bounce">
+                  {GEN_STAGES[genStageIdx]?.icon}
+                </span>
+              </div>
+
+              <h3 className="font-serif italic text-2xl text-[#1a1a1a] mb-1">
+                Building your resumeâ¦
+              </h3>
+              <p className="text-sm text-[#6b6b6b] mb-7">
+                This takes about 30â60 seconds. Don&apos;t close this tab.
+              </p>
+
+              {/* Progress bar */}
+              <div className="w-full max-w-xs mb-5">
+                <div className="flex justify-between text-xs text-[#6b6b6b] mb-1.5">
+                  <span className="truncate pr-2">{GEN_STAGES[genStageIdx]?.label}</span>
+                  <span className="shrink-0">{genProgress}%</span>
+                </div>
+                <div className="h-2.5 bg-[#e8e0d0] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#1f5c3a] rounded-full transition-all duration-1000 ease-out"
+                    style={{ width: `${genProgress}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Stage checklist */}
+              <div className="w-full max-w-xs space-y-2.5 mb-7">
+                {GEN_STAGES.map((stage, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-2.5 text-xs transition-all ${
+                      i < genStageIdx
+                        ? "text-[#1f5c3a]"
+                        : i === genStageIdx
+                        ? "text-[#1a1a1a] font-medium"
+                        : "text-[#ccc]"
+                    }`}
+                  >
+                    {i < genStageIdx ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#1f5c3a] shrink-0" />
+                    ) : i === genStageIdx ? (
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-[#1f5c3a] border-t-transparent animate-spin shrink-0" />
+                    ) : (
+                      <Circle className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    {stage.label}
+                  </div>
+                ))}
+              </div>
+
+              {/* Rotating tip */}
+              <div className="w-full max-w-xs bg-[#f7f3ea] rounded-xl p-4 text-left">
+                <p className="text-xs font-semibold text-[#1a1a1a] mb-1">
+                  ð¡ Did you know?
+                </p>
+                <p className="text-xs text-[#6b6b6b] leading-relaxed">
+                  {WAIT_TIPS[tipIdx]}
+                </p>
+              </div>
+            </div>
+
+          ) : generatedResume ? (
+            /* ââ Result panel ââ */
+            <div className="flex flex-col p-7 h-full">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-9 h-9 rounded-full bg-[#1f5c3a] flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[#1a1a1a] text-sm">
+                    Resume ready!
+                  </p>
+                  <p className="text-xs text-[#6b6b6b]">
+                    Tailored for {generatedResume.tailored_role}
+                  </p>
+                </div>
+              </div>
+
+              {/* ATS Score */}
+              <div className="bg-[#1f5c3a] text-white rounded-2xl p-5 mb-4">
+                <p className="text-xs opacity-70 mb-0.5">ATS Match Score</p>
+                <div className="flex items-end gap-1.5">
+                  <span className="font-serif italic text-5xl">
+                    {generatedResume.ats_score}
+                  </span>
+                  <span className="text-xl opacity-50 pb-1">/100</span>
+                </div>
+                <div className="mt-3 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white rounded-full transition-all duration-1000"
+                    style={{ width: `${generatedResume.ats_score}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Matched keywords */}
+              {generatedResume.matched_keywords.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-[#1a1a1a] mb-2">
+                    â Keywords matched ({generatedResume.matched_keywords.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {generatedResume.matched_keywords.slice(0, 8).map((kw) => (
+                      <span
+                        key={kw}
+                        className="text-xs bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full"
+                      >
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Missing keywords */}
+              {generatedResume.missing_keywords.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-[#1a1a1a] mb-2">
+                    â  Consider adding ({generatedResume.missing_keywords.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {generatedResume.missing_keywords.map((kw) => (
+                      <span
+                        key={kw}
+                        className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full"
+                      >
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* AI Summary */}
+              <div className="bg-[#f7f3ea] rounded-xl p-4 mb-5 flex-1 overflow-hidden">
+                <p className="text-xs font-semibold text-[#1a1a1a] mb-1.5">
+                  ð AI-written summary
+                </p>
+                <p className="text-xs text-[#6b6b6b] leading-relaxed line-clamp-5">
+                  {generatedResume.summary}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Button
+                  size="lg"
+                  className="w-full"
+                  onClick={() => router.push(`/preview/${savedResumeId}`)}
+                >
+                  View &amp; download PDF â
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => {
+                    setGeneratedResume(null);
+                    setSavedResumeId(null);
+                    setJdText("");
+                    setGenProgress(0);
+                    setGenStageIdx(0);
+                  }}
+                >
+                  Generate another
+                </Button>
+              </div>
+            </div>
+
+          ) : (
+            /* ââ Idle / preview hint ââ */
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+              <div className="w-20 h-20 rounded-2xl bg-[#f7f3ea] border-2 border-dashed border-[#d4c9b0] flex items-center justify-center mb-5">
+                <FileText className="w-8 h-8 text-[#c0b898]" />
+              </div>
+              <h3 className="font-serif italic text-xl text-[#1a1a1a] mb-2">
+                Your resume preview
+              </h3>
+              <p className="text-sm text-[#9b9080] max-w-xs">
+                Paste a job description and click Generate â your AI-tailored
+                resume will appear here.
+              </p>
+
+              <div className="mt-8 w-full space-y-3">
+                {[
+                  {
+                    icon: "ð¯",
+                    title: "JD-matched keywords",
+                    desc: "The AI picks the exact phrases recruiters search for",
+                  },
+                  {
+                    icon: "âï¸",
+                    title: "Rewritten bullets",
+                    desc: "Your experience, worded to win ATS scans",
+                  },
+                  {
+                    icon: "ð",
+                    title: "ATS score",
+                    desc: "Know exactly how you rank before applying",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.title}
+                    className="flex items-start gap-3 text-left bg-white/70 rounded-xl p-3.5 border border-[#e8e0d0]"
+                  >
+                    <span className="text-lg">{item.icon}</span>
+                    <div>
+                      <p className="text-xs font-semibold text-[#1a1a1a]">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-[#9b9080] mt-0.5">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ââ Missing profile popup ââ */}
+      {showMissingPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+              <AlertCircle className="w-6 h-6 text-amber-600" />
+            </div>
+            <h3 className="font-semibold text-[#1a1a1a] text-lg mb-1">
+              Profile needs attention
+            </h3>
+            <p className="text-sm text-[#6b6b6b] mb-5">
+              The AI needs your{" "}
+              <span className="font-medium text-[#1a1a1a]">
+                {completeness.missing}
+              </span>{" "}
+              to create a tailored resume.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setShowMissingPopup(false);
+                  router.push("/profile");
+                }}
+              >
+                Complete my profile â
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowMissingPopup(false)}
+              >
+                Not now
+              </Button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
