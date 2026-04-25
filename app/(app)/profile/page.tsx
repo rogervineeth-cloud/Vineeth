@@ -224,15 +224,15 @@ function ProfilePageInner() {
   const scheduleSave = useCallback(() => {
     if (!userId) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    setSaveStatus("saving");
     saveTimerRef.current = setTimeout(async () => {
+      setSaveStatus("saving");
       const supabase = createClient();
       const profileData = {
         summary,
-        experience: experience.map(({ id: _id, ...rest }) => rest),
+        experience: experience.map((e) => ({ company: e.company, role: e.role, duration: e.duration, location: e.location, bullets: e.bullets })),
         skills,
-        education: education.map(({ id: _id, ...rest }) => rest),
-        projects: projects.map(({ id: _id, ...rest }) => rest),
+        education: education.map((e) => ({ institution: e.institution, degree: e.degree, year: e.year, location: e.location, cgpa: e.cgpa })),
+        projects: projects.map((p) => ({ name: p.name, description: p.description, tech: p.tech })),
       };
       const { error } = await supabase.from("profiles").update({
         full_name: basics.full_name, email: basics.email, phone: basics.phone || null,
@@ -491,6 +491,38 @@ function ProfilePageInner() {
             {fromResumeId && <span className="ml-1">Regenerating uses 1 credit (free within 24 h of the same JD).</span>}
           </div>
         )}
+        {/* Step progress */}
+        <div className="flex justify-center mb-6 select-none">
+          <div className="flex items-center">
+            {(["Basics", "Experience", "Education", "Skills", "Summary"] as const).map(
+              (label, i) => (
+                <div key={label} className="flex items-center">
+                  <div className="flex flex-col items-center gap-1 w-[72px]">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
+                        i === currentStep
+                          ? "bg-[#1f5c3a] text-white ring-2 ring-[#1f5c3a]/20"
+                          : i < currentStep
+                          ? "bg-[#1f5c3a]/70 text-white"
+                          : "bg-white border-2 border-stone-200 text-stone-400"
+                      }`}
+                    >
+                      {i + 1}
+                    </div>
+                    <span
+                      className={`text-[10px] font-medium text-center leading-tight ${
+                        i === currentStep ? "text-[#1f5c3a]" : "text-stone-400"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                  {i < 4 && <div className="w-8 h-px bg-stone-200 mb-4 mx-1" />}
+                </div>
+              )
+            )}
+          </div>
+        </div>
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-6">
           <HorizontalStepper current={currentStep} completed={completed} onStepClick={setCurrentStep} />
           <div className="mb-6">
