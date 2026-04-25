@@ -9,7 +9,7 @@ import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AppHeader } from "@/components/app-header";
-import { CheckCircle2, Circle, AlertCircle, Sparkles, FileText } from "lucide-react";
+import { CheckCircle2, AlertCircle, Sparkles, FileText } from "lucide-react";
 
 // ââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -112,16 +112,16 @@ function checkCompleteness(profile: Profile | null): {
 // ââ Generation stages (total ~55 seconds) ââââââââââââââââââââââââââââââââââââ
 
 const GEN_STAGES = [
-  { label: "Reading your job descriptionâ¦", icon: "ð", pct: 8, ms: 3000 },
-  { label: "Extracting key skills & keywordsâ¦", icon: "ð", pct: 25, ms: 9000 },
-  { label: "Matching your experience to JDâ¦", icon: "ð§ ", pct: 45, ms: 13000 },
-  { label: "Rewriting bullets with action verbsâ¦", icon: "âï¸", pct: 65, ms: 14000 },
-  { label: "Calculating ATS match scoreâ¦", icon: "ð", pct: 82, ms: 10000 },
-  { label: "Final polish & formattingâ¦", icon: "â¨", pct: 95, ms: 6000 },
+  { label: "Reading your job description…", icon: "📖", pct: 8, ms: 3000 },
+  { label: "Extracting key skills & keywords…", icon: "🔍", pct: 25, ms: 9000 },
+  { label: "Matching your experience to JD…", icon: "🤝", pct: 45, ms: 13000 },
+  { label: "Rewriting bullets with action verbs…", icon: "✍️", pct: 65, ms: 14000 },
+  { label: "Calculating ATS match score…", icon: "📊", pct: 82, ms: 10000 },
+  { label: "Final polish & formatting…", icon: "✨", pct: 95, ms: 6000 },
 ];
 
 const WAIT_TIPS = [
-  "ATS systems scan for exact keyword matches â the AI weaves yours in naturally.",
+  "ATS systems scan for exact keyword matches — the AI weaves yours in naturally.",
   "Tip: Action verbs like 'Led', 'Built', 'Scaled' get 23% more recruiter attention.",
   "Indian hiring managers prefer concise 1-page resumes. Yours will fit perfectly.",
   "87% of Indian hiring managers prefer resumes that mirror the JD language.",
@@ -162,14 +162,12 @@ export default function CreatePage() {
   const [generatedResume, setGeneratedResume] = useState<GeneratedResume | null>(null);
   const [savedResumeId, setSavedResumeId] = useState<string | null>(null);
 
-  // MagicReveal done: show for 3.5s after generation completes
+  // MagicReveal done: hide the completed reveal after a short display
   useEffect(() => {
-    if (generatedResume) {
-      setShowRevealDone(true);
-      const t = setTimeout(() => setShowRevealDone(false), 3500);
-      return () => clearTimeout(t);
-    }
-  }, [generatedResume]);
+    if (!showRevealDone) return;
+    const t = setTimeout(() => setShowRevealDone(false), 3500);
+    return () => clearTimeout(t);
+  }, [showRevealDone]);
 
   // ââ Load profile & plan âââââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
@@ -353,6 +351,7 @@ export default function CreatePage() {
         summary: resumeJson.summary ?? "",
       });
       setSavedResumeId(savedResume.id);
+      setShowRevealDone(true);
       setGenerating(false);
     } catch (err) {
       timers.forEach(clearTimeout);
@@ -374,6 +373,9 @@ export default function CreatePage() {
     (!planCheck || planCheck.allowed) &&
     !generating;
 
+  const revealStage = Math.min(genStageIdx + 1, 4) as 1 | 2 | 3 | 4;
+  const currentGenStage = GEN_STAGES[genStageIdx] ?? GEN_STAGES[GEN_STAGES.length - 1];
+
   // Stage the user is currently on
   const currentStage = generatedResume ? 3 : !jdReady ? 1 : !completeness.complete ? 2 : 3;
 
@@ -382,7 +384,7 @@ export default function CreatePage() {
     <div className="h-screen flex flex-col overflow-hidden bg-[#f7f3ea]">
       <AppHeader />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden max-w-7xl mx-auto">
         {/* ââ LEFT PANEL ââ */}
         <div className="flex-1 flex flex-col overflow-y-auto p-6 lg:p-8 max-w-2xl">
 
@@ -395,7 +397,7 @@ export default function CreatePage() {
             ].map((s, i) => (
               <div key={s.n} className="flex items-center gap-2">
                 <div
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     s.done
                       ? "bg-[#1f5c3a] text-white"
                       : currentStage === s.n
@@ -403,11 +405,15 @@ export default function CreatePage() {
                       : "bg-white/60 text-[#999]"
                   }`}
                 >
-                  {s.done ? (
-                    <CheckCircle2 className="w-3 h-3" />
-                  ) : (
-                    <span>{s.n}</span>
-                  )}
+                  <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full text-[0.65rem] ${
+                    s.done
+                      ? "bg-white/20 text-white"
+                      : currentStage === s.n
+                      ? "bg-[#1f5c3a] text-white"
+                      : "bg-white text-[#999]"
+                  }`}>
+                    {s.done ? <CheckCircle2 className="w-3 h-3" /> : s.n}
+                  </span>
                   {s.label}
                 </div>
                 {i < 2 && <div className="w-5 h-px bg-[#d4c9b0]" />}
@@ -415,7 +421,7 @@ export default function CreatePage() {
             ))}
           </div>
 
-          {/* Stage 1 â JD input */}
+          {/* Stage 1 — JD input */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-serif italic text-2xl text-[#1a1a1a]">
@@ -423,7 +429,7 @@ export default function CreatePage() {
               </h2>
               {jdAnalysis.detectedRole && (
                 <span className="text-xs bg-[#1f5c3a]/10 text-[#1f5c3a] px-2.5 py-1 rounded-full font-medium">
-                  ð {jdAnalysis.detectedRole}
+                  📌 {jdAnalysis.detectedRole}
                 </span>
               )}
             </div>
@@ -449,10 +455,10 @@ export default function CreatePage() {
               >
                 {jdText.length < 200
                   ? `${jdText.length}/200 characters minimum`
-                  : `${jdText.length} characters â`}
+                  : `${jdText.length} characters ✓`}
               </span>
               {jdAnalysis.quality === "good" && (
-                <span className="text-xs text-[#1f5c3a]">Detailed JD â</span>
+                <span className="text-xs text-[#1f5c3a]">Detailed JD ✓</span>
               )}
             </div>
 
@@ -477,7 +483,7 @@ export default function CreatePage() {
             )}
           </div>
 
-          {/* Stage 2 â Profile status */}
+          {/* Stage 2 — Profile status */}
           {loaded && (
             <div
               className={`mb-6 rounded-xl p-4 border ${
@@ -496,7 +502,7 @@ export default function CreatePage() {
                   <div>
                     <p className="text-sm font-semibold text-[#1a1a1a]">
                       {completeness.complete
-                        ? `Profile ready â ${profile?.full_name}`
+                        ? `Profile ready — ${profile?.full_name}`
                         : "Profile incomplete"}
                     </p>
                     {!completeness.complete && (
@@ -509,7 +515,7 @@ export default function CreatePage() {
                         Targeting:{" "}
                         {profile.target_roles.slice(0, 2).join(", ")}
                         {planCheck?.allowed
-                          ? ` Â· ${planCheck.remaining} credit${planCheck.remaining !== 1 ? "s" : ""} left`
+                          ? ` • ${planCheck.remaining} credit${planCheck.remaining !== 1 ? "s" : ""} left`
                           : ""}
                       </p>
                     )}
@@ -517,7 +523,7 @@ export default function CreatePage() {
                 </div>
                 <Link href="/profile">
                   <Button variant="outline" size="sm" className="text-xs h-7 shrink-0">
-                    {completeness.complete ? "Edit" : "Fix now â"}
+                    {completeness.complete ? "Edit" : "Fix now →"}
                   </Button>
                 </Link>
               </div>
@@ -536,7 +542,7 @@ export default function CreatePage() {
                 href="/pricing"
                 className="font-semibold underline underline-offset-2 whitespace-nowrap"
               >
-                {planCheck.reason === "NO_PLAN" ? "View plans â" : "Buy more â"}
+                {planCheck.reason === "NO_PLAN" ? "View plans →" : "Buy more →"}
               </Link>
             </div>
           )}
@@ -555,7 +561,7 @@ export default function CreatePage() {
             className="w-full text-base py-6 rounded-xl font-semibold"
           >
             {generating ? (
-              "Generatingâ¦"
+              "Generating…"
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
@@ -575,8 +581,27 @@ export default function CreatePage() {
         <div className="hidden lg:flex flex-col w-[460px] border-l border-[#e8e0d0] bg-white/40 overflow-y-auto">
 
           {generating ? (
-              <MagicReveal stage={(genStageIdx + 1) as (1 | 2 | 3 | 4)} atsScore={null} />
-            ) : showRevealDone ? (
+            <div className="flex flex-col h-full">
+              <div className="px-7 pt-7">
+                <div className="mb-3 flex items-center justify-between text-xs text-[#6b6b6b]">
+                  <span>{currentGenStage.label}</span>
+                  <span>{genProgress}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-[#e8e0d0] overflow-hidden">
+                  <div
+                    className="h-full bg-[#1f5c3a] transition-all duration-300"
+                    style={{ width: `${genProgress}%` }}
+                  />
+                </div>
+                <p className="mt-3 text-xs italic text-[#6b6b6b]">
+                  {WAIT_TIPS[tipIdx]}
+                </p>
+              </div>
+              <div className="flex-1 flex items-center justify-center">
+                <MagicReveal stage={revealStage} atsScore={null} />
+              </div>
+            </div>
+          ) : showRevealDone ? (
               <MagicReveal stage="done" atsScore={generatedResume?.ats_score ?? null} />
             ) : generatedResume ? (
             /* ââ Result panel ââ */
@@ -616,7 +641,7 @@ export default function CreatePage() {
               {generatedResume.matched_keywords.length > 0 && (
                 <div className="mb-4">
                   <p className="text-xs font-semibold text-[#1a1a1a] mb-2">
-                    â Keywords matched ({generatedResume.matched_keywords.length})
+                    ✓ Keywords matched ({generatedResume.matched_keywords.length})
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {generatedResume.matched_keywords.slice(0, 8).map((kw) => (
@@ -635,7 +660,7 @@ export default function CreatePage() {
               {generatedResume.missing_keywords.length > 0 && (
                 <div className="mb-4">
                   <p className="text-xs font-semibold text-[#1a1a1a] mb-2">
-                    â  Consider adding ({generatedResume.missing_keywords.length})
+                    ⚠ Consider adding ({generatedResume.missing_keywords.length})
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {generatedResume.missing_keywords.map((kw) => (
@@ -653,7 +678,7 @@ export default function CreatePage() {
               {/* AI Summary */}
               <div className="bg-[#f7f3ea] rounded-xl p-4 mb-5 flex-1 overflow-hidden">
                 <p className="text-xs font-semibold text-[#1a1a1a] mb-1.5">
-                  ð AI-written summary
+                  📝 AI-written summary
                 </p>
                 <p className="text-xs text-[#6b6b6b] leading-relaxed line-clamp-5">
                   {generatedResume.summary}
@@ -666,7 +691,7 @@ export default function CreatePage() {
                   className="w-full"
                   onClick={() => router.push(`/preview/${savedResumeId}`)}
                 >
-                  View &amp; download PDF â
+                  View & download PDF →
                 </Button>
                 <Button
                   variant="outline"
@@ -695,24 +720,24 @@ export default function CreatePage() {
                 Your resume preview
               </h3>
               <p className="text-sm text-[#9b9080] max-w-xs">
-                Paste a job description and click Generate â your AI-tailored
+                Paste a job description and click Generate — your AI-tailored
                 resume will appear here.
               </p>
 
               <div className="mt-8 w-full space-y-3">
                 {[
                   {
-                    icon: "ð¯",
+                    icon: "🎯",
                     title: "JD-matched keywords",
                     desc: "The AI picks the exact phrases recruiters search for",
                   },
                   {
-                    icon: "âï¸",
+                    icon: "✍️",
                     title: "Rewritten bullets",
                     desc: "Your experience, worded to win ATS scans",
                   },
                   {
-                    icon: "ð",
+                    icon: "📊",
                     title: "ATS score",
                     desc: "Know exactly how you rank before applying",
                   },
