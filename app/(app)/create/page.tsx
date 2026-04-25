@@ -388,9 +388,9 @@ export default function CreatePage() {
     <div className="h-screen flex flex-col overflow-hidden bg-[#f7f3ea]">
       <AppHeader />
 
-      <div className="flex-1 flex overflow-hidden max-w-7xl mx-auto">
+      <div className="flex-1 flex overflow-hidden min-h-0 w-full max-w-7xl mx-auto">
         {/* ââ LEFT PANEL ââ */}
-        <div className="flex-1 flex flex-col overflow-y-auto p-6 lg:p-8 max-w-2xl">
+        <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-6 lg:p-8 max-w-2xl">
 
           {/* Stage progress */}
           <div className="flex items-center gap-2 mb-8">
@@ -728,40 +728,6 @@ export default function CreatePage() {
                 resume will appear here.
               </p>
 
-              <div className="mt-8 w-full space-y-3">
-                {[
-                  {
-                    icon: "🎯",
-                    title: "JD-matched keywords",
-                    desc: "The AI picks the exact phrases recruiters search for",
-                  },
-                  {
-                    icon: "✍️",
-                    title: "Rewritten bullets",
-                    desc: "Your experience, worded to win ATS scans",
-                  },
-                  {
-                    icon: "📊",
-                    title: "ATS score",
-                    desc: "Know exactly how you rank before applying",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.title}
-                    className="flex items-start gap-3 text-left bg-white/70 rounded-xl p-3.5 border border-[#e8e0d0]"
-                  >
-                    <span className="text-lg">{item.icon}</span>
-                    <div>
-                      <p className="text-xs font-semibold text-[#1a1a1a]">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-[#9b9080] mt-0.5">
-                        {item.desc}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </div>
