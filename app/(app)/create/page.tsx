@@ -198,6 +198,10 @@ export default function CreatePage() {
 
   // ââ Live JD analysis âââââââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
+    localStorage.setItem("ndrs_jd", jdText);
+  }, [jdText]);
+
+  useEffect(() => {
     const t = setTimeout(() => setJdAnalysis(analyzeJd(jdText)), 400);
     return () => clearTimeout(t);
   }, [jdText]);
