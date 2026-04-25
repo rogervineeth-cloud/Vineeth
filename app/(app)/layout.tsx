@@ -2,7 +2,7 @@
 import { usePathname } from "next/navigation";
 import GlobalStepper from "@/components/nav/GlobalStepper";
 
-const HIDE_STEPPER = ["/dashboard", "/pricing"];
+const HIDE_STEPPER = ["/dashboard", "/pricing", "/profile", "/create"];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
