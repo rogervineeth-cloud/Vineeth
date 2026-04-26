@@ -1,4 +1,5 @@
 "use client";
+
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
@@ -22,9 +23,9 @@ export default function GlobalStepper({ latestResumeId }: { latestResumeId?: str
 
   return (
     <div
-      className="sticky z-40 border-b"
+      className="sticky z-20 border-b"
       style={{
-        top: "3rem",
+        top: "3.5rem",
         background: "#f7f3ea",
         borderColor: "rgba(0,0,0,0.06)",
       }}
@@ -33,10 +34,7 @@ export default function GlobalStepper({ latestResumeId }: { latestResumeId?: str
         {STEPS.map((step, i) => {
           const isCompleted = i < active;
           const isActive = i === active;
-          const resolvedHref =
-            i === 2 && latestResumeId
-              ? `/preview/${latestResumeId}`
-              : step.href;
+          const resolvedHref = i === 2 && latestResumeId ? `/preview/${latestResumeId}` : step.href;
 
           const circle = (
             <div
