@@ -484,7 +484,7 @@ export default function CreatePage() {
       <AppHeader />
 
       {/* 3-step progress bar */}
-      <div className="border-b border-stone-200/60 bg-[#f7f3ea] shrink-0">
+      <div className="hidden">
         <div className="max-w-5xl mx-auto px-6 h-12 flex items-center justify-center gap-3">
           {([
             { n: 1, label: "Job Description", done: flowStep > 1 },
