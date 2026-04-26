@@ -77,6 +77,7 @@ const STEPS = [
   { label: "Experience", required: false },
   { label: "Education", required: true },
   { label: "Projects", required: false },
+  { label: "Review", required: false },
 ] as const;
 
 // ── Horizontal stepper UI ─────────────────────────────────────────────────
@@ -138,7 +139,7 @@ function HorizontalStepper({
           ))}
         </div>
         <span className="text-sm text-[#6b6b6b]">
-          Step <span className="font-semibold text-[#1a1a1a]">{current + 1}</span> of 5 —{" "}
+          Step <span className="font-semibold text-[#1a1a1a]">{current + 1}</span> of 6 —{" "}
           <span className="font-semibold text-[#1a1a1a]">{STEPS[current].label}</span>
         </span>
       </div>
@@ -147,15 +148,13 @@ function HorizontalStepper({
 }
 
 function StepNav({ current, onBack, onNext }: { current: number; onBack: () => void; onNext: () => void; }) {
-  const isLast = current === STEPS.length - 1;
+  const isReview = current === STEPS.length - 1;
   return (
     <div className="flex items-center justify-between mt-8 pt-6 border-t border-stone-200">
       <Button variant="outline" onClick={onBack} disabled={current === 0} className="gap-1.5">
         <ChevronLeft className="w-4 h-4" />Back
       </Button>
-      {isLast ? (
-        <Button asChild><Link href="/create">Finish &amp; Generate Resume →</Link></Button>
-      ) : (
+      {!isReview && (
         <Button onClick={onNext} className="gap-1.5">Next<ChevronRight className="w-4 h-4" /></Button>
       )}
     </div>
@@ -255,7 +254,7 @@ function ProfilePageInner() {
   const sec3Done = experience.some((e) => e.company.trim());
   const sec4Done = education.some((e) => e.institution.trim());
   const sec5Done = projects.some((p) => p.name.trim());
-  const completed = [sec1Done, sec2Done, sec3Done, sec4Done, sec5Done];
+  const completed = [sec1Done, sec2Done, sec3Done, sec4Done, sec5Done, true];
 
   function handleNext() {
     if (currentStep === 0 && !sec1Done) toast.info("Add your name and email — they appear on every resume.");
@@ -466,6 +465,90 @@ function ProfilePageInner() {
             )}
           </div>
         );
+      case 5:
+        return (
+          <div className="flex flex-col gap-6">
+            {(basics.full_name.trim() || basics.email.trim()) && (
+              <div>
+                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Basics</p>
+                <div className="flex flex-col gap-0.5 text-sm">
+                  {basics.full_name && <span className="font-medium text-[#1a1a1a]">{basics.full_name}</span>}
+                  {basics.email && <span className="text-[#6b6b6b]">{basics.email}</span>}
+                  {basics.phone && <span className="text-[#6b6b6b]">{basics.phone}</span>}
+                  {basics.current_city && <span className="text-[#6b6b6b]">{basics.current_city}</span>}
+                  {targetRoles.length > 0 && <span className="text-[#6b6b6b] mt-0.5">Targeting: {targetRoles.join(", ")}</span>}
+                </div>
+              </div>
+            )}
+            {experience.some((e) => e.company.trim()) && (
+              <div>
+                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Experience</p>
+                <div className="flex flex-col gap-3">
+                  {experience.filter((e) => e.company.trim()).map((exp) => (
+                    <div key={exp.id} className="bg-[#f7f3ea] rounded-lg p-3">
+                      <p className="text-sm font-semibold text-[#1a1a1a]">{exp.role}{exp.role && exp.company ? " — " : ""}{exp.company}</p>
+                      {(exp.duration || exp.location) && (
+                        <p className="text-xs text-[#6b6b6b] mb-1.5">{exp.duration}{exp.location ? ` · ${exp.location}` : ""}</p>
+                      )}
+                      <ul className="flex flex-col gap-1">
+                        {exp.bullets.filter((b) => b.trim()).slice(0, 3).map((b, i) => (
+                          <li key={i} className="text-xs text-[#6b6b6b] flex gap-1.5">
+                            <span className="text-[#1f5c3a] shrink-0">·</span>{b}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {education.some((e) => e.institution.trim()) && (
+              <div>
+                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Education</p>
+                <div className="flex flex-col gap-2">
+                  {education.filter((e) => e.institution.trim()).map((edu) => (
+                    <div key={edu.id} className="bg-[#f7f3ea] rounded-lg p-3">
+                      <p className="text-sm font-semibold text-[#1a1a1a]">{edu.degree}</p>
+                      <p className="text-xs text-[#6b6b6b]">
+                        {edu.institution}{edu.year ? ` · ${edu.year}` : ""}{edu.cgpa ? ` · ${edu.cgpa}` : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {skills.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Skills</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {skills.map((skill) => (
+                    <span key={skill} className="text-xs bg-[#1f5c3a]/10 text-[#1f5c3a] px-2.5 py-1 rounded-full border border-[#1f5c3a]/20">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {summary.trim() && (
+              <div>
+                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Summary</p>
+                <p className="text-sm text-[#6b6b6b] leading-relaxed">{summary}</p>
+              </div>
+            )}
+            <div className="flex flex-col gap-2 pt-2 border-t border-stone-100">
+              <Button asChild className="w-full">
+                <Link href="/create">Looks good — Create my resume →</Link>
+              </Button>
+              <button
+                type="button"
+                onClick={() => setCurrentStep(0)}
+                className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors text-center py-1"
+              >
+                ← Edit profile
+              </button>
+            </div>
+          </div>
+        );
       default: return null;
     }
   }
@@ -494,10 +577,10 @@ function ProfilePageInner() {
         {/* Step progress */}
         <div className="flex justify-center mb-6 select-none">
           <div className="flex items-center">
-            {(["Basics", "Experience", "Education", "Skills", "Summary"] as const).map(
+            {(["Basics", "Experience", "Education", "Skills", "Summary", "Review"] as const).map(
               (label, i) => (
                 <div key={label} className="flex items-center">
-                  <div className="flex flex-col items-center gap-1 w-[72px]">
+                  <div className="flex flex-col items-center gap-1 w-[60px]">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
                         i === currentStep
@@ -517,7 +600,7 @@ function ProfilePageInner() {
                       {label}
                     </span>
                   </div>
-                  {i < 4 && <div className="w-8 h-px bg-stone-200 mb-4 mx-1" />}
+                  {i < 5 && <div className="w-6 h-px bg-stone-200 mb-4 mx-0.5" />}
                 </div>
               )
             )}
@@ -534,6 +617,7 @@ function ProfilePageInner() {
               {currentStep === 2 && "Your work history and skills."}
               {currentStep === 3 && "Your academic background."}
               {currentStep === 4 && "Projects you've built or contributed to."}
+              {currentStep === 5 && "Check everything looks right before generating."}
             </p>
           </div>
           {renderStep()}
