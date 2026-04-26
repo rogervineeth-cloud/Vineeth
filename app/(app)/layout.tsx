@@ -2,11 +2,11 @@
 import { usePathname } from "next/navigation";
 import GlobalStepper from "@/components/nav/GlobalStepper";
 
-const HIDE_STEPPER = ["/dashboard", "/pricing", "/profile", "/create"];
+const NO_STEPPER_PATHS = ["/onboarding"];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const hideStepper = HIDE_STEPPER.some(p => pathname.startsWith(p));
+  const hideStepper = NO_STEPPER_PATHS.some((p) => pathname.startsWith(p));
   return (
     <>
       {!hideStepper && <GlobalStepper />}
