@@ -73,7 +73,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
 
   // Forward-only enforcement: if user is at step N but step N-1 is incomplete, redirect to first incomplete
   useEffect(() => {
-    if (!loaded || active < 1) return;
+    if (!loaded || active < 5) return;
     const order: StepKey[] = ["basics", "roles", "experience", "education", "projects", "jd", "template", "resume"];
     for (let i = 0; i < active; i++) {
       const key = order[i];
