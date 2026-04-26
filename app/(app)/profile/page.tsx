@@ -564,7 +564,7 @@ function ProfilePageInner() {
           </div>
           <div className="flex items-center gap-3">
             {saveLabel && <span className={`text-xs font-medium ${saveStatus === "error" ? "text-red-500" : "text-[#1f5c3a]"}`}>{saveLabel}</span>}
-            <Button asChild><Link href="/create">Generate resume →</Link></Button>
+            <Button asChild><Link href="/create"></Link></Button>
           </div>
         </div>
         {fromPreview && (
@@ -623,12 +623,12 @@ function ProfilePageInner() {
           {renderStep()}
           <StepNav current={currentStep} onBack={handleBack} onNext={handleNext} />
         </div>
-        <div className="bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="hidden rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <p className="font-semibold text-[#1a1a1a]">Ready to generate?</p>
             <p className="text-sm text-[#6b6b6b]">Paste a job description and we&apos;ll tailor this profile into a resume in under a minute.</p>
           </div>
-          <Button asChild className="shrink-0"><Link href="/create">Generate resume →</Link></Button>
+          <Button asChild className="shrink-0"><Link href="/create"></Link></Button>
         </div>
       </div>
     </div>
