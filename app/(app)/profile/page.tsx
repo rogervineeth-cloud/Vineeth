@@ -176,7 +176,7 @@ function ProfilePageInner() {
   const fromPreview = searchParams.get("from") === "preview";
   const fromResumeId = searchParams.get("resumeId") ?? "";
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const STEP_KEYS = ["basics", "roles", "experience", "education", "projects", "review"];  const [currentStep, setCurrentStep] = useState(() => { if (typeof window === "undefined") return 0; const p = new URLSearchParams(window.location.search).get("step"); const i = STEP_KEYS.indexOf(p || ""); return i >= 0 ? i : 0; });  useEffect(() => { if (typeof window === "undefined") return; const url = new URL(window.location.href); url.searchParams.set("step", STEP_KEYS[currentStep] || "basics"); window.history.replaceState({}, "", url.toString()); }, [currentStep]);
   const [userId, setUserId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
