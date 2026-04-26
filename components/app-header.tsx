@@ -64,17 +64,41 @@ export function AppHeader() {
     router.refresh();
   }
 
-  function handleGenerate() {
+  async function handleGenerate() {
     const missing: string[] = [];
 
     if (!profile?.full_name?.trim() || !profile?.email?.trim()) {
-      missing.push("Profile: name and email required");
+      missing.push("Add your name and email in Profile \u2192 Basics");
     }
 
-    const storedJd =
-      typeof window !== "undefined" ? (localStorage.getItem("ndrs_jd") ?? "") : "";
+    if (user) {
+      const supabase = createClient();
+      const { data: full } = await supabase
+        .from("profiles")
+        .select("target_roles, linkedin_data")
+        .eq("user_id", user.id)
+        .single();
+
+      const targetRoles = (full?.target_roles ?? []) as string[];
+      if (targetRoles.length === 0) {
+        missing.push("Pick at least one target role in Profile \u2192 Roles");
+      }
+
+      const ld = (full?.linkedin_data ?? {}) as Record<string, unknown>;
+      const experience = Array.isArray(ld.experience) ? ld.experience : [];
+      const education = Array.isArray(ld.education) ? ld.education : [];
+
+      if (experience.length === 0) {
+        missing.push("Add at least one role in Profile \u2192 Experience");
+      }
+      if (education.length === 0) {
+        missing.push("Add at least one entry in Profile \u2192 Education");
+      }
+    }
+
+    const storedJd = typeof window !== "undefined" ? (localStorage.getItem("ndrs_jd") ?? "") : "";
     if (storedJd.trim().length < 200) {
-      missing.push("Job description (paste one on the Generate page, min 200 chars)");
+      missing.push("Paste a job description on the Generate page (200+ chars)");
     }
 
     if (missing.length === 0) {
