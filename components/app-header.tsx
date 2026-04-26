@@ -127,7 +127,7 @@ export function AppHeader() {
               {pathname !== "/create" && (
                 <div className="relative" ref={dropdownRef}>
                   <Button size="sm" onClick={handleGenerate}>
-                    Generate Resume →
+                    ✨ Generate Resume
                   </Button>
                   {showMissing && (
                     <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-stone-200 rounded-xl shadow-lg p-4 z-20">
