@@ -208,6 +208,8 @@ const TEMPLATES: { id: TemplateId; label: string; svg: React.ReactNode }[] = [
   },
 ];
 
+const CREATOR_EMAIL = "rogervineeth@gmail.com";
+
 const GEN_STAGES = [
   { label: "Reading your job description…", icon: "📖", pct: 8, ms: 3000 },
   { label: "Extracting key skills & keywords…", icon: "🔍", pct: 25, ms: 9000 },
@@ -233,6 +235,7 @@ export default function CreatePage() {
 
   // Data
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [planCheck, setPlanCheck] = useState<PlanCheck | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -274,6 +277,7 @@ export default function CreatePage() {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
+      setUserEmail(user.email ?? null);
       const [profileRes, plansRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", user.id).single(),
         supabase
@@ -325,7 +329,7 @@ export default function CreatePage() {
       jdRef.current?.focus();
       return;
     }
-    if (planCheck && !planCheck.allowed) {
+    if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed) {
       toast.error(
         planCheck.reason === "NO_PLAN"
           ? "You need a paid plan to generate a resume."
@@ -471,11 +475,12 @@ export default function CreatePage() {
 
   // ââ Derived state âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   const completeness = checkCompleteness(profile);
+  const isCreator = userEmail === CREATOR_EMAIL;
   const jdReady = jdText.trim().length >= 200;
   const canGenerate =
     jdReady &&
     completeness.complete &&
-    (!planCheck || planCheck.allowed) &&
+    (isCreator || !planCheck || planCheck.allowed) &&
     !generating;
 
   const revealStage = Math.min(genStageIdx + 1, 4) as 1 | 2 | 3 | 4;
@@ -636,7 +641,7 @@ export default function CreatePage() {
           )}
 
           {/* Plan warning */}
-          {planCheck && !planCheck.allowed && (
+          {planCheck && !planCheck.allowed && !isCreator && (
             <div className="mb-5 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
               <span>
                 {planCheck.reason === "NO_PLAN"

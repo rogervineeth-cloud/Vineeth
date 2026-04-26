@@ -6,6 +6,8 @@ import { canGenerateResume, canGenerateFreeRegen, consumeCredit } from "@/lib/pl
 
 export const maxDuration = 60;
 
+const CREATOR_EMAIL = "rogervineeth@gmail.com";
+
 const inputSchema = z.object({
   jd_text: z.string().min(100, "Job description too short (min 100 chars)"),
   jd_url: z.string().url().optional().or(z.literal("")),
@@ -161,6 +163,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
+    const isCreator = session.user.email === CREATOR_EMAIL;
 
     // Credit gating
     let isFreeRegen = false;
@@ -168,7 +171,7 @@ export async function POST(req: NextRequest) {
       isFreeRegen = await canGenerateFreeRegen(userId, regen_of_resume_id);
     }
 
-    if (!isFreeRegen) {
+    if (!isCreator && !isFreeRegen) {
       const { allowed, reason } = await canGenerateResume(userId);
       if (!allowed) {
         return NextResponse.json(
@@ -192,7 +195,6 @@ export async function POST(req: NextRequest) {
 
     let resumeJson;
     try {
-      const fb = rawText.indexOf('{'), lb = rawText.lastIndexOf('}'); const cleaned = (fb >= 0 && lb > fb ? rawText.slice(fb, lb + 1) : rawText).replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
       resumeJson = JSON.parse(extractJson(rawText));
     } catch {
       // JSON parse failure — do NOT consume credit
@@ -204,7 +206,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Consume credit only after a successful parse
-    if (!isFreeRegen) {
+    if (!isCreator && !isFreeRegen) {
       const credited = await consumeCredit(userId);
       if (!credited) {
         // Race condition — credit check passed but consume failed; treat as exhausted
