@@ -181,6 +181,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
+        // Server-side defense: never call Anthropic for incomplete profiles
+    const p = parsed.data.user_profile;
+    const incomplete: string[] = [];
+    if (!p.full_name?.trim()) incomplete.push("full_name");
+    if (!p.email?.trim()) incomplete.push("email");
+    if (!p.experience || p.experience.length === 0) incomplete.push("experience");
+    if (!p.education || p.education.length === 0) incomplete.push("education");
+    if (incomplete.length > 0) {
+      return NextResponse.json(
+        { error: "PROFILE_INCOMPLETE", missing: incomplete },
+        { status: 422 }
+      );
+    }
+
     // Call Anthropic
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
