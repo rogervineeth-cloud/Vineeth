@@ -577,7 +577,7 @@ function ProfilePageInner() {
         {/* Step progress */}
         <div className="flex justify-center mb-6 select-none">
           <div className="flex items-center">
-            {(["Basics", "Experience", "Education", "Skills", "Summary", "Review"] as const).map(
+            {([] as const).map(
               (label, i) => (
                 <div key={label} className="flex items-center">
                   <div className="flex flex-col items-center gap-1 w-[60px]">
