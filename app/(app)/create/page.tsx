@@ -111,6 +111,103 @@ function checkCompleteness(profile: Profile | null): {
 
 // ââ Generation stages (total ~55 seconds) ââââââââââââââââââââââââââââââââââââ
 
+// ── Template definitions ─────────────────────────────────────────────────────
+
+type TemplateId = "classic" | "modern" | "compact" | "executive";
+
+const TEMPLATES: { id: TemplateId; label: string; svg: React.ReactNode }[] = [
+  {
+    id: "classic",
+    label: "Classic",
+    svg: (
+      <svg viewBox="0 0 40 52" className="w-full h-full">
+        <rect x="2" y="2" width="36" height="6" rx="1" fill="#1f5c3a" opacity="0.5" />
+        <rect x="2" y="11" width="36" height="1" rx="0.5" fill="#1f5c3a" opacity="0.3" />
+        <rect x="2" y="14" width="28" height="1.5" rx="0.5" fill="#888" opacity="0.5" />
+        <rect x="2" y="17" width="22" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
+        <rect x="2" y="22" width="36" height="1" rx="0.5" fill="#1f5c3a" opacity="0.3" />
+        <rect x="2" y="25" width="30" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
+        <rect x="2" y="28" width="26" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
+        <rect x="2" y="31" width="20" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
+        <rect x="2" y="36" width="36" height="1" rx="0.5" fill="#1f5c3a" opacity="0.3" />
+        <rect x="2" y="39" width="24" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
+        <rect x="2" y="42" width="18" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
+      </svg>
+    ),
+  },
+  {
+    id: "modern",
+    label: "Modern",
+    svg: (
+      <svg viewBox="0 0 40 52" className="w-full h-full">
+        <rect x="0" y="0" width="12" height="52" fill="#1f5c3a" opacity="0.1" />
+        <rect x="1.5" y="4" width="9" height="3" rx="0.5" fill="#1f5c3a" opacity="0.4" />
+        <rect x="1.5" y="10" width="9" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
+        <rect x="1.5" y="13" width="7" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
+        <rect x="1.5" y="19" width="9" height="1.5" rx="0.5" fill="#1f5c3a" opacity="0.35" />
+        <rect x="1.5" y="22" width="6" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
+        <rect x="1.5" y="25" width="8" height="1.5" rx="0.5" fill="#888" opacity="0.3" />
+        <rect x="15" y="3" width="23" height="5" rx="0.5" fill="#1f5c3a" opacity="0.4" />
+        <rect x="15" y="11" width="23" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
+        <rect x="15" y="14" width="19" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
+        <rect x="15" y="17" width="16" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
+        <rect x="15" y="22" width="23" height="1" rx="0.5" fill="#1f5c3a" opacity="0.25" />
+        <rect x="15" y="25" width="20" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
+        <rect x="15" y="28" width="17" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
+        <rect x="15" y="35" width="23" height="1" rx="0.5" fill="#1f5c3a" opacity="0.25" />
+        <rect x="15" y="38" width="18" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
+        <rect x="15" y="41" width="14" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
+      </svg>
+    ),
+  },
+  {
+    id: "compact",
+    label: "Compact",
+    svg: (
+      <svg viewBox="0 0 40 52" className="w-full h-full">
+        <rect x="2" y="2" width="36" height="4" rx="0.5" fill="#1f5c3a" opacity="0.5" />
+        <rect x="2" y="8" width="36" height="1" rx="0.3" fill="#1f5c3a" opacity="0.3" />
+        <rect x="2" y="10.5" width="28" height="1" rx="0.3" fill="#888" opacity="0.45" />
+        <rect x="2" y="12.5" width="22" height="1" rx="0.3" fill="#888" opacity="0.4" />
+        <rect x="2" y="14.5" width="18" height="1" rx="0.3" fill="#888" opacity="0.35" />
+        <rect x="2" y="17" width="36" height="1" rx="0.3" fill="#1f5c3a" opacity="0.3" />
+        <rect x="2" y="19.5" width="26" height="1" rx="0.3" fill="#888" opacity="0.45" />
+        <rect x="2" y="21.5" width="20" height="1" rx="0.3" fill="#888" opacity="0.4" />
+        <rect x="2" y="23.5" width="24" height="1" rx="0.3" fill="#888" opacity="0.35" />
+        <rect x="2" y="26" width="36" height="1" rx="0.3" fill="#1f5c3a" opacity="0.3" />
+        <rect x="2" y="28.5" width="30" height="1" rx="0.3" fill="#888" opacity="0.45" />
+        <rect x="2" y="30.5" width="24" height="1" rx="0.3" fill="#888" opacity="0.4" />
+        <rect x="2" y="32.5" width="18" height="1" rx="0.3" fill="#888" opacity="0.35" />
+        <rect x="2" y="35" width="36" height="1" rx="0.3" fill="#1f5c3a" opacity="0.3" />
+        <rect x="2" y="37.5" width="22" height="1" rx="0.3" fill="#888" opacity="0.45" />
+        <rect x="2" y="39.5" width="18" height="1" rx="0.3" fill="#888" opacity="0.4" />
+        <rect x="2" y="41.5" width="26" height="1" rx="0.3" fill="#888" opacity="0.35" />
+        <rect x="2" y="44" width="20" height="1" rx="0.3" fill="#888" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    id: "executive",
+    label: "Executive",
+    svg: (
+      <svg viewBox="0 0 40 52" className="w-full h-full">
+        <rect x="0" y="0" width="40" height="12" fill="#1f5c3a" opacity="0.65" />
+        <rect x="4" y="3" width="20" height="3" rx="0.5" fill="white" opacity="0.7" />
+        <rect x="4" y="8" width="12" height="2" rx="0.5" fill="white" opacity="0.4" />
+        <rect x="2" y="16" width="36" height="1.5" rx="0.5" fill="#1f5c3a" opacity="0.35" />
+        <rect x="2" y="20" width="30" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
+        <rect x="2" y="23" width="26" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
+        <rect x="2" y="26" width="20" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
+        <rect x="2" y="31" width="36" height="1.5" rx="0.5" fill="#1f5c3a" opacity="0.35" />
+        <rect x="2" y="35" width="28" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
+        <rect x="2" y="38" width="22" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
+        <rect x="2" y="44" width="36" height="1.5" rx="0.5" fill="#1f5c3a" opacity="0.35" />
+        <rect x="2" y="48" width="18" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
+      </svg>
+    ),
+  },
+];
+
 const GEN_STAGES = [
   { label: "Reading your job description…", icon: "📖", pct: 8, ms: 3000 },
   { label: "Extracting key skills & keywords…", icon: "🔍", pct: 25, ms: 9000 },
@@ -161,6 +258,9 @@ export default function CreatePage() {
   // Result
   const [generatedResume, setGeneratedResume] = useState<GeneratedResume | null>(null);
   const [savedResumeId, setSavedResumeId] = useState<string | null>(null);
+
+  // Template
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("classic");
 
   // MagicReveal done: hide the completed reveal after a short display
   useEffect(() => {
@@ -265,6 +365,7 @@ export default function CreatePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jd_text: jdText,
+          template: selectedTemplate,
           user_profile: {
             full_name: profile!.full_name,
             email: profile!.email,
@@ -583,6 +684,36 @@ export default function CreatePage() {
 
         {/* ââ RIGHT PANEL ââ */}
         <div className="hidden lg:flex flex-col w-[460px] border-l border-[#e8e0d0] bg-white/40 overflow-y-auto">
+
+          {/* Template picker */}
+          <div className="px-5 pt-4 pb-3 border-b border-[#e8e0d0] shrink-0">
+            <p className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-2.5">
+              Template
+            </p>
+            <div className="flex gap-2">
+              {TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => setSelectedTemplate(tpl.id)}
+                  className={`flex-1 rounded-lg border-2 p-1.5 flex flex-col items-center gap-1 transition-all focus:outline-none ${
+                    selectedTemplate === tpl.id
+                      ? "border-[#1f5c3a] bg-[#1f5c3a]/5 shadow-sm"
+                      : "border-stone-200 bg-white hover:border-[#1f5c3a]/40"
+                  }`}
+                >
+                  <div className="w-full h-10">{tpl.svg}</div>
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      selectedTemplate === tpl.id ? "text-[#1f5c3a]" : "text-[#6b6b6b]"
+                    }`}
+                  >
+                    {tpl.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {generating ? (
             <div className="flex flex-col h-full">
