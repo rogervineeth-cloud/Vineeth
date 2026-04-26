@@ -480,7 +480,7 @@ export default function CreatePage() {
   const currentGenStage = GEN_STAGES[genStageIdx] ?? GEN_STAGES[GEN_STAGES.length - 1];
 
   return (
-    <div className={`flex flex-col bg-[#f7f3ea] ${flowStep === 1 ? "h-screen overflow-hidden" : "min-h-screen"}`}>
+    <div className={`flex flex-col bg-[#f7f3ea] ${flowStep < 3 ? "h-screen overflow-hidden" : "min-h-screen"}`}>
       <AppHeader />
 
       {/* 3-step progress bar */}
@@ -591,16 +591,17 @@ export default function CreatePage() {
               </div>
             )}
 
+            {/* Mobile-only next button — desktop uses right panel CTA */}
             <Button
               size="lg"
               onClick={() => setFlowStep(2)}
               disabled={!jdReady}
-              className="w-full text-base py-6 rounded-xl font-semibold mt-auto"
+              className="lg:hidden w-full text-base py-6 rounded-xl font-semibold mt-auto"
             >
               Next — Choose template →
             </Button>
             {!jdReady && (
-              <p className="text-xs text-center text-[#999] mt-2">Paste a job description above to continue</p>
+              <p className="lg:hidden text-xs text-center text-[#999] mt-2">Paste a job description above to continue</p>
             )}
           </div>
 
@@ -688,42 +689,57 @@ export default function CreatePage() {
                 )}
               </div>
             )}
+
+            <div className="mt-auto pt-6">
+              <Button
+                size="lg"
+                onClick={() => setFlowStep(2)}
+                disabled={!jdReady}
+                className="w-full text-base py-6 rounded-xl font-semibold"
+              >
+                Next — Choose template →
+              </Button>
+              {!jdReady && (
+                <p className="text-xs text-center text-[#999] mt-2">Paste a job description to continue</p>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* STEP 2 — Choose Template */}
       {flowStep === 2 && (
-        <div className="flex-1 flex flex-col items-center py-10 px-6">
-          <div className="w-full max-w-3xl">
+        <div className="flex-1 flex overflow-hidden min-h-0 max-w-7xl mx-auto w-full">
+          {/* Left: template picker */}
+          <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-6 lg:p-8">
             <button
               type="button"
               onClick={() => setFlowStep(1)}
-              className="flex items-center gap-1.5 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors mb-8"
+              className="flex items-center gap-1.5 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors mb-6 self-start"
             >
               <ChevronLeft className="w-4 h-4" />
               Back
             </button>
 
-            <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-2">Choose your template</h2>
-            <p className="text-sm text-[#6b6b6b] text-center mb-8">
-              All templates are ATS-optimised and single-column. Pick the style that fits your industry.
+            <h2 className="font-serif italic text-2xl text-[#1a1a1a] mb-1">Choose your template</h2>
+            <p className="text-sm text-[#6b6b6b] mb-6">
+              All templates are ATS-optimised and single-column.
             </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 mb-8">
+            <div className="grid grid-cols-2 gap-4">
               {TEMPLATES.map((tpl) => (
                 <button
                   key={tpl.id}
                   type="button"
                   onClick={() => setSelectedTemplate(tpl.id)}
-                  className={`rounded-xl border-2 p-4 flex flex-col items-center gap-3 transition-all focus:outline-none ${
+                  className={`rounded-xl border-2 p-4 flex flex-row items-center gap-4 text-left transition-all focus:outline-none ${
                     selectedTemplate === tpl.id
                       ? "border-[#1f5c3a] bg-[#1f5c3a]/5 shadow-sm"
                       : "border-stone-200 bg-white hover:border-[#1f5c3a]/40"
                   }`}
                 >
-                  <div className="w-full h-28">{tpl.svg}</div>
-                  <div className="text-center">
+                  <div className="w-10 h-14 shrink-0">{tpl.svg}</div>
+                  <div>
                     <p className={`text-sm font-semibold ${selectedTemplate === tpl.id ? "text-[#1f5c3a]" : "text-[#1a1a1a]"}`}>
                       {tpl.label}
                     </p>
@@ -733,14 +749,67 @@ export default function CreatePage() {
               ))}
             </div>
 
+            {/* Mobile-only generate button */}
+            <div className="lg:hidden mt-auto pt-6">
+              {planCheck && !planCheck.allowed && !isCreator && (
+                <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800 flex items-center justify-between gap-2">
+                  <span>{planCheck.reason === "NO_PLAN" ? "You need a paid plan." : `All ${planCheck.allotted} credits used.`}</span>
+                  <Link href="/pricing" className="font-semibold underline whitespace-nowrap">{planCheck.reason === "NO_PLAN" ? "View plans →" : "Buy more →"}</Link>
+                </div>
+              )}
+              <Button size="lg" onClick={handleClickGenerate} disabled={!canGenerate} className="w-full text-base py-6 rounded-xl font-semibold">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate my resume →
+              </Button>
+            </div>
+          </div>
+
+          {/* Right: compact profile summary + Generate CTA */}
+          <div className="hidden lg:flex flex-col w-[400px] border-l border-[#e8e0d0] bg-white/40 overflow-y-auto p-7">
+            <p className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-4">Generating for</p>
+
+            <div className="rounded-xl bg-white border border-stone-200 p-4 mb-3">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="w-4 h-4 text-[#1f5c3a] shrink-0" />
+                <p className="text-sm font-semibold text-[#1a1a1a]">{profile?.full_name}</p>
+              </div>
+              <p className="text-xs text-[#6b6b6b]">{profile?.email}</p>
+              {(profile?.target_roles?.length ?? 0) > 0 && (
+                <p className="text-xs text-[#6b6b6b] mt-0.5">
+                  Targeting: {profile!.target_roles!.slice(0, 2).join(", ")}
+                </p>
+              )}
+              {planCheck?.allowed && (
+                <p className="text-xs text-[#1f5c3a] font-medium mt-1">
+                  {planCheck.remaining} credit{planCheck.remaining !== 1 ? "s" : ""} remaining
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl bg-[#f7f3ea] border border-stone-200 p-4 mb-3">
+              <p className="text-xs font-semibold text-[#1a1a1a] mb-1">Job Description</p>
+              <p className="text-xs text-[#6b6b6b]">{jdText.length} characters</p>
+              {jdAnalysis.detectedRole && (
+                <p className="text-xs text-[#1f5c3a] mt-0.5">📌 {jdAnalysis.detectedRole}</p>
+              )}
+              {jdAnalysis.keywords.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {jdAnalysis.keywords.slice(0, 5).map((kw) => (
+                    <span key={kw} className="text-xs bg-white border border-[#1f5c3a]/25 text-[#1f5c3a] px-1.5 py-0.5 rounded-full">
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1" />
+
             {planCheck && !planCheck.allowed && !isCreator && (
-              <div className="mb-5 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
-                <span>
-                  {planCheck.reason === "NO_PLAN"
-                    ? "You need a paid plan to generate."
-                    : `All ${planCheck.allotted} credits used.`}
-                </span>
-                <Link href="/pricing" className="font-semibold underline underline-offset-2 whitespace-nowrap">
+              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
+                <span>{planCheck.reason === "NO_PLAN" ? "You need a paid plan to generate." : `All ${planCheck.allotted} credits used.`}</span>
+                {" "}
+                <Link href="/pricing" className="font-semibold underline">
                   {planCheck.reason === "NO_PLAN" ? "View plans →" : "Buy more →"}
                 </Link>
               </div>

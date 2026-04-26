@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -10,6 +10,7 @@ type ProfileBasics = { full_name: string | null; email: string | null } | null;
 
 export function AppHeader() {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileBasics>(null);
   const [missingItems, setMissingItems] = useState<string[]>([]);
@@ -99,42 +100,44 @@ export function AppHeader() {
               <Link href="/profile" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">
                 Profile
               </Link>
-              <div className="relative" ref={dropdownRef}>
-                <Button size="sm" onClick={handleGenerate}>
-                  Generate Resume →
-                </Button>
-                {showMissing && (
-                  <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-stone-200 rounded-xl shadow-lg p-4 z-20">
-                    <p className="text-xs font-semibold text-[#1a1a1a] mb-2">
-                      Complete these before generating:
-                    </p>
-                    <ul className="flex flex-col gap-1.5 mb-3">
-                      {missingItems.map((item) => (
-                        <li key={item} className="text-xs text-[#6b6b6b] flex items-start gap-1.5">
-                          <span className="text-amber-500 shrink-0 mt-px">•</span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="flex gap-3">
-                      <Link
-                        href="/profile"
-                        className="text-xs text-[#1f5c3a] font-medium hover:underline"
-                        onClick={() => setShowMissing(false)}
-                      >
-                        Edit profile →
-                      </Link>
-                      <Link
-                        href="/create"
-                        className="text-xs text-[#1f5c3a] font-medium hover:underline"
-                        onClick={() => setShowMissing(false)}
-                      >
-                        Go to Generate →
-                      </Link>
+              {pathname !== "/create" && (
+                <div className="relative" ref={dropdownRef}>
+                  <Button size="sm" onClick={handleGenerate}>
+                    Generate Resume →
+                  </Button>
+                  {showMissing && (
+                    <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-stone-200 rounded-xl shadow-lg p-4 z-20">
+                      <p className="text-xs font-semibold text-[#1a1a1a] mb-2">
+                        Complete these before generating:
+                      </p>
+                      <ul className="flex flex-col gap-1.5 mb-3">
+                        {missingItems.map((item) => (
+                          <li key={item} className="text-xs text-[#6b6b6b] flex items-start gap-1.5">
+                            <span className="text-amber-500 shrink-0 mt-px">•</span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex gap-3">
+                        <Link
+                          href="/profile"
+                          className="text-xs text-[#1f5c3a] font-medium hover:underline"
+                          onClick={() => setShowMissing(false)}
+                        >
+                          Edit profile →
+                        </Link>
+                        <Link
+                          href="/create"
+                          className="text-xs text-[#1f5c3a] font-medium hover:underline"
+                          onClick={() => setShowMissing(false)}
+                        >
+                          Go to Generate →
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
               <Button variant="ghost" size="sm" onClick={signOut} className="text-sm">
                 Sign out
               </Button>
