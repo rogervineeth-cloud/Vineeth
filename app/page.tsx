@@ -1,7 +1,7 @@
-"use client";
 import Link from "next/link";
 import { Upload, FileText, Download, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
 
 const plans = [
   {
@@ -61,7 +61,18 @@ const faqs = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("resumes")
+    .select("*", { count: "exact", head: true });
+
+  const resumeCount = count ?? 0;
+  const trustBadge =
+    resumeCount < 50
+      ? "✦ Built for Indian job seekers"
+      : `✦ ${Math.round(resumeCount / 10) * 10} resumes generated`;
+
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
       {/* Header */}
@@ -93,7 +104,8 @@ export default function Home() {
             See pricing ↓
           </a>
         </div>
-        <p className="text-xs text-[#6b6b6b] mt-4">Free preview forever · Download from ₹100</p>
+        <p className="text-xs text-[#1f5c3a] font-medium mt-5">{trustBadge}</p>
+        <p className="text-xs text-[#6b6b6b] mt-1">Free preview forever · Download from ₹100</p>
       </section>
 
       {/* How It Works */}
