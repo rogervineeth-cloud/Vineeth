@@ -222,7 +222,7 @@ const WAIT_TIPS = [
   "Tip: Action verbs like 'Led', 'Built', 'Scaled' get 23% more recruiter attention.",
   "Indian hiring managers prefer concise 1-page resumes. Yours will fit perfectly.",
   "87% of Indian hiring managers prefer resumes that mirror the JD language.",
-  "Your resume will be optimised for Naukri, LinkedIn Jobs, and company ATSes.",
+  "Your resume will be optimised for LinkedIn Jobs, Naukri, and company ATSes.",
 ];
 
 // ââ Component âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
@@ -539,7 +539,7 @@ export default function CreatePage() {
               )}
             </div>
             <p className="text-sm text-[#6b6b6b] mb-3">
-              Copy from Naukri, LinkedIn Jobs, or any company careers page.
+              Copy from LinkedIn Jobs, Naukri, or any company careers page.
             </p>
 
             <Textarea
@@ -687,9 +687,15 @@ export default function CreatePage() {
 
           {/* Template picker */}
           <div className="px-5 pt-4 pb-3 border-b border-[#e8e0d0] shrink-0">
-            <p className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-2.5">
-              Template
-            </p>
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide">
+                Template
+              </p>
+              <div className="flex gap-1.5">
+                <span className="text-[10px] rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-2 py-0.5">✦ LinkedIn-ready</span>
+                <span className="text-[10px] rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-2 py-0.5">✦ Naukri-ready</span>
+              </div>
+            </div>
             <div className="flex gap-2">
               {TEMPLATES.map((tpl) => (
                 <button

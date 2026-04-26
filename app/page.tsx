@@ -104,7 +104,11 @@ export default async function Home() {
             See pricing ↓
           </a>
         </div>
-        <p className="text-xs text-[#1f5c3a] font-medium mt-5">{trustBadge}</p>
+        <div className="flex justify-center gap-2 mt-5 flex-wrap">
+          <span className="text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">✦ Optimized for LinkedIn</span>
+          <span className="text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">✦ Optimized for Naukri</span>
+        </div>
+        <p className="text-xs text-[#1f5c3a] font-medium mt-3">{trustBadge}</p>
         <p className="text-xs text-[#6b6b6b] mt-1">Free preview forever · Download from ₹100</p>
       </section>
 
@@ -127,7 +131,7 @@ export default async function Home() {
             </div>
             <h3 className="font-medium text-[#1a1a1a]">Paste the job description</h3>
             <p className="text-sm text-[#6b6b6b]">
-              Copy the full JD from Naukri, LinkedIn Jobs, or any company website.
+              Copy the full JD from LinkedIn Jobs, Naukri, or any company website.
             </p>
           </div>
           <div className="flex flex-col items-center text-center gap-4">
