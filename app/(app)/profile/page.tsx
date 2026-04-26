@@ -93,7 +93,7 @@ function HorizontalStepper({
   return (
     <>
       {/* Desktop stepper */}
-      <div className="hidden">
+      <div className="hidden sm:flex items-start justify-between relative mb-10">
         <div
           className="absolute top-4 h-px bg-stone-200 z-0"
           style={{ left: "calc(10% + 1rem)", right: "calc(10% + 1rem)" }}
