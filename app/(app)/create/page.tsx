@@ -518,8 +518,8 @@ export default function CreatePage() {
 
       {/* STEP 1 — Job Description */}
       {flowStep === 1 && (
-        <div className="flex-1 flex overflow-hidden min-h-0">
-          <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-6 lg:p-8 max-w-2xl">
+        <div className="flex-1 flex overflow-hidden min-h-0 max-w-7xl mx-auto w-full">
+          <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-6 lg:p-8">
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="font-serif italic text-2xl text-[#1a1a1a]">Paste the job description</h2>
@@ -768,8 +768,8 @@ export default function CreatePage() {
 
       {/* STEP 3 — Your Resume */}
       {flowStep === 3 && (
-        <div className="flex-1 flex flex-col items-center py-10 px-6">
-          <div className="w-full max-w-md">
+        <div className="flex-1 flex flex-col items-center justify-center py-10 px-6">
+          <div className="w-full max-w-lg">
             {generating ? (
               <>
                 <div className="mb-6">
