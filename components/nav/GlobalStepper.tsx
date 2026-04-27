@@ -94,7 +94,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
       <div className="max-w-5xl mx-auto px-4 py-3">
         <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto">
           {STEPS.map((step, i) => {
-            const isCompleted = completion[step.key];
+            const isCompleted = i < active && completion[step.key];
             const isActive = i === active;
             const lastResumeHref = step.key === "resume" && latestResumeId ? "/preview/" + latestResumeId : null;
             const baseHref = step.route + (step.subStep ? "?step=" + step.subStep : "");
