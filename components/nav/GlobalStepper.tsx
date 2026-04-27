@@ -103,7 +103,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
             const clickable = isCompleted && !isActive;
             const circle = (
               <div className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-all shrink-0" style={{ background: isCompleted || isActive ? "#1f5c3a" : "transparent", border: "2px solid " + (isCompleted || isActive ? "#1f5c3a" : "#9ca3af"), color: isCompleted || isActive ? "white" : "#9ca3af" }} aria-current={isActive ? "step" : undefined}>
-                {isCompleted && !isActive ? "â" : i + 1}
+                {isCompleted && !isActive ? "✓" : i + 1}
               </div>
             );
             const label = (
