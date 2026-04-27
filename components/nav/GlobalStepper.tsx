@@ -7,11 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 
 const STEPS = [
   { key: "basics", label: "Basics", route: "/profile", subStep: "basics" },
-  { key: "roles", label: "Roles", route: "/profile", subStep: "roles" },
-  { key: "jd", label: "Job Description", route: "/create", subStep: "" },
   { key: "experience", label: "Experience", route: "/profile", subStep: "experience" },
   { key: "education", label: "Education", route: "/profile", subStep: "education" },
   { key: "projects", label: "Projects", route: "/profile", subStep: "projects" },
+  { key: "roles", label: "Roles", route: "/profile", subStep: "roles" },
+  { key: "jd", label: "Job Description", route: "/create", subStep: "" },
   { key: "template", label: "Template", route: "/create", subStep: "" },
   { key: "resume", label: "Resume", route: "/preview", subStep: "" },
 ] as const;
@@ -20,9 +20,9 @@ type StepKey = typeof STEPS[number]["key"];
 
 function getActiveStep(pathname: string, stepParam: string | null): number {
   if (pathname.startsWith("/preview")) return 7;
-  if (pathname.startsWith("/create")) return 2;
+  if (pathname.startsWith("/create")) return 5;
   if (pathname.startsWith("/profile")) {
-    const map: Record<string, number> = { basics: 0, roles: 1, experience: 3, education: 4, projects: 5 };
+    const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4 };
     if (stepParam && stepParam in map) return map[stepParam];
     return 0;
   }
@@ -72,10 +72,10 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
   }, [active, pathname, latestResumeId]);
 
   // Forward-only enforcement: if user is at step N but a prior step is incomplete, redirect to first incomplete.
-  // Skip enforcement on Basics/Roles (steps 0-1) so users can edit them freely.
+  // Skip enforcement on Basics (step 0) so users can edit it freely.
   useEffect(() => {
-    if (!loaded || active < 2) return;
-    const order: StepKey[] = ["basics", "roles", "jd", "experience", "education", "projects", "template", "resume"];
+    if (!loaded || active < 1) return;
+    const order: StepKey[] = ["basics", "experience", "education", "projects", "roles", "jd", "template", "resume"];
     for (let i = 0; i < active; i++) {
       const key = order[i];
       if (!completion[key]) {
@@ -103,7 +103,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
             const clickable = isCompleted && !isActive;
             const circle = (
               <div className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-all shrink-0" style={{ background: isCompleted || isActive ? "#1f5c3a" : "transparent", border: "2px solid " + (isCompleted || isActive ? "#1f5c3a" : "#9ca3af"), color: isCompleted || isActive ? "white" : "#9ca3af" }} aria-current={isActive ? "step" : undefined}>
-                {isCompleted && !isActive ? "✓" : i + 1}
+                {isCompleted && !isActive ? "â" : i + 1}
               </div>
             );
             const label = (
