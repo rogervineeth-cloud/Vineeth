@@ -230,7 +230,7 @@ export default function DashboardPage() {
 
       {resumes.length > 0 && (
         <Link href="/create"
-          className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-[#1f5c3a] text-white shadow-lg flex items-center justify-center hover:bg-[#174d30] transition-colors z-20">
+          className="hidden w-14 h-14 rounded-full bg-[#1f5c3a] text-white shadow-lg flex items-center justify-center hover:bg-[#174d30] transition-colors z-20">
           <Plus className="w-6 h-6" />
         </Link>
       )}
