@@ -47,12 +47,20 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || cancelled) { setLoaded(true); return; }
-        const { data: p } = await supabase.from("profiles").select("full_name, email, target_roles, linkedin_data").eq("user_id", user.id).single();
+        const { data: p } = await supabase.from("profiles").select("full_name, email, target_roles, linkedin_data, profile_data").eq("user_id", user.id).single();
         if (cancelled) return;
         const ld = (p?.linkedin_data ?? {}) as Record<string, unknown>;
-        const exp = Array.isArray(ld.experience) ? ld.experience : [];
-        const edu = Array.isArray(ld.education) ? ld.education : [];
-        const projects = Array.isArray(ld.projects) ? ld.projects : [];
+        const pd = (p?.profile_data ?? {}) as Record<string, unknown>;
+        // Prefer profile_data (manual form) over linkedin_data (older imports)
+        const exp = (Array.isArray(pd.experience) && pd.experience.length > 0)
+          ? pd.experience
+          : (Array.isArray(ld.experience) ? ld.experience : []);
+        const edu = (Array.isArray(pd.education) && pd.education.length > 0)
+          ? pd.education
+          : (Array.isArray(ld.education) ? ld.education : []);
+        const projects = (Array.isArray(pd.projects) && pd.projects.length > 0)
+          ? pd.projects
+          : (Array.isArray(ld.projects) ? ld.projects : []);
         const jd = typeof window !== "undefined" ? (localStorage.getItem("ndrs_jd") ?? "") : "";
         const template = typeof window !== "undefined" ? (localStorage.getItem("ndrs_template") ?? "") : "";
         setCompletion({
