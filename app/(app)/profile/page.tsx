@@ -12,6 +12,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
@@ -147,7 +148,7 @@ function HorizontalStepper({
   );
 }
 
-function StepNav({ current, onBack, onNext }: { current: number; onBack: () => void; onNext: () => void; }) {
+function StepNav({ current, onBack, onNext, nextDisabled }: { current: number; onBack: () => void; onNext: () => void; nextDisabled?: boolean; }) {
   const isReview = current === STEPS.length - 1;
   return (
     <div className="flex items-center justify-between mt-8 pt-6 border-t border-stone-200">
@@ -155,7 +156,7 @@ function StepNav({ current, onBack, onNext }: { current: number; onBack: () => v
         <ChevronLeft className="w-4 h-4" />Back
       </Button>
       {!isReview && (
-        <Button onClick={onNext} className="gap-1.5">Next<ChevronRight className="w-4 h-4" /></Button>
+        <Button onClick={onNext} disabled={nextDisabled} className="gap-1.5">Next<ChevronRight className="w-4 h-4" /></Button>
       )}
     </div>
   );
@@ -194,6 +195,7 @@ function ProfilePageInner() {
   const [issueResumeId, setIssueResumeId] = useState("");
   const [issueDesc, setIssueDesc] = useState("");
   const [submittingIssue, setSubmittingIssue] = useState(false);
+  const [suggestingFor, setSuggestingFor] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -249,17 +251,36 @@ function ProfilePageInner() {
     scheduleSave();
   }, [loaded, basics, targetRoles, summary, experience, skills, education, projects, scheduleSave]);
 
-  const sec1Done = !!(basics.full_name.trim() && basics.email.trim());
+  const sec1Done = !!(
+    basics.full_name.trim() &&
+    basics.email.trim() &&
+    basics.phone.trim() &&
+    basics.current_city.trim()
+  );
   const sec2Done = targetRoles.length > 0;
   const sec3Done = experience.some((e) => e.company.trim());
   const sec4Done = education.some((e) => e.institution.trim());
   const sec5Done = projects.some((p) => p.name.trim());
   const completed = [sec1Done, sec2Done, sec3Done, sec4Done, sec5Done, true];
 
+  const nextDisabled =
+    (currentStep === 0 && !sec1Done) ||
+    (currentStep === 1 && !sec2Done) ||
+    (currentStep === 3 && !sec4Done);
+
   function handleNext() {
-    if (currentStep === 0 && !sec1Done) toast.info("Add your name and email — they appear on every resume.");
-    else if (currentStep === 1 && !sec2Done) toast.info("Pick at least one target role so the AI knows what to tailor for.");
-    else if (currentStep === 3 && !sec4Done) toast.info("Add at least one education entry.");
+    if (currentStep === 0 && !sec1Done) {
+      toast.info("Fill name, email, phone, and current city — all four are required.");
+      return;
+    }
+    if (currentStep === 1 && !sec2Done) {
+      toast.info("Pick at least one target role so the AI knows what to tailor for.");
+      return;
+    }
+    if (currentStep === 3 && !sec4Done) {
+      toast.info("Add at least one education entry.");
+      return;
+    }
     if (currentStep < STEPS.length - 1) setCurrentStep((s) => s + 1);
   }
   function handleBack() { if (currentStep > 0) setCurrentStep((s) => s - 1); }
@@ -276,6 +297,48 @@ function ProfilePageInner() {
   function addExp() { setExperience((prev) => [...prev, emptyExp()]); }
   function removeExp(id: string) { setExperience((prev) => prev.filter((e) => e.id !== id)); }
   function updateBullet(expId: string, bi: number, val: string) { setExperience((prev) => prev.map((e) => { if (e.id !== expId) return e; const bullets = [...e.bullets]; bullets[bi] = val; return { ...e, bullets }; })); }
+
+  async function suggestBulletsFromJd(expId: string) {
+    const jd = typeof window !== "undefined" ? (localStorage.getItem("ndrs_jd") ?? "") : "";
+    if (jd.trim().length < 100) {
+      toast.error("Paste a job description on /create first — we use it to draft bullets.");
+      return;
+    }
+    setSuggestingFor(expId);
+    try {
+      const res = await fetch("/api/suggest-experience", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jd_text: jd,
+          target_roles: targetRoles,
+          existing_experience: experience.map((e) => ({ company: e.company, role: e.role, duration: e.duration })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Couldn't draft suggestions. Try again.");
+        return;
+      }
+      const suggestions: string[] = Array.isArray(data.bullets) ? data.bullets : [];
+      if (suggestions.length === 0) {
+        toast.error("No suggestions came back. Try again.");
+        return;
+      }
+      setExperience((prev) =>
+        prev.map((e) => {
+          if (e.id !== expId) return e;
+          const existing = e.bullets.filter((b) => b.trim());
+          return { ...e, bullets: [...existing, ...suggestions] };
+        })
+      );
+      toast.success(`Added ${suggestions.length} draft bullets — edit them with your real numbers.`);
+    } catch {
+      toast.error("Couldn't reach the suggestion service.");
+    } finally {
+      setSuggestingFor(null);
+    }
+  }
   function addBullet(expId: string) { setExperience((prev) => prev.map((e) => (e.id === expId ? { ...e, bullets: [...e.bullets, ""] } : e))); }
   function removeBullet(expId: string, bi: number) { setExperience((prev) => prev.map((e) => { if (e.id !== expId) return e; const bullets = e.bullets.filter((_, i) => i !== bi); return { ...e, bullets: bullets.length ? bullets : [""] }; })); }
   function moveBullet(expId: string, bi: number, dir: -1 | 1) { setExperience((prev) => prev.map((e) => { if (e.id !== expId) return e; const bullets = [...e.bullets]; const ni = bi + dir; if (ni < 0 || ni >= bullets.length) return e; [bullets[bi], bullets[ni]] = [bullets[ni], bullets[bi]]; return { ...e, bullets }; })); }
@@ -324,8 +387,8 @@ function ProfilePageInner() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Full name *"><Input value={basics.full_name} onChange={(e) => setBasics((b) => ({ ...b, full_name: e.target.value }))} placeholder="Your full name" /></Field>
               <Field label="Email *"><Input type="email" value={basics.email} onChange={(e) => setBasics((b) => ({ ...b, email: e.target.value }))} placeholder="you@example.com" /></Field>
-              <Field label="Phone"><Input value={basics.phone} onChange={(e) => setBasics((b) => ({ ...b, phone: e.target.value }))} placeholder="+91 98765 43210" /></Field>
-              <Field label="Current city"><Input value={basics.current_city} onChange={(e) => setBasics((b) => ({ ...b, current_city: e.target.value }))} placeholder="e.g. Kochi" /></Field>
+              <Field label="Phone *"><Input value={basics.phone} onChange={(e) => setBasics((b) => ({ ...b, phone: e.target.value }))} placeholder="+91 98765 43210" /></Field>
+              <Field label="Current city *"><Input value={basics.current_city} onChange={(e) => setBasics((b) => ({ ...b, current_city: e.target.value }))} placeholder="e.g. Kochi" /></Field>
               <Field label="Graduation year"><Input value={basics.graduation_year} onChange={(e) => setBasics((b) => ({ ...b, graduation_year: e.target.value }))} inputMode="numeric" placeholder="e.g. 2022" /></Field>
             </div>
             <div>
@@ -379,7 +442,19 @@ function ProfilePageInner() {
                         <button type="button" onClick={() => removeBullet(exp.id, bi)} className="text-[#6b6b6b] hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
                       </div>
                     ))}
-                    <button type="button" onClick={() => addBullet(exp.id)} className="text-xs text-[#1f5c3a] flex items-center gap-1 hover:underline mt-1 w-fit"><Plus className="w-3 h-3" />Add bullet</button>
+                    <div className="flex items-center gap-4 mt-1 flex-wrap">
+                      <button type="button" onClick={() => addBullet(exp.id)} className="text-xs text-[#1f5c3a] flex items-center gap-1 hover:underline w-fit"><Plus className="w-3 h-3" />Add bullet</button>
+                      <button
+                        type="button"
+                        onClick={() => suggestBulletsFromJd(exp.id)}
+                        disabled={suggestingFor === exp.id}
+                        className="text-xs text-[#1f5c3a] flex items-center gap-1 hover:underline w-fit disabled:opacity-60 disabled:no-underline"
+                        title="Drafts JD-tailored starter bullets you can edit with your own numbers"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        {suggestingFor === exp.id ? "Drafting…" : "Suggest bullets from JD"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -557,16 +632,11 @@ function ProfilePageInner() {
     <div className="min-h-screen bg-[#f7f3ea]">
       <AppHeader />
       <div className="max-w-3xl mx-auto px-6 py-10">
-        <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-          <div>
-            <h1 className="font-serif italic text-3xl text-[#1a1a1a]">Your profile</h1>
-            <p className="text-sm text-[#6b6b6b] mt-1">Changes save automatically.</p>
+        {saveLabel && (
+          <div className="flex justify-end mb-3">
+            <span className={`text-xs font-medium ${saveStatus === "error" ? "text-red-500" : "text-[#1f5c3a]"}`}>{saveLabel}</span>
           </div>
-          <div className="flex items-center gap-3">
-            {saveLabel && <span className={`text-xs font-medium ${saveStatus === "error" ? "text-red-500" : "text-[#1f5c3a]"}`}>{saveLabel}</span>}
-            <Button asChild><Link href="/create"></Link></Button>
-          </div>
-        </div>
+        )}
         {fromPreview && (
           <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
             <strong>Updating your profile?</strong> Make your changes here, then{" "}
@@ -621,7 +691,7 @@ function ProfilePageInner() {
             </p>
           </div>
           {renderStep()}
-          <StepNav current={currentStep} onBack={handleBack} onNext={handleNext} />
+          <StepNav current={currentStep} onBack={handleBack} onNext={handleNext} nextDisabled={nextDisabled} />
         </div>
         <div className="hidden rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>

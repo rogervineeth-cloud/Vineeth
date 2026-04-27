@@ -8,10 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 const STEPS = [
   { key: "basics", label: "Basics", route: "/profile", subStep: "basics" },
   { key: "roles", label: "Roles", route: "/profile", subStep: "roles" },
+  { key: "jd", label: "Job Description", route: "/create", subStep: "" },
   { key: "experience", label: "Experience", route: "/profile", subStep: "experience" },
   { key: "education", label: "Education", route: "/profile", subStep: "education" },
   { key: "projects", label: "Projects", route: "/profile", subStep: "projects" },
-  { key: "jd", label: "Job Description", route: "/create", subStep: "" },
   { key: "template", label: "Template", route: "/create", subStep: "" },
   { key: "resume", label: "Resume", route: "/preview", subStep: "" },
 ] as const;
@@ -20,9 +20,9 @@ type StepKey = typeof STEPS[number]["key"];
 
 function getActiveStep(pathname: string, stepParam: string | null): number {
   if (pathname.startsWith("/preview")) return 7;
-  if (pathname.startsWith("/create")) return 5;
+  if (pathname.startsWith("/create")) return 2;
   if (pathname.startsWith("/profile")) {
-    const map: Record<string, number> = { basics: 0, roles: 1, experience: 2, education: 3, projects: 4 };
+    const map: Record<string, number> = { basics: 0, roles: 1, experience: 3, education: 4, projects: 5 };
     if (stepParam && stepParam in map) return map[stepParam];
     return 0;
   }
@@ -71,10 +71,11 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
     return () => { cancelled = true; };
   }, [active, pathname, latestResumeId]);
 
-  // Forward-only enforcement: if user is at step N but step N-1 is incomplete, redirect to first incomplete
+  // Forward-only enforcement: if user is at step N but a prior step is incomplete, redirect to first incomplete.
+  // Skip enforcement on Basics/Roles (steps 0-1) so users can edit them freely.
   useEffect(() => {
-    if (!loaded || active < 5) return;
-    const order: StepKey[] = ["basics", "roles", "experience", "education", "projects", "jd", "template", "resume"];
+    if (!loaded || active < 2) return;
+    const order: StepKey[] = ["basics", "roles", "jd", "experience", "education", "projects", "template", "resume"];
     for (let i = 0; i < active; i++) {
       const key = order[i];
       if (!completion[key]) {
