@@ -86,7 +86,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
     const order: StepKey[] = ["basics", "experience", "education", "projects", "roles", "jd", "template", "resume"];
     for (let i = 0; i < active; i++) {
       const key = order[i];
-      if (!completion[key]) {
+      if (key === "basics" && !completion[key]) {
         const target = STEPS[i];
         const url = target.subStep ? target.route + "?step=" + target.subStep : target.route;
         router.replace(url);
