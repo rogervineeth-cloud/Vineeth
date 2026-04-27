@@ -194,7 +194,7 @@ function ProfilePageInner() {
       const clamped = Math.max(0, Math.min(STEP_KEYS.length - 1, target));
       const url = new URL(window.location.href);
       url.searchParams.set("step", STEP_KEYS[clamped] || "basics");
-      router.push(url.pathname + url.search);
+      window.history.pushState({}, "", url.pathname + url.search); window.dispatchEvent(new PopStateEvent("popstate"));
     },
     [currentStep, router, STEP_KEYS]
   );
