@@ -731,7 +731,7 @@ export default function CreatePage() {
                 <button
                   key={tpl.id}
                   type="button"
-                  onClick={() => setSelectedTemplate(tpl.id)}
+                  onClick={() => { setSelectedTemplate(tpl.id); if (typeof window !== "undefined") localStorage.setItem("ndrs_template", tpl.id); }}
                   className={`rounded-xl border-2 p-4 flex flex-row items-center gap-4 text-left transition-all focus:outline-none ${
                     selectedTemplate === tpl.id
                       ? "border-[#1f5c3a] bg-[#1f5c3a]/5 shadow-sm"
