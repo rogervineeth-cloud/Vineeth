@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-// ââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Types ─────────────────────────────────────────────────────────────────
 type ExpEntry = {
   id: string;
   company: string;
@@ -53,7 +53,7 @@ type BasicInfo = {
 };
 type Resume = { id: string; tailored_role: string; created_at: string };
 
-// ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Helpers ───────────────────────────────────────────────────────────────
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -67,10 +67,10 @@ function emptyProj(): ProjEntry {
   return { id: uid(), name: "", description: "", tech: [] };
 }
 
-// ââ Save indicator ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Save indicator ────────────────────────────────────────────────────────
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-// ââ Stepper config ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Stepper config ────────────────────────────────────────────────────────
 const STEPS = [
   { label: "Basics", required: true },
   { label: "Experience", required: false },
@@ -80,7 +80,7 @@ const STEPS = [
   { label: "Review", required: false },
 ] as const;
 
-// ââ Horizontal stepper UI âââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Horizontal stepper UI ─────────────────────────────────────────────────
 function HorizontalStepper({
   current,
   completed,
@@ -139,7 +139,7 @@ function HorizontalStepper({
           ))}
         </div>
         <span className="text-sm text-[#6b6b6b]">
-          Step <span className="font-semibold text-[#1a1a1a]">{current + 1}</span> of 6 â{" "}
+          Step <span className="font-semibold text-[#1a1a1a]">{current + 1}</span> of 6 —{" "}
           <span className="font-semibold text-[#1a1a1a]">{STEPS[current].label}</span>
         </span>
       </div>
@@ -176,7 +176,29 @@ function ProfilePageInner() {
   const fromPreview = searchParams.get("from") === "preview";
   const fromResumeId = searchParams.get("resumeId") ?? "";
 
-  const STEP_KEYS = ["basics", "experience", "education", "projects", "roles", "review"];  const [currentStep, setCurrentStep] = useState(() => { if (typeof window === "undefined") return 0; const p = new URLSearchParams(window.location.search).get("step"); const i = STEP_KEYS.indexOf(p || ""); return i >= 0 ? i : 0; });  useEffect(() => { if (typeof window === "undefined") return; const url = new URL(window.location.href); url.searchParams.set("step", STEP_KEYS[currentStep] || "basics"); window.history.replaceState({}, "", url.toString()); }, [currentStep]);
+  const STEP_KEYS = useMemo(() => ["basics", "experience", "education", "projects", "roles", "review"], []);
+
+  // currentStep is derived from the URL ?step= param.  Single source of truth
+  // means GlobalStepper's router.replace and our own setCurrentStep both flow
+  // through the same channel, so the form heading and the stepper highlight
+  // can never disagree.
+  const stepParam = searchParams.get("step");
+  const currentStep = (() => {
+    const i = STEP_KEYS.indexOf(stepParam || "");
+    return i >= 0 ? i : 0;
+  })();
+
+  const setCurrentStep = useCallback(
+    (next: number | ((prev: number) => number)) => {
+      const target = typeof next === "function" ? next(currentStep) : next;
+      const clamped = Math.max(0, Math.min(STEP_KEYS.length - 1, target));
+      const url = new URL(window.location.href);
+      url.searchParams.set("step", STEP_KEYS[clamped] || "basics");
+      router.replace(url.pathname + url.search, { scroll: false });
+    },
+    [currentStep, router, STEP_KEYS]
+  );
+
   const [userId, setUserId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -268,7 +290,7 @@ function ProfilePageInner() {
 
   function handleNext() {
     if (currentStep === 0 && !sec1Done) {
-      toast.info("Fill name, email, phone, and current city â all four are required.");
+      toast.info("Fill name, email, phone, and current city — all four are required.");
       return;
     }
     if (currentStep === 2 && !sec4Done) {
@@ -321,17 +343,17 @@ function ProfilePageInner() {
     const { error } = await supabase.from("generation_issues").insert({ user_id: userId, resume_id: issueResumeId, description: issueDesc.trim() });
     setSubmittingIssue(false);
     if (error) { toast.error("Couldn't submit issue: " + error.message); return; }
-    toast.success("Issue reported â we'll review and may refund your credit.");
+    toast.success("Issue reported — we'll review and may refund your credit.");
     setIssueResumeId(""); setIssueDesc("");
   }
 
-  const saveLabel = saveStatus === "saving" ? "Savingâ¦" : saveStatus === "saved" ? "Saved â" : saveStatus === "error" ? "Save failed" : "";
+  const saveLabel = saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved ✓" : saveStatus === "error" ? "Save failed" : "";
 
   if (!loaded) {
     return (
       <div className="min-h-screen bg-[#f7f3ea]">
         <AppHeader />
-        <div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profileâ¦</p></div>
+        <div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profile…</p></div>
       </div>
     );
   }
@@ -357,7 +379,7 @@ function ProfilePageInner() {
       case 1:
         return (
           <div>
-            <p className="text-xs text-[#6b6b6b] mb-4">Add your work history. Start bullets with a strong action verb (Led, Built, Deliveredâ¦).</p>
+            <p className="text-xs text-[#6b6b6b] mb-4">Add your work history. Start bullets with a strong action verb (Led, Built, Delivered…).</p>
             <div className="flex flex-col gap-4">
               {experience.map((exp, ei) => (
                 <div key={exp.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
@@ -368,7 +390,7 @@ function ProfilePageInner() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input value={exp.company} onChange={(e) => updateExp(exp.id, "company", e.target.value)} placeholder="Company name" className="text-sm" />
                     <Input value={exp.role} onChange={(e) => updateExp(exp.id, "role", e.target.value)} placeholder="Your role / title" className="text-sm" />
-                    <Input value={exp.duration} onChange={(e) => updateExp(exp.id, "duration", e.target.value)} placeholder="Duration e.g. Jan 2022 â Mar 2024" className="text-sm" />
+                    <Input value={exp.duration} onChange={(e) => updateExp(exp.id, "duration", e.target.value)} placeholder="Duration e.g. Jan 2022 – Mar 2024" className="text-sm" />
                     <Input value={exp.location} onChange={(e) => updateExp(exp.id, "location", e.target.value)} placeholder="Location e.g. Bengaluru" className="text-sm" />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -405,7 +427,7 @@ function ProfilePageInner() {
               <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addSkill(skillInput); } }}
                 onBlur={() => { if (skillInput.trim()) addSkill(skillInput); }}
-                placeholder="e.g. React, SQL, Power BI â press Enter to add" className="bg-white text-sm" />
+                placeholder="e.g. React, SQL, Power BI — press Enter to add" className="bg-white text-sm" />
             </div>
           </div>
         );
@@ -422,7 +444,7 @@ function ProfilePageInner() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input value={edu.institution} onChange={(e) => updateEdu(edu.id, "institution", e.target.value)} placeholder="Institution name" className="text-sm" />
                     <Input value={edu.degree} onChange={(e) => updateEdu(edu.id, "degree", e.target.value)} placeholder="Degree e.g. B.Tech Computer Science" className="text-sm" />
-                    <Input value={edu.year} onChange={(e) => updateEdu(edu.id, "year", e.target.value)} placeholder="Year e.g. 2022 or 2020â2024" className="text-sm" />
+                    <Input value={edu.year} onChange={(e) => updateEdu(edu.id, "year", e.target.value)} placeholder="Year e.g. 2022 or 2020–2024" className="text-sm" />
                     <Input value={edu.location} onChange={(e) => updateEdu(edu.id, "location", e.target.value)} placeholder="City / State" className="text-sm" />
                     <Input value={edu.cgpa} onChange={(e) => updateEdu(edu.id, "cgpa", e.target.value)} placeholder="CGPA / % (optional)" className="text-sm" />
                   </div>
@@ -455,17 +477,17 @@ function ProfilePageInner() {
               <div className="mt-8 pt-6 border-t border-stone-200">
                 <details className="group">
                   <summary className="text-xs text-[#6b6b6b] cursor-pointer hover:text-[#1a1a1a] list-none flex items-center gap-1">
-                    <span className="group-open:hidden">â¶</span><span className="hidden group-open:inline">â¼</span> AI got something wrong in a previous resume? Report it
+                    <span className="group-open:hidden">▶</span><span className="hidden group-open:inline">▼</span> AI got something wrong in a previous resume? Report it
                   </summary>
                   <div className="mt-4 flex flex-col gap-3">
                     <select value={issueResumeId} onChange={(e) => setIssueResumeId(e.target.value)} className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#1f5c3a]/40">
-                      <option value="">Select a resumeâ¦</option>
+                      <option value="">Select a resume…</option>
                       {resumes.map((r) => (
-                        <option key={r.id} value={r.id}>{r.tailored_role} â {new Date(r.created_at).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" })}</option>
+                        <option key={r.id} value={r.id}>{r.tailored_role} — {new Date(r.created_at).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" })}</option>
                       ))}
                     </select>
                     <Textarea value={issueDesc} onChange={(e) => setIssueDesc(e.target.value)} placeholder="e.g. The AI added a skill I never mentioned, or experience bullets were completely wrong." className="min-h-[90px] bg-white resize-none text-sm" />
-                    <Button variant="outline" onClick={submitIssue} disabled={submittingIssue} className="w-fit text-sm">{submittingIssue ? "Submittingâ¦" : "Submit issue"}</Button>
+                    <Button variant="outline" onClick={submitIssue} disabled={submittingIssue} className="w-fit text-sm">{submittingIssue ? "Submitting…" : "Submit issue"}</Button>
                   </div>
                 </details>
               </div>
@@ -508,14 +530,14 @@ function ProfilePageInner() {
                 <div className="flex flex-col gap-3">
                   {experience.filter((e) => e.company.trim()).map((exp) => (
                     <div key={exp.id} className="bg-[#f7f3ea] rounded-lg p-3">
-                      <p className="text-sm font-semibold text-[#1a1a1a]">{exp.role}{exp.role && exp.company ? " â " : ""}{exp.company}</p>
+                      <p className="text-sm font-semibold text-[#1a1a1a]">{exp.role}{exp.role && exp.company ? " — " : ""}{exp.company}</p>
                       {(exp.duration || exp.location) && (
-                        <p className="text-xs text-[#6b6b6b] mb-1.5">{exp.duration}{exp.location ? ` Â· ${exp.location}` : ""}</p>
+                        <p className="text-xs text-[#6b6b6b] mb-1.5">{exp.duration}{exp.location ? ` · ${exp.location}` : ""}</p>
                       )}
                       <ul className="flex flex-col gap-1">
                         {exp.bullets.filter((b) => b.trim()).slice(0, 3).map((b, i) => (
                           <li key={i} className="text-xs text-[#6b6b6b] flex gap-1.5">
-                            <span className="text-[#1f5c3a] shrink-0">Â·</span>{b}
+                            <span className="text-[#1f5c3a] shrink-0">·</span>{b}
                           </li>
                         ))}
                       </ul>
@@ -532,7 +554,7 @@ function ProfilePageInner() {
                     <div key={edu.id} className="bg-[#f7f3ea] rounded-lg p-3">
                       <p className="text-sm font-semibold text-[#1a1a1a]">{edu.degree}</p>
                       <p className="text-xs text-[#6b6b6b]">
-                        {edu.institution}{edu.year ? ` Â· ${edu.year}` : ""}{edu.cgpa ? ` Â· ${edu.cgpa}` : ""}
+                        {edu.institution}{edu.year ? ` · ${edu.year}` : ""}{edu.cgpa ? ` · ${edu.cgpa}` : ""}
                       </p>
                     </div>
                   ))}
@@ -559,14 +581,14 @@ function ProfilePageInner() {
             )}
             <div className="flex flex-col gap-2 pt-2 border-t border-stone-100">
               <Button asChild className="w-full">
-                <Link href="/create">Looks good â Create my resume â</Link>
+                <Link href="/create">Looks good — Create my resume →</Link>
               </Button>
               <button
                 type="button"
                 onClick={() => setCurrentStep(0)}
                 className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors text-center py-1"
               >
-                â Edit profile
+                ← Edit profile
               </button>
             </div>
           </div>
@@ -629,12 +651,12 @@ function ProfilePageInner() {
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-[#1a1a1a]">{STEPS[currentStep].label}</h2>
             <p className="text-xs text-[#6b6b6b] mt-0.5">
-              {STEPS[currentStep].required ? "Required" : "Optional"} â{" "}
+              {STEPS[currentStep].required ? "Required" : "Optional"} —{" "}
               {currentStep === 0 && "Your contact details and a quick summary."}
               {currentStep === 1 && "Your work history and skills."}
               {currentStep === 2 && "Your academic background."}
               {currentStep === 3 && "Projects you've built or contributed to."}
-              {currentStep === 4 && "The roles you're targeting â used to tailor every resume."}
+              {currentStep === 4 && "The roles you're targeting — used to tailor every resume."}
               {currentStep === 5 && "Check everything looks right before generating."}
             </p>
           </div>
@@ -655,7 +677,7 @@ function ProfilePageInner() {
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f7f3ea]"><div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profileâ¦</p></div></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f3ea]"><div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profile…</p></div></div>}>
       <ProfilePageInner />
     </Suspense>
   );
