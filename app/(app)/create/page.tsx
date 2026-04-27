@@ -653,7 +653,7 @@ export default function CreatePage() {
                   </div>
                 </div>
 
-                {(profile?.profile_data?.experience?.length ?? 0) > 0 && (
+                {(profile?.profile_data?.experience?.length ?? 0) > 0 && profile?.profile_data?.experience?.some((e) => e?.role || e?.company) && (
                   <div className="rounded-xl bg-white border border-stone-200 p-4">
                     <p className="text-xs font-semibold text-[#1a1a1a] mb-2">Experience</p>
                     {(profile?.profile_data?.experience ?? []).slice(0, 2).map((exp, i) => (
