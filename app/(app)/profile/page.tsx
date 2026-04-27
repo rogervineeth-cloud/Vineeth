@@ -12,7 +12,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
@@ -22,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-// ── Types ─────────────────────────────────────────────────────────────────
+// ââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 type ExpEntry = {
   id: string;
   company: string;
@@ -54,7 +53,7 @@ type BasicInfo = {
 };
 type Resume = { id: string; tailored_role: string; created_at: string };
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+// ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -68,20 +67,20 @@ function emptyProj(): ProjEntry {
   return { id: uid(), name: "", description: "", tech: [] };
 }
 
-// ── Save indicator ────────────────────────────────────────────────────────
+// ââ Save indicator ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-// ── Stepper config ────────────────────────────────────────────────────────
+// ââ Stepper config ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const STEPS = [
   { label: "Basics", required: true },
-  { label: "Roles", required: true },
   { label: "Experience", required: false },
   { label: "Education", required: true },
   { label: "Projects", required: false },
+  { label: "Roles", required: true },
   { label: "Review", required: false },
 ] as const;
 
-// ── Horizontal stepper UI ─────────────────────────────────────────────────
+// ââ Horizontal stepper UI âââââââââââââââââââââââââââââââââââââââââââââââââ
 function HorizontalStepper({
   current,
   completed,
@@ -140,7 +139,7 @@ function HorizontalStepper({
           ))}
         </div>
         <span className="text-sm text-[#6b6b6b]">
-          Step <span className="font-semibold text-[#1a1a1a]">{current + 1}</span> of 6 —{" "}
+          Step <span className="font-semibold text-[#1a1a1a]">{current + 1}</span> of 6 â{" "}
           <span className="font-semibold text-[#1a1a1a]">{STEPS[current].label}</span>
         </span>
       </div>
@@ -177,7 +176,7 @@ function ProfilePageInner() {
   const fromPreview = searchParams.get("from") === "preview";
   const fromResumeId = searchParams.get("resumeId") ?? "";
 
-  const STEP_KEYS = ["basics", "roles", "experience", "education", "projects", "review"];  const [currentStep, setCurrentStep] = useState(() => { if (typeof window === "undefined") return 0; const p = new URLSearchParams(window.location.search).get("step"); const i = STEP_KEYS.indexOf(p || ""); return i >= 0 ? i : 0; });  useEffect(() => { if (typeof window === "undefined") return; const url = new URL(window.location.href); url.searchParams.set("step", STEP_KEYS[currentStep] || "basics"); window.history.replaceState({}, "", url.toString()); }, [currentStep]);
+  const STEP_KEYS = ["basics", "experience", "education", "projects", "roles", "review"];  const [currentStep, setCurrentStep] = useState(() => { if (typeof window === "undefined") return 0; const p = new URLSearchParams(window.location.search).get("step"); const i = STEP_KEYS.indexOf(p || ""); return i >= 0 ? i : 0; });  useEffect(() => { if (typeof window === "undefined") return; const url = new URL(window.location.href); url.searchParams.set("step", STEP_KEYS[currentStep] || "basics"); window.history.replaceState({}, "", url.toString()); }, [currentStep]);
   const [userId, setUserId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -195,7 +194,6 @@ function ProfilePageInner() {
   const [issueResumeId, setIssueResumeId] = useState("");
   const [issueDesc, setIssueDesc] = useState("");
   const [submittingIssue, setSubmittingIssue] = useState(false);
-  const [suggestingFor, setSuggestingFor] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -261,24 +259,24 @@ function ProfilePageInner() {
   const sec3Done = experience.some((e) => e.company.trim());
   const sec4Done = education.some((e) => e.institution.trim());
   const sec5Done = projects.some((p) => p.name.trim());
-  const completed = [sec1Done, sec2Done, sec3Done, sec4Done, sec5Done, true];
+  const completed = [sec1Done, sec3Done, sec4Done, sec5Done, sec2Done, true];
 
   const nextDisabled =
     (currentStep === 0 && !sec1Done) ||
-    (currentStep === 1 && !sec2Done) ||
-    (currentStep === 3 && !sec4Done);
+    (currentStep === 2 && !sec4Done) ||
+    (currentStep === 4 && !sec2Done);
 
   function handleNext() {
     if (currentStep === 0 && !sec1Done) {
-      toast.info("Fill name, email, phone, and current city — all four are required.");
+      toast.info("Fill name, email, phone, and current city â all four are required.");
       return;
     }
-    if (currentStep === 1 && !sec2Done) {
-      toast.info("Pick at least one target role so the AI knows what to tailor for.");
-      return;
-    }
-    if (currentStep === 3 && !sec4Done) {
+    if (currentStep === 2 && !sec4Done) {
       toast.info("Add at least one education entry.");
+      return;
+    }
+    if (currentStep === 4 && !sec2Done) {
+      toast.info("Pick at least one target role so the AI knows what to tailor for.");
       return;
     }
     if (currentStep < STEPS.length - 1) setCurrentStep((s) => s + 1);
@@ -298,47 +296,6 @@ function ProfilePageInner() {
   function removeExp(id: string) { setExperience((prev) => prev.filter((e) => e.id !== id)); }
   function updateBullet(expId: string, bi: number, val: string) { setExperience((prev) => prev.map((e) => { if (e.id !== expId) return e; const bullets = [...e.bullets]; bullets[bi] = val; return { ...e, bullets }; })); }
 
-  async function suggestBulletsFromJd(expId: string) {
-    const jd = typeof window !== "undefined" ? (localStorage.getItem("ndrs_jd") ?? "") : "";
-    if (jd.trim().length < 100) {
-      toast.error("Paste a job description on /create first — we use it to draft bullets.");
-      return;
-    }
-    setSuggestingFor(expId);
-    try {
-      const res = await fetch("/api/suggest-experience", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jd_text: jd,
-          target_roles: targetRoles,
-          existing_experience: experience.map((e) => ({ company: e.company, role: e.role, duration: e.duration })),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || "Couldn't draft suggestions. Try again.");
-        return;
-      }
-      const suggestions: string[] = Array.isArray(data.bullets) ? data.bullets : [];
-      if (suggestions.length === 0) {
-        toast.error("No suggestions came back. Try again.");
-        return;
-      }
-      setExperience((prev) =>
-        prev.map((e) => {
-          if (e.id !== expId) return e;
-          const existing = e.bullets.filter((b) => b.trim());
-          return { ...e, bullets: [...existing, ...suggestions] };
-        })
-      );
-      toast.success(`Added ${suggestions.length} draft bullets — edit them with your real numbers.`);
-    } catch {
-      toast.error("Couldn't reach the suggestion service.");
-    } finally {
-      setSuggestingFor(null);
-    }
-  }
   function addBullet(expId: string) { setExperience((prev) => prev.map((e) => (e.id === expId ? { ...e, bullets: [...e.bullets, ""] } : e))); }
   function removeBullet(expId: string, bi: number) { setExperience((prev) => prev.map((e) => { if (e.id !== expId) return e; const bullets = e.bullets.filter((_, i) => i !== bi); return { ...e, bullets: bullets.length ? bullets : [""] }; })); }
   function moveBullet(expId: string, bi: number, dir: -1 | 1) { setExperience((prev) => prev.map((e) => { if (e.id !== expId) return e; const bullets = [...e.bullets]; const ni = bi + dir; if (ni < 0 || ni >= bullets.length) return e; [bullets[bi], bullets[ni]] = [bullets[ni], bullets[bi]]; return { ...e, bullets }; })); }
@@ -364,17 +321,17 @@ function ProfilePageInner() {
     const { error } = await supabase.from("generation_issues").insert({ user_id: userId, resume_id: issueResumeId, description: issueDesc.trim() });
     setSubmittingIssue(false);
     if (error) { toast.error("Couldn't submit issue: " + error.message); return; }
-    toast.success("Issue reported — we'll review and may refund your credit.");
+    toast.success("Issue reported â we'll review and may refund your credit.");
     setIssueResumeId(""); setIssueDesc("");
   }
 
-  const saveLabel = saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved ✓" : saveStatus === "error" ? "Save failed" : "";
+  const saveLabel = saveStatus === "saving" ? "Savingâ¦" : saveStatus === "saved" ? "Saved â" : saveStatus === "error" ? "Save failed" : "";
 
   if (!loaded) {
     return (
       <div className="min-h-screen bg-[#f7f3ea]">
         <AppHeader />
-        <div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profile…</p></div>
+        <div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profileâ¦</p></div>
       </div>
     );
   }
@@ -400,22 +357,7 @@ function ProfilePageInner() {
       case 1:
         return (
           <div>
-            <p className="text-xs text-[#6b6b6b] mb-3">Pick up to 3. The AI tailors your resume keywords to these roles.</p>
-            <div className="flex flex-wrap gap-2">
-              {INDIAN_JOB_ROLES.map((role) => (
-                <button key={role} type="button" onClick={() => toggleRole(role)}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${targetRoles.includes(role) ? "bg-[#1f5c3a] text-white border-[#1f5c3a]" : "bg-white text-[#1a1a1a] border-stone-200 hover:border-[#1f5c3a]"}`}>
-                  {targetRoles.includes(role) && <X className="inline w-3 h-3 mr-1 -mt-0.5" />}{role}
-                </button>
-              ))}
-            </div>
-            {targetRoles.length > 0 && <p className="text-sm text-[#1f5c3a] font-medium mt-3">Selected: {targetRoles.join(", ")}</p>}
-          </div>
-        );
-      case 2:
-        return (
-          <div>
-            <p className="text-xs text-[#6b6b6b] mb-4">Add your work history. Start bullets with a strong action verb (Led, Built, Delivered…).</p>
+            <p className="text-xs text-[#6b6b6b] mb-4">Add your work history. Start bullets with a strong action verb (Led, Built, Deliveredâ¦).</p>
             <div className="flex flex-col gap-4">
               {experience.map((exp, ei) => (
                 <div key={exp.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
@@ -426,7 +368,7 @@ function ProfilePageInner() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input value={exp.company} onChange={(e) => updateExp(exp.id, "company", e.target.value)} placeholder="Company name" className="text-sm" />
                     <Input value={exp.role} onChange={(e) => updateExp(exp.id, "role", e.target.value)} placeholder="Your role / title" className="text-sm" />
-                    <Input value={exp.duration} onChange={(e) => updateExp(exp.id, "duration", e.target.value)} placeholder="Duration e.g. Jan 2022 – Mar 2024" className="text-sm" />
+                    <Input value={exp.duration} onChange={(e) => updateExp(exp.id, "duration", e.target.value)} placeholder="Duration e.g. Jan 2022 â Mar 2024" className="text-sm" />
                     <Input value={exp.location} onChange={(e) => updateExp(exp.id, "location", e.target.value)} placeholder="Location e.g. Bengaluru" className="text-sm" />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -444,16 +386,6 @@ function ProfilePageInner() {
                     ))}
                     <div className="flex items-center gap-4 mt-1 flex-wrap">
                       <button type="button" onClick={() => addBullet(exp.id)} className="text-xs text-[#1f5c3a] flex items-center gap-1 hover:underline w-fit"><Plus className="w-3 h-3" />Add bullet</button>
-                      <button
-                        type="button"
-                        onClick={() => suggestBulletsFromJd(exp.id)}
-                        disabled={suggestingFor === exp.id}
-                        className="text-xs text-[#1f5c3a] flex items-center gap-1 hover:underline w-fit disabled:opacity-60 disabled:no-underline"
-                        title="Drafts JD-tailored starter bullets you can edit with your own numbers"
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        {suggestingFor === exp.id ? "Drafting…" : "Suggest bullets from JD"}
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -473,11 +405,11 @@ function ProfilePageInner() {
               <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addSkill(skillInput); } }}
                 onBlur={() => { if (skillInput.trim()) addSkill(skillInput); }}
-                placeholder="e.g. React, SQL, Power BI — press Enter to add" className="bg-white text-sm" />
+                placeholder="e.g. React, SQL, Power BI â press Enter to add" className="bg-white text-sm" />
             </div>
           </div>
         );
-      case 3:
+      case 2:
         return (
           <div>
             <div className="flex flex-col gap-4">
@@ -490,7 +422,7 @@ function ProfilePageInner() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input value={edu.institution} onChange={(e) => updateEdu(edu.id, "institution", e.target.value)} placeholder="Institution name" className="text-sm" />
                     <Input value={edu.degree} onChange={(e) => updateEdu(edu.id, "degree", e.target.value)} placeholder="Degree e.g. B.Tech Computer Science" className="text-sm" />
-                    <Input value={edu.year} onChange={(e) => updateEdu(edu.id, "year", e.target.value)} placeholder="Year e.g. 2022 or 2020–2024" className="text-sm" />
+                    <Input value={edu.year} onChange={(e) => updateEdu(edu.id, "year", e.target.value)} placeholder="Year e.g. 2022 or 2020â2024" className="text-sm" />
                     <Input value={edu.location} onChange={(e) => updateEdu(edu.id, "location", e.target.value)} placeholder="City / State" className="text-sm" />
                     <Input value={edu.cgpa} onChange={(e) => updateEdu(edu.id, "cgpa", e.target.value)} placeholder="CGPA / % (optional)" className="text-sm" />
                   </div>
@@ -500,7 +432,7 @@ function ProfilePageInner() {
             <button type="button" onClick={addEdu} className="mt-3 text-sm text-[#1f5c3a] font-medium flex items-center gap-1.5 hover:underline"><Plus className="w-4 h-4" />Add another entry</button>
           </div>
         );
-      case 4:
+      case 3:
         return (
           <div>
             <p className="text-xs text-[#6b6b6b] mb-4">Personal, academic, or open-source work. Great for freshers and career changers.</p>
@@ -523,21 +455,36 @@ function ProfilePageInner() {
               <div className="mt-8 pt-6 border-t border-stone-200">
                 <details className="group">
                   <summary className="text-xs text-[#6b6b6b] cursor-pointer hover:text-[#1a1a1a] list-none flex items-center gap-1">
-                    <span className="group-open:hidden">▶</span><span className="hidden group-open:inline">▼</span> AI got something wrong in a previous resume? Report it
+                    <span className="group-open:hidden">â¶</span><span className="hidden group-open:inline">â¼</span> AI got something wrong in a previous resume? Report it
                   </summary>
                   <div className="mt-4 flex flex-col gap-3">
                     <select value={issueResumeId} onChange={(e) => setIssueResumeId(e.target.value)} className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#1f5c3a]/40">
-                      <option value="">Select a resume…</option>
+                      <option value="">Select a resumeâ¦</option>
                       {resumes.map((r) => (
-                        <option key={r.id} value={r.id}>{r.tailored_role} — {new Date(r.created_at).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" })}</option>
+                        <option key={r.id} value={r.id}>{r.tailored_role} â {new Date(r.created_at).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" })}</option>
                       ))}
                     </select>
                     <Textarea value={issueDesc} onChange={(e) => setIssueDesc(e.target.value)} placeholder="e.g. The AI added a skill I never mentioned, or experience bullets were completely wrong." className="min-h-[90px] bg-white resize-none text-sm" />
-                    <Button variant="outline" onClick={submitIssue} disabled={submittingIssue} className="w-fit text-sm">{submittingIssue ? "Submitting…" : "Submit issue"}</Button>
+                    <Button variant="outline" onClick={submitIssue} disabled={submittingIssue} className="w-fit text-sm">{submittingIssue ? "Submittingâ¦" : "Submit issue"}</Button>
                   </div>
                 </details>
               </div>
             )}
+          </div>
+        );
+      case 4:
+        return (
+          <div>
+            <p className="text-xs text-[#6b6b6b] mb-3">Pick up to 3. The AI tailors your resume keywords to these roles.</p>
+            <div className="flex flex-wrap gap-2">
+              {INDIAN_JOB_ROLES.map((role) => (
+                <button key={role} type="button" onClick={() => toggleRole(role)}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${targetRoles.includes(role) ? "bg-[#1f5c3a] text-white border-[#1f5c3a]" : "bg-white text-[#1a1a1a] border-stone-200 hover:border-[#1f5c3a]"}`}>
+                  {targetRoles.includes(role) && <X className="inline w-3 h-3 mr-1 -mt-0.5" />}{role}
+                </button>
+              ))}
+            </div>
+            {targetRoles.length > 0 && <p className="text-sm text-[#1f5c3a] font-medium mt-3">Selected: {targetRoles.join(", ")}</p>}
           </div>
         );
       case 5:
@@ -561,14 +508,14 @@ function ProfilePageInner() {
                 <div className="flex flex-col gap-3">
                   {experience.filter((e) => e.company.trim()).map((exp) => (
                     <div key={exp.id} className="bg-[#f7f3ea] rounded-lg p-3">
-                      <p className="text-sm font-semibold text-[#1a1a1a]">{exp.role}{exp.role && exp.company ? " — " : ""}{exp.company}</p>
+                      <p className="text-sm font-semibold text-[#1a1a1a]">{exp.role}{exp.role && exp.company ? " â " : ""}{exp.company}</p>
                       {(exp.duration || exp.location) && (
-                        <p className="text-xs text-[#6b6b6b] mb-1.5">{exp.duration}{exp.location ? ` · ${exp.location}` : ""}</p>
+                        <p className="text-xs text-[#6b6b6b] mb-1.5">{exp.duration}{exp.location ? ` Â· ${exp.location}` : ""}</p>
                       )}
                       <ul className="flex flex-col gap-1">
                         {exp.bullets.filter((b) => b.trim()).slice(0, 3).map((b, i) => (
                           <li key={i} className="text-xs text-[#6b6b6b] flex gap-1.5">
-                            <span className="text-[#1f5c3a] shrink-0">·</span>{b}
+                            <span className="text-[#1f5c3a] shrink-0">Â·</span>{b}
                           </li>
                         ))}
                       </ul>
@@ -585,7 +532,7 @@ function ProfilePageInner() {
                     <div key={edu.id} className="bg-[#f7f3ea] rounded-lg p-3">
                       <p className="text-sm font-semibold text-[#1a1a1a]">{edu.degree}</p>
                       <p className="text-xs text-[#6b6b6b]">
-                        {edu.institution}{edu.year ? ` · ${edu.year}` : ""}{edu.cgpa ? ` · ${edu.cgpa}` : ""}
+                        {edu.institution}{edu.year ? ` Â· ${edu.year}` : ""}{edu.cgpa ? ` Â· ${edu.cgpa}` : ""}
                       </p>
                     </div>
                   ))}
@@ -612,19 +559,20 @@ function ProfilePageInner() {
             )}
             <div className="flex flex-col gap-2 pt-2 border-t border-stone-100">
               <Button asChild className="w-full">
-                <Link href="/create">Looks good — Create my resume →</Link>
+                <Link href="/create">Looks good â Create my resume â</Link>
               </Button>
               <button
                 type="button"
                 onClick={() => setCurrentStep(0)}
                 className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors text-center py-1"
               >
-                ← Edit profile
+                â Edit profile
               </button>
             </div>
           </div>
         );
       default: return null;
+
     }
   }
 
@@ -681,12 +629,12 @@ function ProfilePageInner() {
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-[#1a1a1a]">{STEPS[currentStep].label}</h2>
             <p className="text-xs text-[#6b6b6b] mt-0.5">
-              {STEPS[currentStep].required ? "Required" : "Optional"} —{" "}
+              {STEPS[currentStep].required ? "Required" : "Optional"} â{" "}
               {currentStep === 0 && "Your contact details and a quick summary."}
-              {currentStep === 1 && "The roles you're targeting — used to tailor every resume."}
-              {currentStep === 2 && "Your work history and skills."}
-              {currentStep === 3 && "Your academic background."}
-              {currentStep === 4 && "Projects you've built or contributed to."}
+              {currentStep === 1 && "Your work history and skills."}
+              {currentStep === 2 && "Your academic background."}
+              {currentStep === 3 && "Projects you've built or contributed to."}
+              {currentStep === 4 && "The roles you're targeting â used to tailor every resume."}
               {currentStep === 5 && "Check everything looks right before generating."}
             </p>
           </div>
@@ -707,7 +655,7 @@ function ProfilePageInner() {
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f7f3ea]"><div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profile…</p></div></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f3ea]"><div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profileâ¦</p></div></div>}>
       <ProfilePageInner />
     </Suspense>
   );
