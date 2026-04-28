@@ -743,20 +743,34 @@ export default function CreatePage() {
               All templates are ATS-optimised and single-column.
             </p>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {TEMPLATES.map((tpl) => (
                 <button
                   key={tpl.id}
                   type="button"
                   onClick={() => { setSelectedTemplate(tpl.id); if (typeof window !== "undefined") localStorage.setItem("ndrs_template", tpl.id); }}
-                  className={`rounded-xl border-2 p-4 flex flex-row items-center gap-4 text-left transition-all focus:outline-none ${
+                  className={`rounded-xl border-2 overflow-hidden text-left transition-all focus:outline-none ${
                     selectedTemplate === tpl.id
-                      ? "border-[#1f5c3a] bg-[#1f5c3a]/5 shadow-sm"
+                      ? "border-[#1f5c3a] shadow-md"
                       : "border-stone-200 bg-white hover:border-[#1f5c3a]/40"
                   }`}
                 >
-                  <div className="w-10 h-14 shrink-0">{tpl.svg}</div>
-                  <div>
+                  {/* Preview image */}
+                  <div className="relative w-full bg-stone-50 border-b border-stone-100" style={{height: 200}}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/template-previews/${tpl.id}.png`}
+                      alt={`${tpl.label} template preview`}
+                      className="w-full h-full object-cover object-top"
+                    />
+                    {selectedTemplate === tpl.id && (
+                      <div className="absolute top-2 right-2 bg-[#1f5c3a] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                        Selected
+                      </div>
+                    )}
+                  </div>
+                  {/* Label row */}
+                  <div className={`px-4 py-3 ${selectedTemplate === tpl.id ? "bg-[#1f5c3a]/5" : "bg-white"}`}>
                     <p className={`text-sm font-semibold ${selectedTemplate === tpl.id ? "text-[#1f5c3a]" : "text-[#1a1a1a]"}`}>
                       {tpl.label}
                     </p>

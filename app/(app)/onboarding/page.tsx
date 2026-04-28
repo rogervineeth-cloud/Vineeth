@@ -1,11 +1,11 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Upload, Link2, FileText, PenLine, X } from "lucide-react";
+import { Upload, Link2, FileText, PenLine, X, Briefcase, GraduationCap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
 import { Button } from "@/components/ui/button";
@@ -42,10 +42,19 @@ type BasicsData = z.infer<typeof basicsSchema>;
 // ── Component ──────────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter();
+  // Auto-select candidate type from landing page CTA (reads window.location on mount)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const pathParam = params.get("path");
+    if (pathParam === "experienced") { setCandidateType("experienced"); setStep(0); }
+    else if (pathParam === "fresher") { setCandidateType("fresher"); setStep(0); }
+  }, []);
 
-  // step 0 = path selection, 1 = upload (linkedin/resume only), 2 = roles, 3 = basics
+  // step -1 = candidate type (experienced/fresher), 0 = path selection, 1 = upload, 2 = roles, 3 = basics
+  const [candidateType, setCandidateType] = useState<"experienced" | "fresher" | null>(null);
   const [path, setPath] = useState<Path | null>(null);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(-1);
 
   const [uploading, setUploading] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
@@ -61,6 +70,8 @@ export default function OnboardingPage() {
 
   // Progress dots: scratch = 2 steps (roles + basics), others = 3 (upload + roles + basics)
   const isScratch = path === "scratch";
+  // For freshers, default to scratch if no path chosen yet
+  const isFresher = candidateType === "fresher";
   const totalSteps = isScratch ? 2 : 3;
   const displayStep = isScratch ? step - 1 : step; // normalise for dot rendering
 
@@ -68,6 +79,10 @@ export default function OnboardingPage() {
   function choosePath(chosen: Path) {
     setPath(chosen);
     setStep(chosen === "scratch" ? 2 : 1);
+  }
+  function chooseType(type: "experienced" | "fresher") {
+    setCandidateType(type);
+    setStep(0);
   }
 
   // ── Upload handler (LinkedIn PDF or any resume PDF) ────────────────────
@@ -210,12 +225,68 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {/* ── STEP -1: Candidate type selection ── */}
+        {step === -1 && (
+          <div className="flex flex-col gap-8">
+            <div>
+              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">Welcome to Neduresume AI</h1>
+              <p className="text-[#6b6b6b] text-sm">Tell us about yourself so we can tailor the experience for you.</p>
+            </div>
+            <div className="flex flex-col gap-4">
+              {/* Experienced */}
+              <button
+                type="button"
+                onClick={() => chooseType("experienced")}
+                className="group text-left bg-white border-2 border-stone-200 hover:border-[#1f5c3a] rounded-xl p-6 flex items-start gap-5 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-[#1f5c3a]/10 flex items-center justify-center shrink-0 group-hover:bg-[#1f5c3a]/15 transition-colors">
+                  <Briefcase className="w-6 h-6 text-[#1f5c3a]" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[#1a1a1a] mb-1">I&apos;m an experienced professional</p>
+                  <p className="text-sm text-[#6b6b6b]">You have work experience and want to create a resume tailored to a specific job description. Upload your LinkedIn or existing resume to get started fast.</p>
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    <span className="text-[10px] bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full">Import from LinkedIn</span>
+                    <span className="text-[10px] bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full">Upload existing resume</span>
+                    <span className="text-[10px] bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full">AI pre-fills your profile</span>
+                  </div>
+                </div>
+              </button>
+              {/* Fresher */}
+              <button
+                type="button"
+                onClick={() => chooseType("fresher")}
+                className="group text-left bg-white border-2 border-stone-200 hover:border-[#1f5c3a] rounded-xl p-6 flex items-start gap-5 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
+                  <GraduationCap className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[#1a1a1a] mb-1">I&apos;m a fresher / recent graduate</p>
+                  <p className="text-sm text-[#6b6b6b]">You&apos;re just starting out or recently graduated. Upload a college resume or your LinkedIn PDF if you have one, or build your profile from scratch.</p>
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Upload college resume</span>
+                    <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Import from LinkedIn</span>
+                    <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Start from scratch</span>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── STEP 0: Path selection ── */}
         {step === 0 && (
           <div className="flex flex-col gap-8">
             <div>
-              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">Let&apos;s build your profile</h1>
-              <p className="text-[#6b6b6b] text-sm">How would you like to get started? Choose the option that fits you best.</p>
+              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">
+                {isFresher ? "How would you like to start?" : "Import your existing experience"}
+              </h1>
+              <p className="text-[#6b6b6b] text-sm">
+                {isFresher
+                  ? "Upload a college resume or LinkedIn PDF if you have one, or start fresh — we'll guide you through each section."
+                  : "Upload your LinkedIn PDF or existing resume and we'll pre-fill your entire profile automatically."}
+              </p>
             </div>
 
             <div className="flex flex-col gap-4">
