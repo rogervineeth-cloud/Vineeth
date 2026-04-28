@@ -58,6 +58,9 @@ type GeneratedResume = {
   matched_keywords: string[];
   missing_keywords: string[];
   summary: string;
+  profile_improvement_tips?: string[];
+  growth_note?: string | null;
+  section_order?: string[];
 };
 
 const TECH_SKILLS = [
@@ -451,6 +454,9 @@ export default function CreatePage() {
         matched_keywords: resumeJson.matched_keywords ?? [],
         missing_keywords: resumeJson.missing_keywords ?? [],
         summary: resumeJson.summary ?? "",
+        profile_improvement_tips: resumeJson.profile_improvement_tips ?? [],
+        growth_note: resumeJson.growth_note ?? null,
+        section_order: resumeJson.section_order ?? [],
       });
       setSavedResumeId(savedResume.id);
       setShowRevealDone(true);
@@ -1085,6 +1091,25 @@ export default function CreatePage() {
                   <p className="text-xs font-semibold text-[#1a1a1a] mb-1.5">📝 AI-written summary</p>
                   <p className="text-xs text-[#6b6b6b] leading-relaxed line-clamp-5">{generatedResume.summary}</p>
                 </div>
+                {generatedResume.growth_note && generatedResume.growth_note !== "null" && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-amber-800 mb-1">⚠ Honest fit assessment</p>
+                    <p className="text-xs text-amber-700 leading-relaxed">{generatedResume.growth_note}</p>
+                  </div>
+                )}
+                {(generatedResume.profile_improvement_tips ?? []).length > 0 && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-blue-800 mb-2">💡 Improve your profile to score higher</p>
+                    <ul className="space-y-1.5">
+                      {(generatedResume.profile_improvement_tips ?? []).map((tip, i) => (
+                        <li key={i} className="text-xs text-blue-700 leading-relaxed flex gap-1.5">
+                          <span className="shrink-0 mt-0.5">→</span>
+                          <span>{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-2">
                   <Button size="lg" className="w-full" onClick={() => router.push(`/preview/${savedResumeId}`)}>
