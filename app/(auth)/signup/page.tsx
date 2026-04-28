@@ -42,7 +42,8 @@ export default function SignupPage() {
     // If session exists immediately, email confirmation is disabled — go straight in
     if (authData.session) {
       toast.success("Account created!");
-      router.push("/onboarding");
+      const pathParam = new URLSearchParams(window.location.search).get("path");
+      router.push(pathParam ? `/onboarding?path=${pathParam}` : "/onboarding");
       return;
     }
     // Email confirmation required — show "check your inbox" state
@@ -54,7 +55,9 @@ export default function SignupPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=/onboarding` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/onboarding${window.location.search.includes("path=") ? "&" + new URLSearchParams(window.location.search).toString() : ""}`,
+      },
     });
     if (error) toast.error(error.message);
   }

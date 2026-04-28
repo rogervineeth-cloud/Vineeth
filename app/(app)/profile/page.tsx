@@ -364,8 +364,8 @@ function ProfilePageInner() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Full name *"><Input value={basics.full_name} onChange={(e) => setBasics((b) => ({ ...b, full_name: e.target.value }))} placeholder="Your full name" /></Field>
               <Field label="Email *"><Input type="email" value={basics.email} onChange={(e) => setBasics((b) => ({ ...b, email: e.target.value }))} placeholder="you@example.com" /></Field>
-              <Field label="Phone *"><Input value={basics.phone} onChange={(e) => setBasics((b) => ({ ...b, phone: e.target.value }))} placeholder="+91 98765 43210" /></Field>
-              <Field label="Current city *"><Input value={basics.current_city} onChange={(e) => setBasics((b) => ({ ...b, current_city: e.target.value }))} placeholder="e.g. Kochi" /></Field>
+              <Field label="Phone"><Input value={basics.phone} onChange={(e) => setBasics((b) => ({ ...b, phone: e.target.value }))} placeholder="+91 98765 43210" /></Field>
+              <Field label="Current city"><Input value={basics.current_city} onChange={(e) => setBasics((b) => ({ ...b, current_city: e.target.value }))} placeholder="e.g. Kochi" /></Field>
               <Field label="Graduation year"><Input value={basics.graduation_year} onChange={(e) => setBasics((b) => ({ ...b, graduation_year: e.target.value }))} inputMode="numeric" placeholder="e.g. 2022" /></Field>
             </div>
             <div>
