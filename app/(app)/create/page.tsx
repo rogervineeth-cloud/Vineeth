@@ -214,6 +214,14 @@ const WAIT_TIPS = [
   "Your resume will be optimised for LinkedIn Jobs, Naukri, and company ATSes.",
 ];
 
+function pushUrlStep(step: string) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("step", step);
+  window.history.pushState({}, "", url.pathname + url.search);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 export default function CreatePage() {
   const router = useRouter();
   const jdRef = useRef<HTMLTextAreaElement>(null);
@@ -225,7 +233,9 @@ export default function CreatePage() {
   const [planCheck, setPlanCheck] = useState<PlanCheck | null>(null);
   const [loaded, setLoaded] = useState(false);
 
-  const [jdText, setJdText] = useState("");
+  const [jdText, setJdText] = useState<string>(() =>
+    typeof window === "undefined" ? "" : (localStorage.getItem("ndrs_jd") ?? "")
+  );
   const [jdAnalysis, setJdAnalysis] = useState<JdAnalysis>({
     detectedRole: null,
     keywords: [],
@@ -338,6 +348,7 @@ export default function CreatePage() {
     });
 
     const pd = profile!.profile_data ?? {};
+    pushUrlStep("resume");
     try {
       const res = await fetch("/api/generate-resume", {
         method: "POST",
@@ -594,7 +605,7 @@ export default function CreatePage() {
             {/* Mobile-only next button — desktop uses right panel CTA */}
             <Button
               size="lg"
-              onClick={() => setFlowStep(2)}
+              onClick={() => { pushUrlStep("template"); setFlowStep(2); }}
               disabled={!jdReady}
               className="lg:hidden w-full text-base py-6 rounded-xl font-semibold mt-auto"
             >
@@ -693,7 +704,7 @@ export default function CreatePage() {
             <div className="mt-auto pt-6">
               <Button
                 size="lg"
-                onClick={() => setFlowStep(2)}
+                onClick={() => { pushUrlStep("template"); setFlowStep(2); }}
                 disabled={!jdReady}
                 className="w-full text-base py-6 rounded-xl font-semibold"
               >
@@ -949,7 +960,7 @@ export default function CreatePage() {
                 </div>
                 <p className="text-sm font-semibold text-[#1a1a1a] mb-1">Something went wrong</p>
                 <p className="text-sm text-[#6b6b6b] mb-5">{genError}</p>
-                <Button onClick={() => { setGenError(null); setFlowStep(2); }}>
+                <Button onClick={() => { setGenError(null); pushUrlStep("template"); setFlowStep(2); }}>
                   ← Try again
                 </Button>
               </div>
