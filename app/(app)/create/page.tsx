@@ -226,7 +226,13 @@ export default function CreatePage() {
   const router = useRouter();
   const jdRef = useRef<HTMLTextAreaElement>(null);
 
-  const [flowStep, setFlowStep] = useState<1 | 2 | 3>(1);
+  const [flowStep, setFlowStep] = useState<1 | 2 | 3>(() => {
+    if (typeof window === "undefined") return 1;
+    const step = new URLSearchParams(window.location.search).get("step");
+    if (step === "template") return 2;
+    if (step === "resume") return 3;
+    return 1;
+  });
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -725,7 +731,7 @@ export default function CreatePage() {
           <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-6 lg:p-8">
             <button
               type="button"
-              onClick={() => setFlowStep(1)}
+              onClick={() => { pushUrlStep("jd"); setFlowStep(1); }}
               className="flex items-center gap-1.5 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors mb-6 self-start"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -946,6 +952,7 @@ export default function CreatePage() {
                       setJdText("");
                       setGenProgress(0);
                       setGenStageIdx(0);
+                      pushUrlStep("jd");
                       setFlowStep(1);
                     }}
                   >

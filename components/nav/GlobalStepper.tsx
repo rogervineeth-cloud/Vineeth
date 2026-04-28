@@ -23,11 +23,10 @@ function getActiveStep(pathname: string, stepParam: string | null): number {
   if (pathname.startsWith("/create")) {
     if (stepParam === "resume") return 7;
     if (stepParam === "template") return 6;
-    const hasJd = typeof window !== "undefined" && (localStorage.getItem("ndrs_jd") ?? "").trim().length >= 200;
-    return hasJd ? 6 : 5;
+    return 5;
   }
   if (pathname.startsWith("/profile")) {
-    const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4 };
+    const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4, review: 4 };
     if (stepParam && stepParam in map) return map[stepParam];
     return 0;
   }
