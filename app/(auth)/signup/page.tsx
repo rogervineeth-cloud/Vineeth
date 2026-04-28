@@ -29,10 +29,18 @@ export default function SignupPage() {
   async function onSubmit(data: FormData) {
     setLoading(true);
     const supabase = createClient();
+    const searchParams = new URLSearchParams(window.location.search);
+    const pathParam = searchParams.get("path");
+    const planParam = searchParams.get("plan");
+    // Build onboarding destination with preserved params
+    const onboardingParams = new URLSearchParams();
+    if (pathParam) onboardingParams.set("path", pathParam);
+    if (planParam) onboardingParams.set("plan", planParam);
+    const onboardingDest = `/onboarding${onboardingParams.toString() ? "?" + onboardingParams.toString() : ""}`;
     const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(onboardingDest)}` },
     });
     if (error) {
       toast.error(error.message);
@@ -42,8 +50,7 @@ export default function SignupPage() {
     // If session exists immediately, email confirmation is disabled — go straight in
     if (authData.session) {
       toast.success("Account created!");
-      const pathParam = new URLSearchParams(window.location.search).get("path");
-      router.push(pathParam ? `/onboarding?path=${pathParam}` : "/onboarding");
+      router.push(onboardingDest);
       return;
     }
     // Email confirmation required — show "check your inbox" state
@@ -53,10 +60,17 @@ export default function SignupPage() {
 
   async function handleGoogle() {
     const supabase = createClient();
+    const searchParams = new URLSearchParams(window.location.search);
+    const pathParam = searchParams.get("path");
+    const planParam = searchParams.get("plan");
+    const onboardingParams = new URLSearchParams();
+    if (pathParam) onboardingParams.set("path", pathParam);
+    if (planParam) onboardingParams.set("plan", planParam);
+    const onboardingDest = `/onboarding${onboardingParams.toString() ? "?" + onboardingParams.toString() : ""}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/onboarding${window.location.search.includes("path=") ? "&" + new URLSearchParams(window.location.search).toString() : ""}`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(onboardingDest)}`,
       },
     });
     if (error) toast.error(error.message);
