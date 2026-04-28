@@ -77,7 +77,6 @@ const STEPS = [
   { label: "Education", required: true },
   { label: "Projects", required: false },
   { label: "Roles", required: true },
-  { label: "Review", required: false },
 ] as const;
 
 // ── Horizontal stepper UI ─────────────────────────────────────────────────
@@ -139,7 +138,7 @@ function HorizontalStepper({
           ))}
         </div>
         <span className="text-sm text-[#6b6b6b]">
-          Step <span className="font-semibold text-[#1a1a1a]">{current + 1}</span> of 6 —{" "}
+          Step <span className="font-semibold text-[#1a1a1a]">{current + 1}</span> of 5 —{" "}
           <span className="font-semibold text-[#1a1a1a]">{STEPS[current].label}</span>
         </span>
       </div>
@@ -148,7 +147,7 @@ function HorizontalStepper({
 }
 
 function StepNav({ current, onBack, onNext, nextDisabled }: { current: number; onBack: () => void; onNext: () => void; nextDisabled?: boolean; }) {
-  const isReview = current === STEPS.length - 1;
+  const isReview = false; // Review is now Step 8 in /create, not in profile
   return (
     <div className="flex items-center justify-between mt-8 pt-6 border-t border-stone-200">
       <Button variant="outline" onClick={onBack} disabled={current === 0} className="gap-1.5">
@@ -176,7 +175,7 @@ function ProfilePageInner() {
   const fromPreview = searchParams.get("from") === "preview";
   const fromResumeId = searchParams.get("resumeId") ?? "";
 
-  const STEP_KEYS = useMemo(() => ["basics", "experience", "education", "projects", "roles", "review"], []);
+  const STEP_KEYS = useMemo(() => ["basics", "experience", "education", "projects", "roles"], []);
 
   // currentStep is derived from the URL ?step= param.  Single source of truth
   // means GlobalStepper's router.replace and our own setCurrentStep both flow
@@ -211,6 +210,7 @@ function ProfilePageInner() {
   const [skills, setSkills] = useState<string[]>([]);
   const [education, setEducation] = useState<EduEntry[]>([emptyEdu()]);
   const [projects, setProjects] = useState<ProjEntry[]>([]);
+  const [isFresher, setIsFresher] = useState(false);
   const [skillInput, setSkillInput] = useState("");
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [issueResumeId, setIssueResumeId] = useState("");
@@ -236,6 +236,7 @@ function ProfilePageInner() {
         if (pd.skills?.length) setSkills(pd.skills);
         if (pd.education?.length) setEducation(pd.education.map((e: Omit<EduEntry, "id">) => ({ ...e, id: uid() })));
         if (pd.projects?.length) setProjects(pd.projects.map((e: Omit<ProjEntry, "id">) => ({ ...e, id: uid() })));
+        if (pd.isFresher !== undefined) setIsFresher(!!pd.isFresher);
       }
       if (resumesRes.data) setResumes(resumesRes.data as Resume[]);
       setLoaded(true);
@@ -249,6 +250,7 @@ function ProfilePageInner() {
       setSaveStatus("saving");
       const supabase = createClient();
       const profileData = {
+        isFresher,
         summary,
         experience: experience.map((e) => ({ company: e.company, role: e.role, duration: e.duration, location: e.location, bullets: e.bullets })),
         skills,
@@ -276,13 +278,14 @@ function ProfilePageInner() {
     basics.email.trim()
   );
   const sec2Done = targetRoles.length > 0;
-  const sec3Done = experience.some((e) => e.company.trim());
-  const sec4Done = education.some((e) => e.institution.trim());
+  const sec3Done = isFresher || experience.some((e) => e.company.trim());
+  const sec4Done = education.some((e) => e.institution.trim() || e.institution === "__blank__");
   const sec5Done = projects.some((p) => p.name.trim());
-  const completed = [sec1Done, sec3Done, sec4Done, sec5Done, sec2Done, true];
+  const completed = [sec1Done, sec3Done, sec4Done, sec5Done, sec2Done];
 
   const nextDisabled =
     (currentStep === 0 && !sec1Done) ||
+    (currentStep === 1 && !isFresher && experience.some((e) => e.company.trim()) === false && false) ||
     (currentStep === 2 && !sec4Done) ||
     (currentStep === 4 && !sec2Done);
 
@@ -299,7 +302,12 @@ function ProfilePageInner() {
       toast.info("Pick at least one target role so the AI knows what to tailor for.");
       return;
     }
-    if (currentStep < STEPS.length - 1) setCurrentStep((s) => s + 1);
+    if (currentStep < STEPS.length - 1) {
+      setCurrentStep((s) => s + 1);
+    } else {
+      // Last profile step (Roles) — go to Job Description
+      router.push("/create");
+    }
   }
   function handleBack() { if (currentStep > 0) setCurrentStep((s) => s - 1); }
 
@@ -377,7 +385,26 @@ function ProfilePageInner() {
       case 1:
         return (
           <div>
-            <p className="text-xs text-[#6b6b6b] mb-4">Add your work history. Start bullets with a strong action verb (Led, Built, Delivered…).</p>
+            {/* Fresher checkbox */}
+            <div className="flex items-center gap-3 mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <input
+                type="checkbox"
+                id="isFresher"
+                checked={isFresher}
+                onChange={(e) => setIsFresher(e.target.checked)}
+                className="w-4 h-4 accent-[#1f5c3a] cursor-pointer"
+              />
+              <label htmlFor="isFresher" className="text-sm font-medium text-amber-800 cursor-pointer select-none">
+                I&apos;m a fresher / I have no work experience
+                <span className="block text-xs font-normal text-amber-600 mt-0.5">Checking this makes Experience optional — you can still add internships or part-time work below.</span>
+              </label>
+            </div>
+            {!isFresher && (
+              <p className="text-xs text-[#6b6b6b] mb-4">Add your work history. Start bullets with a strong action verb (Led, Built, Delivered…).</p>
+            )}
+            {isFresher && (
+              <p className="text-xs text-[#6b6b6b] mb-4">Optional — add any internships, part-time work, or freelance projects below.</p>
+            )}
             <div className="flex flex-col gap-4">
               {experience.map((exp, ei) => (
                 <div key={exp.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
@@ -432,6 +459,9 @@ function ProfilePageInner() {
       case 2:
         return (
           <div>
+            <p className="text-xs text-[#6b6b6b] mb-4">
+              Required — Institution, Degree, Year, and City are mandatory. Use the &quot;Leave blank&quot; checkbox on any field if you prefer not to include it.
+            </p>
             <div className="flex flex-col gap-4">
               {education.map((edu, ei) => (
                 <div key={edu.id} className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col gap-3">
@@ -440,10 +470,71 @@ function ProfilePageInner() {
                     {education.length > 1 && <button type="button" onClick={() => removeEdu(edu.id)} className="text-[#6b6b6b] hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input value={edu.institution} onChange={(e) => updateEdu(edu.id, "institution", e.target.value)} placeholder="Institution name" className="text-sm" />
-                    <Input value={edu.degree} onChange={(e) => updateEdu(edu.id, "degree", e.target.value)} placeholder="Degree e.g. B.Tech Computer Science" className="text-sm" />
-                    <Input value={edu.year} onChange={(e) => updateEdu(edu.id, "year", e.target.value)} placeholder="Year e.g. 2022 or 2020–2024" className="text-sm" />
-                    <Input value={edu.location} onChange={(e) => updateEdu(edu.id, "location", e.target.value)} placeholder="City / State" className="text-sm" />
+                    {/* Institution */}
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        value={edu.institution}
+                        onChange={(e) => updateEdu(edu.id, "institution", e.target.value)}
+                        placeholder="Institution name *"
+                        className={`text-sm ${!edu.institution.trim() ? "border-amber-300" : ""}`}
+                        disabled={edu.institution === "__blank__"}
+                      />
+                      <label className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b] cursor-pointer">
+                        <input type="checkbox" className="accent-[#1f5c3a]"
+                          checked={edu.institution === "__blank__"}
+                          onChange={(e) => updateEdu(edu.id, "institution", e.target.checked ? "__blank__" : "")}
+                        /> Leave blank
+                      </label>
+                    </div>
+                    {/* Degree */}
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        value={edu.degree}
+                        onChange={(e) => updateEdu(edu.id, "degree", e.target.value)}
+                        placeholder="Degree e.g. B.Tech Computer Science *"
+                        className={`text-sm ${!edu.degree.trim() ? "border-amber-300" : ""}`}
+                        disabled={edu.degree === "__blank__"}
+                      />
+                      <label className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b] cursor-pointer">
+                        <input type="checkbox" className="accent-[#1f5c3a]"
+                          checked={edu.degree === "__blank__"}
+                          onChange={(e) => updateEdu(edu.id, "degree", e.target.checked ? "__blank__" : "")}
+                        /> Leave blank
+                      </label>
+                    </div>
+                    {/* Year */}
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        value={edu.year}
+                        onChange={(e) => updateEdu(edu.id, "year", e.target.value)}
+                        placeholder="Year e.g. 2022 or 2020–2024 *"
+                        className={`text-sm ${!edu.year.trim() ? "border-amber-300" : ""}`}
+                        disabled={edu.year === "__blank__"}
+                      />
+                      <label className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b] cursor-pointer">
+                        <input type="checkbox" className="accent-[#1f5c3a]"
+                          checked={edu.year === "__blank__"}
+                          onChange={(e) => updateEdu(edu.id, "year", e.target.checked ? "__blank__" : "")}
+                        /> Leave blank
+                      </label>
+                    </div>
+                    {/* City */}
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        value={edu.location}
+                        onChange={(e) => updateEdu(edu.id, "location", e.target.value)}
+                        placeholder="City / State *"
+                        className={`text-sm ${!edu.location.trim() ? "border-amber-300" : ""}`}
+                        disabled={edu.location === "__blank__"}
+                      />
+                      <label className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b] cursor-pointer">
+                        <input type="checkbox" className="accent-[#1f5c3a]"
+                          checked={edu.location === "__blank__"}
+                          onChange={(e) => updateEdu(edu.id, "location", e.target.checked ? "__blank__" : "")}
+                        /> Leave blank
+                      </label>
+                    </div>
+                    {/* CGPA — optional, no leave-blank needed */}
                     <Input value={edu.cgpa} onChange={(e) => updateEdu(edu.id, "cgpa", e.target.value)} placeholder="CGPA / % (optional)" className="text-sm" />
                   </div>
                 </div>
@@ -507,90 +598,6 @@ function ProfilePageInner() {
             {targetRoles.length > 0 && <p className="text-sm text-[#1f5c3a] font-medium mt-3">Selected: {targetRoles.join(", ")}</p>}
           </div>
         );
-      case 5:
-        return (
-          <div className="flex flex-col gap-6">
-            {(basics.full_name.trim() || basics.email.trim()) && (
-              <div>
-                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Basics</p>
-                <div className="flex flex-col gap-0.5 text-sm">
-                  {basics.full_name && <span className="font-medium text-[#1a1a1a]">{basics.full_name}</span>}
-                  {basics.email && <span className="text-[#6b6b6b]">{basics.email}</span>}
-                  {basics.phone && <span className="text-[#6b6b6b]">{basics.phone}</span>}
-                  {basics.current_city && <span className="text-[#6b6b6b]">{basics.current_city}</span>}
-                  {targetRoles.length > 0 && <span className="text-[#6b6b6b] mt-0.5">Targeting: {targetRoles.join(", ")}</span>}
-                </div>
-              </div>
-            )}
-            {experience.some((e) => e.company.trim()) && (
-              <div>
-                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Experience</p>
-                <div className="flex flex-col gap-3">
-                  {experience.filter((e) => e.company.trim()).map((exp) => (
-                    <div key={exp.id} className="bg-[#f7f3ea] rounded-lg p-3">
-                      <p className="text-sm font-semibold text-[#1a1a1a]">{exp.role}{exp.role && exp.company ? " — " : ""}{exp.company}</p>
-                      {(exp.duration || exp.location) && (
-                        <p className="text-xs text-[#6b6b6b] mb-1.5">{exp.duration}{exp.location ? ` · ${exp.location}` : ""}</p>
-                      )}
-                      <ul className="flex flex-col gap-1">
-                        {exp.bullets.filter((b) => b.trim()).slice(0, 3).map((b, i) => (
-                          <li key={i} className="text-xs text-[#6b6b6b] flex gap-1.5">
-                            <span className="text-[#1f5c3a] shrink-0">·</span>{b}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {education.some((e) => e.institution.trim()) && (
-              <div>
-                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Education</p>
-                <div className="flex flex-col gap-2">
-                  {education.filter((e) => e.institution.trim()).map((edu) => (
-                    <div key={edu.id} className="bg-[#f7f3ea] rounded-lg p-3">
-                      <p className="text-sm font-semibold text-[#1a1a1a]">{edu.degree}</p>
-                      <p className="text-xs text-[#6b6b6b]">
-                        {edu.institution}{edu.year ? ` · ${edu.year}` : ""}{edu.cgpa ? ` · ${edu.cgpa}` : ""}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {skills.length > 0 && (
-              <div>
-                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Skills</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {skills.map((skill) => (
-                    <span key={skill} className="text-xs bg-[#1f5c3a]/10 text-[#1f5c3a] px-2.5 py-1 rounded-full border border-[#1f5c3a]/20">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {summary.trim() && (
-              <div>
-                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide mb-2">Summary</p>
-                <p className="text-sm text-[#6b6b6b] leading-relaxed">{summary}</p>
-              </div>
-            )}
-            <div className="flex flex-col gap-2 pt-2 border-t border-stone-100">
-              <Button asChild className="w-full">
-                <Link href="/create">Looks good — Create my resume →</Link>
-              </Button>
-              <button
-                type="button"
-                onClick={() => setCurrentStep(0)}
-                className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors text-center py-1"
-              >
-                ← Edit profile
-              </button>
-            </div>
-          </div>
-        );
       default: return null;
 
     }
@@ -638,7 +645,6 @@ function ProfilePageInner() {
                 {currentStep === 2 && "Your academic background."}
                 {currentStep === 3 && "Projects you've built or contributed to."}
                 {currentStep === 4 && "The roles you're targeting — used to tailor every resume."}
-                {currentStep === 5 && "Check everything looks right before generating."}
               </p>
             </div>
             {renderStep()}
