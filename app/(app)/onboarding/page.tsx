@@ -248,7 +248,7 @@ export default function OnboardingPage() {
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     <span className="text-[10px] bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full">Import from LinkedIn</span>
                     <span className="text-[10px] bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full">Upload existing resume</span>
-                    <span className="text-[10px] bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full">AI pre-fills your profile</span>
+                    <span className="text-[10px] bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full">Auto-fills your profile</span>
                   </div>
                 </div>
               </button>

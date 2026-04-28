@@ -3,17 +3,32 @@ import Link from "next/link";
 import { Check, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PLANS } from "@/lib/plan-config";
 import type { PlanType } from "@/lib/plan-config";
+import { createClient } from "@/lib/supabase/client";
 
 const TEST_MODE = process.env.NEXT_PUBLIC_TEST_MODE === "true";
 
 function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
   const [granting, setGranting] = useState(false);
+  const router = useRouter();
 
   async function handleChoose() {
-    toast.info("Razorpay integration coming next weekend. Contact support@neduresume.com for early access.");
+    // Check if user is already logged in
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // User is logged in — show payment coming soon toast and redirect to dashboard
+      toast.info("Payment integration coming soon! Contact support@neduresume.com to get early access.", {
+        duration: 5000,
+        action: { label: "Go to Dashboard", onClick: () => router.push("/dashboard") },
+      });
+    } else {
+      // Not logged in — send to signup with plan pre-selected
+      router.push(`/signup?plan=${plan.type}`);
+    }
   }
 
   async function handleGrantTest() {

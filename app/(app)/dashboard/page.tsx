@@ -78,8 +78,15 @@ export default function DashboardPage() {
   const router = useRouter();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [activePlan, setActivePlan] = useState<UserPlan | null | undefined>(undefined);
+
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
+
+  function handleViewResume(e: React.MouseEvent, resumeId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/preview/${resumeId}`);
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -208,11 +215,9 @@ export default function DashboardPage() {
                   {truncated && <p className="text-xs text-[#6b6b6b] leading-relaxed flex-1">{truncated}</p>}
                   <p className="text-xs text-[#6b6b6b]">{formatDate(resume.created_at)}</p>
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8" asChild
-                      onClick={(e) => e.stopPropagation()}>
-                      <Link href={`/preview/${resume.id}`}>
-                        <Eye className="w-3 h-3 mr-1" />View
-                      </Link>
+                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8"
+                      onClick={(e) => handleViewResume(e, resume.id)}>
+                      <Eye className="w-3 h-3 mr-1" />View
                     </Button>
                     <Button size="sm" variant="ghost" className="flex-1 text-xs h-8"
                       onClick={(e) => handleQuickDownload(e, resume.id)}

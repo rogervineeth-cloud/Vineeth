@@ -105,7 +105,7 @@ function UpgradeModal({ open, onClose }: { open: boolean; onClose: () => void })
                 className={plan.popular ? "bg-white text-[#1f5c3a] hover:bg-white/90 text-xs" : "text-xs"}
                 asChild
               >
-                <Link href="/pricing" onClick={onClose}>Continue →</Link>
+                <Link href="/pricing" onClick={onClose}>View plans →</Link>
               </Button>
             </div>
           ))}

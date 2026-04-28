@@ -230,10 +230,20 @@ function ProfilePageInner() {
       ]);
       if (profileRes.data) {
         const p = profileRes.data;
-        setBasics({ full_name: p.full_name ?? "", email: p.email ?? "", phone: p.phone ?? "", current_city: p.current_city ?? "", graduation_year: p.graduation_year ? String(p.graduation_year) : "" });
+        // Strip known junk/placeholder values before populating form
+        const cleanPhone = (p.phone ?? "").trim();
+        const cleanGradYear = p.graduation_year ? String(p.graduation_year) : "";
+        setBasics({
+          full_name: p.full_name ?? "",
+          email: p.email ?? "",
+          phone: (cleanPhone === "+91" || cleanPhone === "+91 ") ? "" : cleanPhone,
+          current_city: p.current_city ?? "",
+          graduation_year: cleanGradYear,
+        });
         setTargetRoles(p.target_roles ?? []);
         const pd = p.profile_data ?? {};
-        if (pd.summary) setSummary(pd.summary);
+        // Don't load placeholder summary text
+        if (pd.summary && !pd.summary.startsWith("e.g.")) setSummary(pd.summary);
         if (pd.experience?.length) setExperience(pd.experience.map((e: Omit<ExpEntry, "id">) => ({ ...e, id: uid() })));
         if (pd.skills?.length) setSkills(pd.skills);
         if (pd.education?.length) setEducation(pd.education.map((e: Omit<EduEntry, "id">) => ({ ...e, id: uid() })));
@@ -531,10 +541,10 @@ function ProfilePageInner() {
                     {/* Institution */}
                     <div className="flex flex-col gap-1">
                       <Input
-                        value={edu.institution}
+                        value={edu.institution === "__blank__" ? "" : edu.institution}
                         onChange={(e) => updateEdu(edu.id, "institution", e.target.value)}
-                        placeholder="Institution name *"
-                        className={`text-sm ${!edu.institution.trim() ? "border-amber-300" : ""}`}
+                        placeholder={edu.institution === "__blank__" ? "Left blank" : "Institution name *"}
+                        className={`text-sm transition-opacity ${edu.institution === "__blank__" ? "opacity-40 line-through" : !edu.institution.trim() ? "border-amber-300" : ""}`}
                         disabled={edu.institution === "__blank__"}
                       />
                       <label className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b] cursor-pointer">
@@ -547,10 +557,10 @@ function ProfilePageInner() {
                     {/* Degree */}
                     <div className="flex flex-col gap-1">
                       <Input
-                        value={edu.degree}
+                        value={edu.degree === "__blank__" ? "" : edu.degree}
                         onChange={(e) => updateEdu(edu.id, "degree", e.target.value)}
-                        placeholder="Degree e.g. B.Tech Computer Science *"
-                        className={`text-sm ${!edu.degree.trim() ? "border-amber-300" : ""}`}
+                        placeholder={edu.degree === "__blank__" ? "Left blank" : "Degree e.g. B.Tech Computer Science *"}
+                        className={`text-sm transition-opacity ${edu.degree === "__blank__" ? "opacity-40 line-through" : !edu.degree.trim() ? "border-amber-300" : ""}`}
                         disabled={edu.degree === "__blank__"}
                       />
                       <label className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b] cursor-pointer">
@@ -563,10 +573,10 @@ function ProfilePageInner() {
                     {/* Year */}
                     <div className="flex flex-col gap-1">
                       <Input
-                        value={edu.year}
+                        value={edu.year === "__blank__" ? "" : edu.year}
                         onChange={(e) => updateEdu(edu.id, "year", e.target.value)}
-                        placeholder="Year e.g. 2022 or 2020–2024 *"
-                        className={`text-sm ${!edu.year.trim() ? "border-amber-300" : ""}`}
+                        placeholder={edu.year === "__blank__" ? "Left blank" : "Year e.g. 2022 or 2020–2024 *"}
+                        className={`text-sm transition-opacity ${edu.year === "__blank__" ? "opacity-40 line-through" : !edu.year.trim() ? "border-amber-300" : ""}`}
                         disabled={edu.year === "__blank__"}
                       />
                       <label className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b] cursor-pointer">
@@ -579,10 +589,10 @@ function ProfilePageInner() {
                     {/* City */}
                     <div className="flex flex-col gap-1">
                       <Input
-                        value={edu.location}
+                        value={edu.location === "__blank__" ? "" : edu.location}
                         onChange={(e) => updateEdu(edu.id, "location", e.target.value)}
-                        placeholder="City / State *"
-                        className={`text-sm ${!edu.location.trim() ? "border-amber-300" : ""}`}
+                        placeholder={edu.location === "__blank__" ? "Left blank" : "City / State *"}
+                        className={`text-sm transition-opacity ${edu.location === "__blank__" ? "opacity-40 line-through" : !edu.location.trim() ? "border-amber-300" : ""}`}
                         disabled={edu.location === "__blank__"}
                       />
                       <label className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b] cursor-pointer">

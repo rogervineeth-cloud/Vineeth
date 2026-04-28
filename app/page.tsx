@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { FileText, Check, Sparkles, Target, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
+import { LandingHeader } from "@/components/landing/LandingHeader";
 
 const plans = [
   {
@@ -54,24 +55,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
-      {/* Header */}
-      <header className="border-b border-stone-200/60 sticky top-0 bg-[#f7f3ea]/95 backdrop-blur-sm z-10">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-serif italic text-xl text-[#1f5c3a] font-bold">Neduresume</span>
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-[#1f5c3a]/70 tracking-wide">
-              powered by AI
-            </span>
-          </div>
-          <nav className="flex items-center gap-6">
-            <a href="#pricing" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors hidden sm:block">Pricing</a>
-            <Link href="/login" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">Sign in</Link>
-            <Button size="sm" asChild className="text-sm bg-[#1f5c3a] hover:bg-[#174d30]">
-              <Link href="/signup">Get started free →</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <LandingHeader />
 
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 pt-14 pb-16">

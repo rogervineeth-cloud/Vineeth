@@ -92,7 +92,8 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
 
   // Forward-only enforcement: redirect to basics if incomplete
   useEffect(() => {
-    if (!loaded || active < 1) return;
+    // Never redirect when viewing a completed resume (step 8 = Resume/Preview)
+    if (!loaded || active < 1 || active >= 8) return;
     const order: StepKey[] = ["basics", "experience", "education", "projects", "roles", "jd", "template", "review", "resume"];
     for (let i = 0; i < active; i++) {
       const key = order[i];
@@ -111,7 +112,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
   return (
     <div className="sticky z-20 border-b" style={{ top: "3.5rem", background: "#f7f3ea", borderColor: "rgba(0,0,0,0.06)" }}>
       <div className="max-w-5xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto">
+        <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto px-2">
           {STEPS.map((step, i) => {
             const isPast = i < active;
             const isCompleted = isPast && (completion[step.key] || step.optional);

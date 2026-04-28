@@ -891,8 +891,12 @@ export default function CreatePage() {
                 <div className="flex flex-col gap-0.5 text-sm">
                   {profile.full_name && <span className="font-medium text-[#1a1a1a]">{profile.full_name}</span>}
                   {profile.email && <span className="text-[#6b6b6b]">{profile.email}</span>}
-                  {profile.phone && <span className="text-[#6b6b6b]">{profile.phone}</span>}
-                  {profile.current_city && <span className="text-[#6b6b6b]">{profile.current_city}</span>}
+                  {profile.phone && profile.phone.trim() !== "+91" && profile.phone.trim() !== "+91 " && !profile.phone.startsWith("e.g.") && (
+                    <span className="text-[#6b6b6b]">{profile.phone}</span>
+                  )}
+                  {profile.current_city && !profile.current_city.startsWith("e.g.") && (
+                    <span className="text-[#6b6b6b]">{profile.current_city}</span>
+                  )}
                   {(profile.target_roles?.length ?? 0) > 0 && (
                     <span className="text-[#6b6b6b] mt-0.5">Targeting: {profile.target_roles!.join(", ")}</span>
                   )}
