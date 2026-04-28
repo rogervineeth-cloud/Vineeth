@@ -12,6 +12,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Upload,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
@@ -211,6 +212,7 @@ function ProfilePageInner() {
   const [education, setEducation] = useState<EduEntry[]>([emptyEdu()]);
   const [projects, setProjects] = useState<ProjEntry[]>([]);
   const [isFresher, setIsFresher] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
   const [skillInput, setSkillInput] = useState("");
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [issueResumeId, setIssueResumeId] = useState("");
@@ -326,6 +328,50 @@ function ProfilePageInner() {
 
   function addBullet(expId: string) { setExperience((prev) => prev.map((e) => (e.id === expId ? { ...e, bullets: [...e.bullets, ""] } : e))); }
   function removeBullet(expId: string, bi: number) { setExperience((prev) => prev.map((e) => { if (e.id !== expId) return e; const bullets = e.bullets.filter((_, i) => i !== bi); return { ...e, bullets: bullets.length ? bullets : [""] }; })); }
+  // Resume upload handler (profile page)
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingResume(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/parse-resume", { method: "POST", body: form });
+      const data = await res.json();
+      if (data.error && !data.extracted) {
+        toast.error(data.error || "Couldn't parse the file.");
+        return;
+      }
+      const ep = data.extracted ?? {};
+      if (ep.name) setBasics((prev: BasicInfo) => ({ ...prev, full_name: ep.name }));
+      if (ep.email) setBasics((prev: BasicInfo) => ({ ...prev, email: ep.email }));
+      if (ep.phone) setBasics((prev: BasicInfo) => ({ ...prev, phone: ep.phone }));
+      if (ep.city) setBasics((prev: BasicInfo) => ({ ...prev, current_city: ep.city }));
+      if (ep.graduation_year) setBasics((prev: BasicInfo) => ({ ...prev, graduation_year: String(ep.graduation_year) }));
+      if (ep.experience?.length) {
+        setExperience(ep.experience.map((e: Omit<ExpEntry, "id">) => ({ ...e, id: uid(), bullets: e.bullets?.length ? e.bullets : [""] })));
+      }
+      if (ep.education?.length) {
+        setEducation(ep.education.map((e: Omit<EduEntry, "id">) => ({ ...e, id: uid(), cgpa: e.cgpa ?? "" })));
+      }
+      if (ep.skills?.length) setSkills(ep.skills);
+      if (ep.projects?.length) {
+        setProjects(ep.projects.map((p: Omit<ProjEntry, "id">) => ({ ...p, id: uid() })));
+      }
+      const hasContent = (ep.experience?.length ?? 0) > 0 || (ep.education?.length ?? 0) > 0 || (ep.skills?.length ?? 0) > 0;
+      if (hasContent) {
+        toast.success("Resume parsed — experience, education and skills pre-filled. Review and edit as needed.");
+      } else {
+        toast.info("Contact details extracted. Fill in experience and education below.");
+      }
+    } catch {
+      toast.error("Upload failed. Please try again.");
+    } finally {
+      setUploadingResume(false);
+      e.target.value = "";
+    }
+  };
+
   function moveBullet(expId: string, bi: number, dir: -1 | 1) { setExperience((prev) => prev.map((e) => { if (e.id !== expId) return e; const bullets = [...e.bullets]; const ni = bi + dir; if (ni < 0 || ni >= bullets.length) return e; [bullets[bi], bullets[ni]] = [bullets[ni], bullets[bi]]; return { ...e, bullets }; })); }
 
   function addSkill(val: string) { const t = val.trim(); if (!t || skills.includes(t)) return; setSkills((prev) => [...prev, t]); setSkillInput(""); }
@@ -397,6 +443,18 @@ function ProfilePageInner() {
               <label htmlFor="isFresher" className="text-sm font-medium text-amber-800 cursor-pointer select-none">
                 I&apos;m a fresher / I have no work experience
                 <span className="block text-xs font-normal text-amber-600 mt-0.5">Checking this makes Experience optional — you can still add internships or part-time work below.</span>
+              </label>
+            </div>
+            {/* Upload existing resume */}
+            <div className="mb-5 p-4 bg-stone-50 border border-stone-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-[#1a1a1a]">Upload your existing resume</p>
+                <p className="text-xs text-[#6b6b6b] mt-0.5">PDF only · We’ll extract and pre-fill all sections automatically.</p>
+              </div>
+              <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors border ${uploadingResume ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed" : "bg-white text-[#1f5c3a] border-[#1f5c3a] hover:bg-[#1f5c3a] hover:text-white"}`}>
+                <Upload className="w-4 h-4" />
+                {uploadingResume ? "Parsing…" : "Upload PDF"}
+                <input type="file" accept="application/pdf" className="hidden" disabled={uploadingResume} onChange={handleResumeUpload} />
               </label>
             </div>
             {!isFresher && (
