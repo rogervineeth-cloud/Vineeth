@@ -26,7 +26,7 @@ function getActiveStep(pathname: string, stepParam: string | null): number {
     return 5;
   }
   if (pathname.startsWith("/profile")) {
-    const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4, review: 4 };
+    const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4, review: 5 };
     if (stepParam && stepParam in map) return map[stepParam];
     return 0;
   }

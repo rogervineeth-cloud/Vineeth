@@ -273,9 +273,7 @@ function ProfilePageInner() {
 
   const sec1Done = !!(
     basics.full_name.trim() &&
-    basics.email.trim() &&
-    basics.phone.trim() &&
-    basics.current_city.trim()
+    basics.email.trim()
   );
   const sec2Done = targetRoles.length > 0;
   const sec3Done = experience.some((e) => e.company.trim());
@@ -290,7 +288,7 @@ function ProfilePageInner() {
 
   function handleNext() {
     if (currentStep === 0 && !sec1Done) {
-      toast.info("Fill name, email, phone, and current city — all four are required.");
+      toast.info("Fill in your full name and email — both are required to continue.");
       return;
     }
     if (currentStep === 2 && !sec4Done) {
