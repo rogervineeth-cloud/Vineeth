@@ -596,78 +596,118 @@ function ProfilePageInner() {
     }
   }
 
+  // ── Right-panel checklist data ─────────────────────────────────────────
+  const profileSteps = [
+    { label: "Basics",     required: true,  done: sec1Done },
+    { label: "Experience", required: false, done: sec3Done },
+    { label: "Education",  required: true,  done: sec4Done },
+    { label: "Projects",   required: false, done: sec5Done },
+    { label: "Roles",      required: true,  done: sec2Done },
+  ];
+  const mandatoryPending = profileSteps.filter((s) => s.required && !s.done).map((s) => s.label);
+  const canGenerate = mandatoryPending.length === 0;
+
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
       <AppHeader />
-      <div className="max-w-3xl mx-auto px-6 py-10">
-        {saveLabel && (
-          <div className="flex justify-end mb-3">
-            <span className={`text-xs font-medium ${saveStatus === "error" ? "text-red-500" : "text-[#1f5c3a]"}`}>{saveLabel}</span>
+      {/* Two-column wrapper on desktop */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col lg:flex-row gap-8 items-start">
+
+        {/* ── Left: form column ─────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0">
+          {saveLabel && (
+            <div className="flex justify-end mb-3">
+              <span className={`text-xs font-medium ${saveStatus === "error" ? "text-red-500" : "text-[#1f5c3a]"}`}>{saveLabel}</span>
+            </div>
+          )}
+          {fromPreview && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+              <strong>Updating your profile?</strong> Make your changes here, then{" "}
+              <Link href="/create" className="underline underline-offset-2 font-semibold">generate a new resume</Link>.
+              {fromResumeId && <span className="ml-1">Regenerating uses 1 credit (free within 24 h of the same JD).</span>}
+            </div>
+          )}
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-6">
+            <HorizontalStepper current={currentStep} completed={completed} onStepClick={setCurrentStep} />
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-[#1a1a1a]">{STEPS[currentStep].label}</h2>
+              <p className="text-xs text-[#6b6b6b] mt-0.5">
+                {STEPS[currentStep].required ? "Required" : "Optional"} —{" "}
+                {currentStep === 0 && "Your contact details and a quick summary."}
+                {currentStep === 1 && "Your work history. The AI uses this to tailor every resume to the JD."}
+                {currentStep === 2 && "Your academic background."}
+                {currentStep === 3 && "Projects you've built or contributed to."}
+                {currentStep === 4 && "The roles you're targeting — used to tailor every resume."}
+                {currentStep === 5 && "Check everything looks right before generating."}
+              </p>
+            </div>
+            {renderStep()}
+            <StepNav current={currentStep} onBack={handleBack} onNext={handleNext} nextDisabled={nextDisabled} />
           </div>
-        )}
-        {fromPreview && (
-          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
-            <strong>Updating your profile?</strong> Make your changes here, then{" "}
-            <Link href="/create" className="underline underline-offset-2 font-semibold">generate a new resume</Link>.
-            {fromResumeId && <span className="ml-1">Regenerating uses 1 credit (free within 24 h of the same JD).</span>}
-          </div>
-        )}
-        {/* Step progress */}
-        <div className="flex justify-center mb-6 select-none">
-          <div className="flex items-center">
-            {([] as const).map(
-              (label, i) => (
-                <div key={label} className="flex items-center">
-                  <div className="flex flex-col items-center gap-1 w-[60px]">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                        i === currentStep
-                          ? "bg-[#1f5c3a] text-white ring-2 ring-[#1f5c3a]/20"
-                          : i < currentStep
-                          ? "bg-[#1f5c3a]/70 text-white"
-                          : "bg-white border-2 border-stone-200 text-stone-400"
-                      }`}
-                    >
-                      {i + 1}
-                    </div>
-                    <span
-                      className={`text-[10px] font-medium text-center leading-tight ${
-                        i === currentStep ? "text-[#1f5c3a]" : "text-stone-400"
-                      }`}
-                    >
-                      {label}
+        </div>
+
+        {/* ── Right: persistent Generate CTA panel ──────────────────────── */}
+        <div className="lg:w-72 shrink-0">
+          <div className="sticky top-24 bg-white rounded-2xl border border-stone-200 shadow-sm p-5 flex flex-col gap-4">
+            <p className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide">Profile checklist</p>
+
+            {/* Step-by-step status list */}
+            <ul className="flex flex-col gap-2">
+              {profileSteps.map((s) => (
+                <li key={s.label} className="flex items-center gap-2.5">
+                  {s.done ? (
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#1f5c3a] shrink-0">
+                      <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     </span>
-                  </div>
-                  {i < 5 && <div className="w-6 h-px bg-stone-200 mb-4 mx-0.5" />}
-                </div>
-              )
+                  ) : s.required ? (
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-amber-400 shrink-0">
+                      <span className="text-[9px] font-bold text-amber-500">!</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-stone-300 shrink-0" />
+                  )}
+                  <span className={`text-sm ${
+                    s.done ? "text-[#1f5c3a] font-medium" : s.required ? "text-amber-700 font-medium" : "text-[#6b6b6b]"
+                  }`}>
+                    {s.label}
+                    {!s.required && <span className="ml-1 text-[10px] text-stone-400 font-normal">(optional)</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            {/* Pending mandatory notice */}
+            {!canGenerate && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug">
+                Still needed: <strong>{mandatoryPending.join(", ")}</strong>
+              </p>
             )}
+
+            {/* Divider */}
+            <div className="border-t border-stone-100" />
+
+            {/* Generate CTA */}
+            <div className="flex flex-col items-center gap-2">
+              <Button
+                asChild={canGenerate}
+                disabled={!canGenerate}
+                className="w-full text-sm font-semibold py-5 rounded-xl"
+              >
+                {canGenerate ? (
+                  <Link href="/create">Generate my resume →</Link>
+                ) : (
+                  <span>Generate my resume →</span>
+                )}
+              </Button>
+              {canGenerate && (
+                <p className="text-[11px] text-[#6b6b6b] text-center">Paste a job description on the next screen to tailor your resume.</p>
+              )}
+            </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-6">
-          <HorizontalStepper current={currentStep} completed={completed} onStepClick={setCurrentStep} />
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-[#1a1a1a]">{STEPS[currentStep].label}</h2>
-            <p className="text-xs text-[#6b6b6b] mt-0.5">
-              {STEPS[currentStep].required ? "Required" : "Optional"} —{" "}
-              {currentStep === 0 && "Your contact details and a quick summary."}
-              {currentStep === 1 && "Your work history. The AI uses this to tailor every resume to the JD."}
-              {currentStep === 2 && "Your academic background."}
-              {currentStep === 3 && "Projects you've built or contributed to."}
-              {currentStep === 4 && "The roles you're targeting — used to tailor every resume."}
-              {currentStep === 5 && "Check everything looks right before generating."}
-            </p>
-          </div>
-          {renderStep()}
-          <StepNav current={currentStep} onBack={handleBack} onNext={handleNext} nextDisabled={nextDisabled} />
-        </div>
-        <div className="hidden rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <p className="font-semibold text-[#1a1a1a]">Ready to generate?</p>
-            <p className="text-sm text-[#6b6b6b]">Paste a job description and we&apos;ll tailor this profile into a resume in under a minute.</p>
-          </div>
-          <Button asChild className="shrink-0"><Link href="/create"></Link></Button>
-        </div>
+
       </div>
     </div>
   );

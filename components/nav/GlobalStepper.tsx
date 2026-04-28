@@ -6,14 +6,14 @@ import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const STEPS = [
-  { key: "basics", label: "Basics", route: "/profile", subStep: "basics" },
-  { key: "experience", label: "Experience", route: "/profile", subStep: "experience" },
-  { key: "education", label: "Education", route: "/profile", subStep: "education" },
-  { key: "projects", label: "Projects", route: "/profile", subStep: "projects" },
-  { key: "roles", label: "Roles", route: "/profile", subStep: "roles" },
-  { key: "jd", label: "Job Description", route: "/create", subStep: "" },
-  { key: "template", label: "Template", route: "/create", subStep: "" },
-  { key: "resume", label: "Resume", route: "/preview", subStep: "" },
+  { key: "basics",     label: "Basics",          route: "/profile", subStep: "basics",     optional: false },
+  { key: "experience", label: "Experience",       route: "/profile", subStep: "experience", optional: true  },
+  { key: "education",  label: "Education",        route: "/profile", subStep: "education",  optional: false },
+  { key: "projects",   label: "Projects",         route: "/profile", subStep: "projects",   optional: true  },
+  { key: "roles",      label: "Roles",            route: "/profile", subStep: "roles",      optional: false },
+  { key: "jd",         label: "Job Description",  route: "/create",  subStep: "",           optional: false },
+  { key: "template",   label: "Template",         route: "/create",  subStep: "",           optional: false },
+  { key: "resume",     label: "Resume",           route: "/preview", subStep: "",           optional: false },
 ] as const;
 
 type StepKey = typeof STEPS[number]["key"];
@@ -107,19 +107,39 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
       <div className="max-w-5xl mx-auto px-4 py-3">
         <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto">
           {STEPS.map((step, i) => {
-            const isCompleted = i < active && completion[step.key];
+            // A step is "completed" (shows ✓) if the user has moved past it AND either:
+            //   - they actually filled it in (completion[step.key] === true), OR
+            //   - the step is optional (they were allowed to skip it)
+            const isPast = i < active;
+            const isCompleted = isPast && (completion[step.key] || step.optional);
             const isActive = i === active;
             const lastResumeHref = step.key === "resume" && latestResumeId ? "/preview/" + latestResumeId : null;
             const baseHref = step.route + (step.subStep ? "?step=" + step.subStep : "");
             const href = lastResumeHref || baseHref;
-            const clickable = isCompleted && !isActive;
+            const clickable = isPast && !isActive;
             const circle = (
-              <div className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-all shrink-0" style={{ background: isCompleted || isActive ? "#1f5c3a" : "transparent", border: "2px solid " + (isCompleted || isActive ? "#1f5c3a" : "#9ca3af"), color: isCompleted || isActive ? "white" : "#9ca3af" }} aria-current={isActive ? "step" : undefined}>
+              <div
+                className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-all shrink-0"
+                style={{
+                  background: isCompleted || isActive ? "#1f5c3a" : "transparent",
+                  border: "2px solid " + (isCompleted || isActive ? "#1f5c3a" : "#9ca3af"),
+                  color: isCompleted || isActive ? "white" : "#9ca3af",
+                }}
+                aria-current={isActive ? "step" : undefined}
+              >
                 {isCompleted && !isActive ? "✓" : i + 1}
               </div>
             );
             const label = (
-              <span className="text-xs sm:text-sm whitespace-nowrap" style={{ color: isActive ? "#1a1a1a" : isCompleted ? "#1f5c3a" : "#9ca3af", fontWeight: isActive ? 600 : 400 }}>{step.label}</span>
+              <span
+                className="text-xs sm:text-sm whitespace-nowrap"
+                style={{
+                  color: isActive ? "#1a1a1a" : isCompleted ? "#1f5c3a" : "#9ca3af",
+                  fontWeight: isActive ? 600 : 400,
+                }}
+              >
+                {step.label}
+              </span>
             );
             return (
               <div key={step.key} className="flex items-center gap-1 sm:gap-2 shrink-0">
