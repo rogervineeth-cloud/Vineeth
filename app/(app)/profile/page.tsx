@@ -653,7 +653,7 @@ function ProfilePageInner() {
             <p className="text-xs text-[#6b6b6b] mt-0.5">
               {STEPS[currentStep].required ? "Required" : "Optional"} —{" "}
               {currentStep === 0 && "Your contact details and a quick summary."}
-              {currentStep === 1 && "Your work history and skills."}
+              {currentStep === 1 && "Your work history. The AI uses this to tailor every resume to the JD."}
               {currentStep === 2 && "Your academic background."}
               {currentStep === 3 && "Projects you've built or contributed to."}
               {currentStep === 4 && "The roles you're targeting — used to tailor every resume."}
