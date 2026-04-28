@@ -12,21 +12,23 @@ const STEPS = [
   { key: "projects",   label: "Projects",         route: "/profile", subStep: "projects",   optional: true  },
   { key: "roles",      label: "Roles",            route: "/profile", subStep: "roles",      optional: false },
   { key: "jd",         label: "Job Description",  route: "/create",  subStep: "",           optional: false },
-  { key: "template",   label: "Template",         route: "/create",  subStep: "",           optional: false },
+  { key: "template",   label: "Template",         route: "/create",  subStep: "template",   optional: false },
+  { key: "review",     label: "Review",           route: "/create",  subStep: "review",     optional: false },
   { key: "resume",     label: "Resume",           route: "/preview", subStep: "",           optional: false },
 ] as const;
 
 type StepKey = typeof STEPS[number]["key"];
 
 function getActiveStep(pathname: string, stepParam: string | null): number {
-  if (pathname.startsWith("/preview")) return 7;
+  if (pathname.startsWith("/preview")) return 8;
   if (pathname.startsWith("/create")) {
-    if (stepParam === "resume") return 7;
+    if (stepParam === "resume") return 8;
+    if (stepParam === "review") return 7;
     if (stepParam === "template") return 6;
-    return 5;
+    return 5; // default: JD step
   }
   if (pathname.startsWith("/profile")) {
-    const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4, review: 5 };
+    const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4 };
     if (stepParam && stepParam in map) return map[stepParam];
     return 0;
   }
@@ -41,7 +43,10 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
   const active = getActiveStep(pathname, stepParam);
 
   const [loaded, setLoaded] = useState(false);
-  const [completion, setCompletion] = useState<Record<StepKey, boolean>>({ basics: false, roles: false, experience: false, education: false, projects: false, jd: false, template: false, resume: false });
+  const [completion, setCompletion] = useState<Record<StepKey, boolean>>({
+    basics: false, roles: false, experience: false, education: false,
+    projects: false, jd: false, template: false, review: false, resume: false,
+  });
 
   useEffect(() => {
     if (active < 0) { setLoaded(true); return; }
@@ -55,27 +60,29 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
         if (cancelled) return;
         const ld = (p?.linkedin_data ?? {}) as Record<string, unknown>;
         const pd = (p?.profile_data ?? {}) as Record<string, unknown>;
-        // Prefer profile_data (manual form) over linkedin_data (older imports)
         const exp = (Array.isArray(pd.experience) && pd.experience.length > 0)
-          ? pd.experience
-          : (Array.isArray(ld.experience) ? ld.experience : []);
+          ? pd.experience as { company?: string }[]
+          : (Array.isArray(ld.experience) ? ld.experience as { company?: string }[] : []);
         const edu = (Array.isArray(pd.education) && pd.education.length > 0)
-          ? pd.education
-          : (Array.isArray(ld.education) ? ld.education : []);
+          ? pd.education as { institution?: string }[]
+          : (Array.isArray(ld.education) ? ld.education as { institution?: string }[] : []);
         const projects = (Array.isArray(pd.projects) && pd.projects.length > 0)
-          ? pd.projects
-          : (Array.isArray(ld.projects) ? ld.projects : []);
+          ? pd.projects as { name?: string }[]
+          : (Array.isArray(ld.projects) ? ld.projects as { name?: string }[] : []);
         const jd = typeof window !== "undefined" ? (localStorage.getItem("ndrs_jd") ?? "") : "";
         const template = typeof window !== "undefined" ? (localStorage.getItem("ndrs_template") ?? "") : "";
+        const resumeId = latestResumeId ?? (typeof window !== "undefined" ? (localStorage.getItem("ndrs_latest_resume_id") ?? "") : "");
+        if (cancelled) return;
         setCompletion({
           basics: !!p?.full_name?.trim() && !!p?.email?.trim(),
           roles: Array.isArray(p?.target_roles) && p.target_roles.length > 0,
-          experience: exp.length > 0,
-          education: edu.length > 0,
-          projects: projects.length > 0,
+          experience: exp.some((e) => e.company?.trim()),
+          education: edu.some((e) => e.institution?.trim()),
+          projects: projects.some((pr) => pr.name?.trim()),
           jd: jd.trim().length >= 200,
           template: !!template,
-          resume: !!latestResumeId,
+          review: !!(jd.trim().length >= 200 && template),
+          resume: !!resumeId,
         });
         setLoaded(true);
       } catch { setLoaded(true); }
@@ -83,11 +90,10 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
     return () => { cancelled = true; };
   }, [active, pathname, latestResumeId]);
 
-  // Forward-only enforcement: if user is at step N but a prior step is incomplete, redirect to first incomplete.
-  // Skip enforcement on Basics (step 0) so users can edit it freely.
+  // Forward-only enforcement: redirect to basics if incomplete
   useEffect(() => {
     if (!loaded || active < 1) return;
-    const order: StepKey[] = ["basics", "experience", "education", "projects", "roles", "jd", "template", "resume"];
+    const order: StepKey[] = ["basics", "experience", "education", "projects", "roles", "jd", "template", "review", "resume"];
     for (let i = 0; i < active; i++) {
       const key = order[i];
       if (key === "basics" && !completion[key]) {
@@ -107,9 +113,6 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
       <div className="max-w-5xl mx-auto px-4 py-3">
         <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto">
           {STEPS.map((step, i) => {
-            // A step is "completed" (shows ✓) if the user has moved past it AND either:
-            //   - they actually filled it in (completion[step.key] === true), OR
-            //   - the step is optional (they were allowed to skip it)
             const isPast = i < active;
             const isCompleted = isPast && (completion[step.key] || step.optional);
             const isActive = i === active;
@@ -149,7 +152,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
                   <div className="flex items-center gap-1.5">{circle}{label}</div>
                 )}
                 {i < STEPS.length - 1 && (
-                  <div className="h-px" style={{ width: 16, background: isCompleted ? "#1f5c3a" : "#d1d5db" }} />
+                  <div className="h-px" style={{ width: 14, background: isCompleted ? "#1f5c3a" : "#d1d5db" }} />
                 )}
               </div>
             );

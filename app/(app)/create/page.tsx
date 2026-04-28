@@ -226,11 +226,12 @@ export default function CreatePage() {
   const router = useRouter();
   const jdRef = useRef<HTMLTextAreaElement>(null);
 
-  const [flowStep, setFlowStep] = useState<1 | 2 | 3>(() => {
+  const [flowStep, setFlowStep] = useState<1 | 2 | 3 | 4>(() => {
     if (typeof window === "undefined") return 1;
     const step = new URLSearchParams(window.location.search).get("step");
     if (step === "template") return 2;
-    if (step === "resume") return 3;
+    if (step === "review") return 3;
+    if (step === "resume") return 4;
     return 1;
   });
 
@@ -480,7 +481,7 @@ export default function CreatePage() {
       );
       return;
     }
-    setFlowStep(3);
+    setFlowStep(4);
     handleGenerate();
   }
 
@@ -497,7 +498,7 @@ export default function CreatePage() {
   const currentGenStage = GEN_STAGES[genStageIdx] ?? GEN_STAGES[GEN_STAGES.length - 1];
 
   return (
-    <div className={`flex flex-col bg-[#f7f3ea] ${flowStep < 3 ? "h-screen overflow-hidden" : "min-h-screen"}`}>
+    <div className={`flex flex-col bg-[#f7f3ea] ${flowStep < 4 ? "h-screen overflow-hidden" : "min-h-screen"}`}>
       <AppHeader />
 
       {/* 3-step progress bar */}
@@ -506,6 +507,7 @@ export default function CreatePage() {
           {([
             { n: 1, label: "Job Description", done: flowStep > 1 },
             { n: 2, label: "Choose Template", done: flowStep > 2 },
+            { n: 3, label: "Review", done: flowStep > 3 },
             { n: 3, label: "Your Resume", done: !!generatedResume },
           ] as { n: 1 | 2 | 3; label: string; done: boolean }[]).map((s, i) => (
             <div key={s.n} className="flex items-center gap-2">
@@ -788,9 +790,8 @@ export default function CreatePage() {
                   <Link href="/pricing" className="font-semibold underline whitespace-nowrap">{planCheck.reason === "NO_PLAN" ? "View plans →" : "Buy more →"}</Link>
                 </div>
               )}
-              <Button size="lg" onClick={handleClickGenerate} disabled={!canGenerate} className="w-full text-base py-6 rounded-xl font-semibold">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate my resume →
+              <Button size="lg" onClick={() => { pushUrlStep("review"); setFlowStep(3); }} disabled={!canGenerate} className="w-full text-base py-6 rounded-xl font-semibold">
+                Next — Review →
               </Button>
             </div>
           </div>
@@ -848,12 +849,11 @@ export default function CreatePage() {
 
             <Button
               size="lg"
-              onClick={handleClickGenerate}
+              onClick={() => { pushUrlStep("review"); setFlowStep(3); }}
               disabled={!canGenerate}
               className="w-full text-base py-6 rounded-xl font-semibold"
             >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Generate my resume →
+              Next — Review →
             </Button>
 
             {!completeness.complete && (
@@ -866,8 +866,142 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* STEP 3 — Your Resume */}
+      {/* STEP 3 — Review */}
       {flowStep === 3 && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+            <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-6">
+              <h2 className="text-xl font-semibold text-[#1a1a1a] mb-1">Review your resume</h2>
+              <p className="text-xs text-[#6b6b6b]">Check everything looks right before the AI generates your resume. Click any section to edit.</p>
+            </div>
+
+            {/* Basics */}
+            {profile && (
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide">Basics</p>
+                  <Link href="/profile?step=basics" className="text-xs text-[#1f5c3a] underline underline-offset-2">Edit</Link>
+                </div>
+                <div className="flex flex-col gap-0.5 text-sm">
+                  {profile.full_name && <span className="font-medium text-[#1a1a1a]">{profile.full_name}</span>}
+                  {profile.email && <span className="text-[#6b6b6b]">{profile.email}</span>}
+                  {profile.phone && <span className="text-[#6b6b6b]">{profile.phone}</span>}
+                  {profile.current_city && <span className="text-[#6b6b6b]">{profile.current_city}</span>}
+                  {(profile.target_roles?.length ?? 0) > 0 && (
+                    <span className="text-[#6b6b6b] mt-0.5">Targeting: {profile.target_roles!.join(", ")}</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Experience */}
+            {(() => {
+              const pd = (profile?.profile_data ?? {}) as Record<string, unknown>;
+              const exp = Array.isArray(pd.experience) ? pd.experience as { company?: string; role?: string; duration?: string }[] : [];
+              const expFilled = exp.filter((e) => e.company?.trim());
+              return expFilled.length > 0 ? (
+                <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide">Experience</p>
+                    <Link href="/profile?step=experience" className="text-xs text-[#1f5c3a] underline underline-offset-2">Edit</Link>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {expFilled.map((e, i) => (
+                      <div key={i} className="text-sm">
+                        <span className="font-medium text-[#1a1a1a]">{e.role}</span>
+                        <span className="text-[#6b6b6b]"> at {e.company}</span>
+                        {e.duration && <span className="text-[#6b6b6b]"> · {e.duration}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-amber-800">No experience added <span className="text-amber-600">(optional)</span></p>
+                    <Link href="/profile?step=experience" className="text-xs text-amber-700 underline underline-offset-2">Add</Link>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Education */}
+            {(() => {
+              const pd = (profile?.profile_data ?? {}) as Record<string, unknown>;
+              const edu = Array.isArray(pd.education) ? pd.education as { institution?: string; degree?: string; year?: string }[] : [];
+              const eduFilled = edu.filter((e) => e.institution?.trim() && e.institution !== "__blank__");
+              return eduFilled.length > 0 ? (
+                <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide">Education</p>
+                    <Link href="/profile?step=education" className="text-xs text-[#1f5c3a] underline underline-offset-2">Edit</Link>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {eduFilled.map((e, i) => (
+                      <div key={i} className="text-sm">
+                        <span className="font-medium text-[#1a1a1a]">{e.institution}</span>
+                        {e.degree && <span className="text-[#6b6b6b]"> · {e.degree}</span>}
+                        {e.year && <span className="text-[#6b6b6b]"> · {e.year}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+
+            {/* Job Description summary */}
+            <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide">Job Description</p>
+                <button onClick={() => { pushUrlStep("jd"); setFlowStep(1); }} className="text-xs text-[#1f5c3a] underline underline-offset-2">Edit</button>
+              </div>
+              <p className="text-xs text-[#6b6b6b]">{jdText.length} characters</p>
+              {jdAnalysis.detectedRole && <p className="text-sm font-medium text-[#1a1a1a] mt-1">📌 {jdAnalysis.detectedRole}</p>}
+              {jdAnalysis.keywords.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {jdAnalysis.keywords.slice(0, 8).map((kw) => (
+                    <span key={kw} className="text-xs bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full border border-[#1f5c3a]/20">{kw}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Template */}
+            <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 mb-8">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide">Template</p>
+                <button onClick={() => { pushUrlStep("template"); setFlowStep(2); }} className="text-xs text-[#1f5c3a] underline underline-offset-2">Change</button>
+              </div>
+              <p className="text-sm font-medium text-[#1a1a1a] capitalize">{selectedTemplate}</p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button variant="outline" onClick={() => { pushUrlStep("template"); setFlowStep(2); }} className="flex-1 gap-1.5">
+                <ChevronLeft className="w-4 h-4" />Back to Template
+              </Button>
+              <Button
+                size="lg"
+                onClick={handleClickGenerate}
+                disabled={!canGenerate}
+                className="flex-1 text-base py-6 rounded-xl font-semibold"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate my resume →
+              </Button>
+            </div>
+            {!completeness.complete && (
+              <p className="text-xs text-center text-amber-700 mt-3">
+                Profile incomplete.{" "}
+                <Link href="/profile" className="underline">Fix it first →</Link>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* STEP 4 — Your Resume */}
+      {flowStep === 4 && (
         <div className="flex-1 flex flex-col items-center justify-center py-10 px-6">
           <div className="w-full max-w-lg">
             {generating ? (
@@ -981,7 +1115,7 @@ export default function CreatePage() {
                 </div>
                 <p className="text-sm font-semibold text-[#1a1a1a] mb-1">Something went wrong</p>
                 <p className="text-sm text-[#6b6b6b] mb-5">{genError}</p>
-                <Button onClick={() => { setGenError(null); pushUrlStep("template"); setFlowStep(2); }}>
+                <Button onClick={() => { setGenError(null); pushUrlStep("review"); setFlowStep(3); }}>
                   ← Try again
                 </Button>
               </div>
