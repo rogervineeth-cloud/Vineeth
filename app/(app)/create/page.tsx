@@ -62,31 +62,130 @@ type GeneratedResume = {
   section_order?: string[];
 };
 
-const TECH_SKILLS = [
-  "React", "Node.js", "Python", "Java", "TypeScript", "JavaScript", "AWS",
-  "Docker", "Kubernetes", "SQL", "MongoDB", "GraphQL", "REST API", "Git",
-  "CI/CD", "Linux", "Excel", "Power BI", "Tableau", "Machine Learning",
-  "Deep Learning", "TensorFlow", "PyTorch", "NLP", "Data Analysis", "Agile",
-  "Scrum", "Product Management", "Figma", "UI/UX", "Angular", "Vue.js",
-  "Spring Boot", "Django", "FastAPI", "Salesforce", "SAP", "JIRA",
-  "Google Analytics", "SEO", "Next.js", "PostgreSQL", "MySQL", "Firebase",
-  "Redis", "Kafka", "Elasticsearch", "Go", "Rust", "C++", "Terraform",
-];
+// Each entry is the canonical skill name. `aliases` are alternative
+// spellings/synonyms users commonly write in JDs (case-insensitive).
+// Match logic uses a custom boundary so short tokens like "Go" do NOT
+// match inside "go-to-market", and so hyphens/dots inside identifiers
+// (e.g. "Node.js", "C++", "A/B testing") are preserved correctly.
+const TECH_SKILLS: { name: string; aliases?: string[] }[] = [
+    // Languages & runtimes
+  { name: "JavaScript", aliases: ["JS", "ES6", "ECMAScript"] },
+  { name: "TypeScript", aliases: ["TS"] },
+  { name: "Python" },
+  { name: "Java" },
+  { name: "Kotlin" },
+  { name: "Swift" },
+  { name: "Objective-C" },
+  { name: "Go", aliases: ["Golang"] },
+  { name: "Rust" },
+  { name: "C++" },
+  { name: "C#" },
+  { name: "Ruby" },
+  { name: "PHP" },
+  { name: "Scala" },
+    // Web / frontend
+  { name: "React", aliases: ["React.js", "ReactJS"] },
+  { name: "Next.js", aliases: ["NextJS"] },
+  { name: "Angular" },
+  { name: "Vue.js", aliases: ["Vue", "VueJS"] },
+  { name: "Node.js", aliases: ["NodeJS"] },
+  { name: "HTML" },
+  { name: "CSS" },
+  { name: "Tailwind", aliases: ["TailwindCSS", "Tailwind CSS"] },
+    // Mobile
+  { name: "iOS", aliases: ["iPhone", "iPadOS"] },
+  { name: "Android" },
+  { name: "React Native" },
+  { name: "Flutter" },
+    // Backend / APIs
+  { name: "GraphQL" },
+  { name: "REST API", aliases: ["REST", "RESTful API", "RESTful"] },
+  { name: "gRPC" },
+  { name: "Spring Boot" },
+  { name: "Django" },
+  { name: "FastAPI" },
+  { name: "Flask" },
+  { name: "Express", aliases: ["Express.js"] },
+    // Cloud & infra
+  { name: "AWS", aliases: ["Amazon Web Services"] },
+  { name: "Azure", aliases: ["Microsoft Azure"] },
+  { name: "GCP", aliases: ["Google Cloud", "Google Cloud Platform"] },
+  { name: "Docker" },
+  { name: "Kubernetes", aliases: ["K8s"] },
+  { name: "Terraform" },
+  { name: "CI/CD", aliases: ["Continuous Integration", "Continuous Delivery", "Continuous Deployment"] },
+  { name: "Linux" },
+  { name: "Git" },
+    // Data
+  { name: "SQL" },
+  { name: "PostgreSQL", aliases: ["Postgres"] },
+  { name: "MySQL" },
+  { name: "MongoDB" },
+  { name: "Redis" },
+  { name: "Kafka" },
+  { name: "Elasticsearch", aliases: ["Elastic Search", "ELK"] },
+  { name: "Firebase" },
+  { name: "Snowflake" },
+  { name: "BigQuery" },
+  { name: "Airflow" },
+    // Analytics & BI
+  { name: "Excel" },
+  { name: "Power BI" },
+  { name: "Tableau" },
+  { name: "Looker" },
+  { name: "Mixpanel" },
+  { name: "Amplitude" },
+  { name: "Google Analytics", aliases: ["GA4"] },
+  { name: "SQL Server" },
+    // ML / AI
+  { name: "Machine Learning", aliases: ["ML"] },
+  { name: "Deep Learning" },
+  { name: "TensorFlow" },
+  { name: "PyTorch" },
+  { name: "NLP", aliases: ["Natural Language Processing"] },
+  { name: "Computer Vision" },
+  { name: "LLM", aliases: ["Large Language Model", "Large Language Models", "GPT"] },
+  { name: "Data Analysis" },
+    // Process & ways of working
+  { name: "Agile" },
+  { name: "Scrum" },
+  { name: "Kanban" },
+    // Product & design
+  { name: "Product Management" },
+  { name: "Product Strategy" },
+  { name: "Roadmapping", aliases: ["Roadmap"] },
+  { name: "A/B Testing", aliases: ["AB Testing", "Experimentation", "Split Testing"] },
+  { name: "User Research" },
+  { name: "Stakeholder Management" },
+  { name: "Go-to-Market", aliases: ["GTM"] },
+  { name: "OKRs" },
+  { name: "Figma" },
+  { name: "Sketch" },
+  { name: "UI/UX", aliases: ["UX", "UI"] },
+    // Enterprise / SaaS
+  { name: "Salesforce" },
+  { name: "SAP" },
+  { name: "JIRA" },
+  { name: "Confluence" },
+  { name: "Notion" },
+  { name: "Slack" },
+    // Marketing
+  { name: "SEO" },
+  { name: "SEM" },
+  { name: "Performance Marketing" },
+    // Other / misc
+  { name: "Technical Writing" },
+  ];
 
-function analyzeJd(text: string): JdAnalysis {
-  if (text.length < 100) {
-    return { detectedRole: null, keywords: [], quality: "weak" };
-  }
-  const found = TECH_SKILLS.filter((skill) =>
-    new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text)
-  );
-  const roleMatch = text.match(
-    /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i
-  );
-  const detectedRole = roleMatch ? roleMatch[1].trim().slice(0, 40) : null;
-  const quality = text.length < 300 ? "weak" : text.length < 800 ? "ok" : "good";
-  return { detectedRole, keywords: found.slice(0, 12), quality };
-}
+// Build a flat list of patterns we test against the JD text. Map each
+// match back to the canonical skill name so aliases collapse correctly.
+const TECH_SKILL_PATTERNS: { canonical: string; pattern: string }[] = (() => {
+    const out: { canonical: string; pattern: string }[] = [];
+    for (const s of TECH_SKILLS) {
+          out.push({ canonical: s.name, pattern: s.name });
+          for (const a of s.aliases ?? []) out.push({ canonical: s.name, pattern: a });
+    }
+    return out;
 
 function checkCompleteness(profile: Profile | null): { complete: boolean; missing: string } {
   if (!profile) return { complete: false, missing: "your profile" };
