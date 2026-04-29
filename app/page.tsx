@@ -68,8 +68,8 @@ export default async function Home() {
               The AI Resume Maker, made for India
             </div>
             {/* Mobile headline (shorter, fewer line breaks) */}
-            <h1 className="font-serif text-[2.25rem] text-[#1a1a1a] leading-[1.15] mb-5 sm:hidden">
-              Your AI resume,<br />tailored to land<br /><span className="text-[#1f5c3a]">your dream job.</span>
+            <h1 className="font-serif text-[1.75rem] text-[#1a1a1a] leading-[1.2] mb-5 sm:hidden">
+              Your AI resume,<br />tailored to <span className="text-[#1f5c3a]">land your dream job.</span>
             </h1>
             {/* Desktop / tablet headline */}
             <h1 className="hidden sm:block font-serif italic text-4xl sm:text-5xl lg:text-[3.25rem] text-[#1a1a1a] leading-[1.15] mb-5">
