@@ -889,7 +889,7 @@ export default function CreatePage() {
 
             <h2 className="font-serif italic text-2xl text-[#1a1a1a] mb-1">Choose your template</h2>
             <p className="text-sm text-[#6b6b6b] mb-6">
-              All templates are ATS-optimised and single-column.
+              All templates are ATS-optimised — picked up cleanly by recruiter parsers.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
