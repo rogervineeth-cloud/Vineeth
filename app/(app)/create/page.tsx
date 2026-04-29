@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -394,6 +394,9 @@ export default function CreatePage() {
   });
 
   const [showMissingPopup, setShowMissingPopup] = useState(false);
+  const [removedKeywords, setRemovedKeywords] = useState<Set<string>>(new Set());
+  const [extraKeywords, setExtraKeywords] = useState<string[]>([]);
+  const [newSkillInput, setNewSkillInput] = useState("");
   const [genError, setGenError] = useState<string | null>(null);
 
   const [generating, setGenerating] = useState(false);
@@ -635,6 +638,11 @@ export default function CreatePage() {
   const completeness = checkCompleteness(profile);
   const isCreator = userEmail === CREATOR_EMAIL;
   const jdReady = jdText.trim().length >= 200;
+  const effectiveKeywords = useMemo(() => {
+    const base = jdAnalysis.keywords.filter((k) => !removedKeywords.has(k.toLowerCase()));
+    const extras = extraKeywords.filter((k) => !base.some((b) => b.toLowerCase() === k.toLowerCase()));
+    return [...base, ...extras];
+  }, [jdAnalysis.keywords, removedKeywords, extraKeywords]);
   const canGenerate =
     jdReady &&
     completeness.complete &&
@@ -715,19 +723,67 @@ export default function CreatePage() {
                   <span className="text-xs text-[#1f5c3a]">Detailed JD ✓</span>
                 )}
               </div>
-              {jdAnalysis.keywords.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5 items-center">
-                  <span className="text-xs text-[#6b6b6b]">Detected skills:</span>
-                  {jdAnalysis.keywords.slice(0, 8).map((kw) => (
-                    <span key={kw} className="text-xs bg-white border border-[#1f5c3a]/25 text-[#1f5c3a] px-2 py-0.5 rounded-full">
-                      {kw}
-                    </span>
-                  ))}
-                  {jdAnalysis.keywords.length > 8 && (
-                    <span className="text-xs text-[#999]">+{jdAnalysis.keywords.length - 8} more</span>
-                  )}
+            {jdText.trim().length >= 100 && jdAnalysis.quality === "weak" && (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800">
+                  <p className="font-semibold mb-0.5">This JD looks light on detail</p>
+                  <p>Paste the full job description (responsibilities, requirements, skills) for a sharper, more tailored resume.</p>
                 </div>
-              )}
+              </div>
+            )}
+                          {(effectiveKeywords.length > 0 || jdReady) && (
+              <div className="mt-3 flex flex-wrap gap-1.5 items-center">
+                <span className="text-xs text-[#6b6b6b]">Detected skills:</span>
+                {effectiveKeywords.slice(0, 12).map((kw) => (
+                  <span key={kw} className="text-xs bg-white border border-[#1f5c3a]/25 text-[#1f5c3a] pl-2 pr-1 py-0.5 rounded-full inline-flex items-center gap-1">
+                    {kw}
+                    <button
+                      type="button"
+                      aria-label={`Remove ${kw}`}
+                      onClick={() => {
+                        setRemovedKeywords((prev) => {
+                          const next = new Set(prev);
+                          next.add(kw.toLowerCase());
+                          return next;
+                        });
+                        setExtraKeywords((prev) => prev.filter((x) => x.toLowerCase() !== kw.toLowerCase()));
+                      }}
+                      className="text-[#1f5c3a]/60 hover:text-[#1f5c3a] hover:bg-[#1f5c3a]/10 rounded-full w-4 h-4 inline-flex items-center justify-center leading-none"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {effectiveKeywords.length > 12 && (
+                  <span className="text-xs text-[#999]">+{effectiveKeywords.length - 12} more</span>
+                )}
+                <input
+                  type="text"
+                  value={newSkillInput}
+                  onChange={(e) => setNewSkillInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      const v = newSkillInput.trim().replace(/,$/, "");
+                      if (v.length >= 1 && v.length <= 40) {
+                        setExtraKeywords((prev) =>
+                          prev.some((x) => x.toLowerCase() === v.toLowerCase()) ? prev : [...prev, v],
+                        );
+                        setRemovedKeywords((prev) => {
+                          const next = new Set(prev);
+                          next.delete(v.toLowerCase());
+                          return next;
+                        });
+                        setNewSkillInput("");
+                      }
+                    }
+                  }}
+                  placeholder="+ add skill"
+                  className="text-xs px-2 py-0.5 rounded-full border border-dashed border-[#d4c9b0] bg-transparent placeholder:text-[#999] focus:outline-none focus:border-[#1f5c3a] w-24"
+                />
+              </div>
+            )}
             </div>
 
             {loaded && (
