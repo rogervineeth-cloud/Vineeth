@@ -509,6 +509,7 @@ export default function CreatePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jd_text: jdText,
+          jd_keywords: effectiveKeywords,
           template: selectedTemplate,
           user_profile: {
             full_name: profile!.full_name,
