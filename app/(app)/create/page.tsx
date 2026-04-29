@@ -1100,6 +1100,32 @@ export default function CreatePage() {
               ) : null;
             })()}
 
+            {/* Projects */}
+            {(() => {
+              const pdProj = (profile?.profile_data ?? {}) as Record<string, unknown>;
+              const projsAny = Array.isArray(pdProj.projects) ? (pdProj.projects as Array<{ name?: string; description?: string; tech?: string[] }>) : [];
+              const projsFilled = projsAny.filter((p) => p.name?.trim());
+              if (projsFilled.length === 0) return null;
+              return (
+                <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide">Projects</p>
+                    <Link href="/profile?step=projects" className="text-xs text-[#1f5c3a] underline underline-offset-2">Edit</Link>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {projsFilled.map((p, i) => (
+                      <div key={i} className="text-sm">
+                        <span className="font-medium text-[#1a1a1a]">{p.name}</span>
+                        {p.tech && p.tech.length > 0 && (<span className="text-[#6b6b6b]"> · {p.tech.slice(0, 4).join(", ")}</span>)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+
+            
             {/* Job Description summary */}
             <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 mb-4">
               <div className="flex items-center justify-between mb-3">
