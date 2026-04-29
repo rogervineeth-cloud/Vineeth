@@ -9,7 +9,6 @@ import {
   GripVertical,
   ChevronDown,
   ChevronUp,
-  Check,
   ChevronLeft,
   ChevronRight,
   Upload,
@@ -81,72 +80,7 @@ const STEPS = [
   { label: "Roles",      required: true,  description: "The roles you're targeting — used to tailor every resume." },
 ] as const;
 
-// ── Compact horizontal stepper (mobile: dots only) ────────────────────────
-function HorizontalStepper({
-  current,
-  completed,
-  onStepClick,
-}: {
-  current: number;
-  completed: boolean[];
-  onStepClick: (i: number) => void;
-}) {
-  return (
-    <>
-      {/* Desktop stepper */}
-      <div className="hidden sm:flex items-center justify-between mb-6 relative">
-        <div
-          className="absolute top-4 h-px bg-stone-200 z-0"
-          style={{ left: "calc(10% + 1rem)", right: "calc(10% + 1rem)" }}
-        />
-        {STEPS.map((step, i) => {
-          const isDone = completed[i];
-          const isCurrent = i === current;
-          return (
-            <button
-              key={step.label}
-              type="button"
-              onClick={() => onStepClick(i)}
-              className="flex flex-col items-center gap-1.5 relative z-10 min-w-[60px] group focus:outline-none"
-            >
-              <div
-                className={`flex items-center justify-center rounded-full font-bold transition-all duration-200 ${
-                  isCurrent
-                    ? "w-9 h-9 text-sm bg-[#1f5c3a] text-white shadow-md ring-2 ring-[#1f5c3a]/30"
-                    : isDone
-                    ? "w-8 h-8 text-sm bg-[#1f5c3a] text-white"
-                    : "w-8 h-8 text-sm bg-white border-2 border-[#1f5c3a] text-[#1f5c3a] group-hover:bg-[#1f5c3a]/5"
-                }`}
-              >
-                {isDone ? <Check className="w-4 h-4" /> : i + 1}
-              </div>
-              <span className={`text-xs font-medium transition-colors ${isCurrent ? "text-[#1f5c3a]" : "text-[#6b6b6b] group-hover:text-[#1a1a1a]"}`}>
-                {step.label}
-              </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${step.required ? "bg-[#1f5c3a]/10 text-[#1f5c3a]" : "bg-stone-100 text-[#6b6b6b]"}`}>
-                {step.required ? "Required" : "Optional"}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {/* Mobile: dots + step label */}
-      <div className="flex sm:hidden items-center justify-between mb-6">
-        <div className="flex items-center gap-1.5">
-          {STEPS.map((_, i) => (
-            <button key={i} type="button" onClick={() => onStepClick(i)}
-              className={`rounded-full transition-all ${i === current ? "w-6 h-2 bg-[#1f5c3a]" : completed[i] ? "w-2 h-2 bg-[#1f5c3a]/60" : "w-2 h-2 bg-stone-300"}`}
-            />
-          ))}
-        </div>
-        <span className="text-sm text-[#6b6b6b]">
-          Step <span className="font-semibold text-[#1a1a1a]">{current + 1}</span> of 5 —{" "}
-          <span className="font-semibold text-[#1a1a1a]">{STEPS[current].label}</span>
-        </span>
-      </div>
-    </>
-  );
-}
+
 
 function StepNav({
   current,
@@ -718,7 +652,6 @@ function ProfilePageInner() {
           )}
           {/* Scroll anchor — the form card scrolls into view on step change */}
           <div ref={formTopRef} className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-6 scroll-mt-32">
-            <HorizontalStepper current={currentStep} completed={completed} onStepClick={setCurrentStep} />
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-[#1a1a1a]">{STEPS[currentStep].label}</h2>
               <p className="text-xs text-[#6b6b6b] mt-0.5">

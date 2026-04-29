@@ -28,7 +28,7 @@ export function AppHeader() {
   }
 
   return (
-    <header className="border-b border-stone-200/60 bg-[#f7f3ea]/90 backdrop-blur-sm sticky top-0 z-10">
+    <header className="border-b border-stone-200/60 bg-[#f7f3ea]/90 backdrop-blur-sm sticky top-0 z-30">
       <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
         <Link href={user ? "/dashboard" : "/"} className="font-serif italic text-xl text-[#1f5c3a] font-bold">Neduresume</Link>
         <div className="flex items-center gap-4">
