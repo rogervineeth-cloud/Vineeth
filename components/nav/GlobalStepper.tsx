@@ -6,15 +6,15 @@ import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const STEPS = [
-  { key: "basics",     label: "Basics",          route: "/profile", subStep: "basics",     optional: false },
-  { key: "experience", label: "Experience",       route: "/profile", subStep: "experience", optional: true  },
-  { key: "education",  label: "Education",        route: "/profile", subStep: "education",  optional: false },
-  { key: "projects",   label: "Projects",         route: "/profile", subStep: "projects",   optional: true  },
-  { key: "roles",      label: "Roles",            route: "/profile", subStep: "roles",      optional: false },
-  { key: "jd",         label: "Job Description",  route: "/create",  subStep: "",           optional: false },
-  { key: "template",   label: "Template",         route: "/create",  subStep: "template",   optional: false },
-  { key: "review",     label: "Review",           route: "/create",  subStep: "review",     optional: false },
-  { key: "resume",     label: "Resume",           route: "/preview", subStep: "",           optional: false },
+  { key: "basics",     label: "Basics",    route: "/profile", subStep: "basics",     optional: false },
+  { key: "experience", label: "Experience", route: "/profile", subStep: "experience", optional: true  },
+  { key: "education",  label: "Education",  route: "/profile", subStep: "education",  optional: false },
+  { key: "projects",   label: "Projects",   route: "/profile", subStep: "projects",   optional: true  },
+  { key: "roles",      label: "Roles",      route: "/profile", subStep: "roles",      optional: false },
+  { key: "jd",         label: "Job Desc",   route: "/create",  subStep: "",           optional: false },
+  { key: "template",   label: "Template",   route: "/create",  subStep: "template",   optional: false },
+  { key: "review",     label: "Review",     route: "/create",  subStep: "review",     optional: false },
+  { key: "resume",     label: "Resume",     route: "/preview", subStep: "",           optional: false },
 ] as const;
 
 type StepKey = typeof STEPS[number]["key"];
@@ -25,7 +25,7 @@ function getActiveStep(pathname: string, stepParam: string | null): number {
     if (stepParam === "resume") return 8;
     if (stepParam === "review") return 7;
     if (stepParam === "template") return 6;
-    return 5; // default: JD step
+    return 5;
   }
   if (pathname.startsWith("/profile")) {
     const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4 };
@@ -92,7 +92,6 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
 
   // Forward-only enforcement: redirect to basics if incomplete
   useEffect(() => {
-    // Never redirect when viewing a completed resume (step 8 = Resume/Preview)
     if (!loaded || active < 1 || active >= 8) return;
     const order: StepKey[] = ["basics", "experience", "education", "projects", "roles", "jd", "template", "review", "resume"];
     for (let i = 0; i < active; i++) {
@@ -111,8 +110,9 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
 
   return (
     <div className="sticky z-20 border-b" style={{ top: "3.5rem", background: "#f7f3ea", borderColor: "rgba(0,0,0,0.06)" }}>
-      <div className="max-w-5xl mx-auto px-4 py-4">
-        <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto overflow-y-visible px-2 pb-1">
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 py-3">
+        {/* All 9 steps in a single scrollable row — no overflow clipping */}
+        <div className="flex items-center justify-between w-full min-w-0">
           {STEPS.map((step, i) => {
             const isPast = i < active;
             const isCompleted = isPast && (completion[step.key] || step.optional);
@@ -121,9 +121,10 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
             const baseHref = step.route + (step.subStep ? "?step=" + step.subStep : "");
             const href = lastResumeHref || baseHref;
             const clickable = isPast && !isActive;
+
             const circle = (
               <div
-                className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-all shrink-0"
+                className="flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-bold transition-all shrink-0"
                 style={{
                   background: isCompleted || isActive ? "#1f5c3a" : "transparent",
                   border: "2px solid " + (isCompleted || isActive ? "#1f5c3a" : "#9ca3af"),
@@ -134,9 +135,10 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
                 {isCompleted && !isActive ? "✓" : i + 1}
               </div>
             );
+
             const label = (
               <span
-                className="text-xs sm:text-sm whitespace-nowrap"
+                className="hidden sm:inline text-[11px] whitespace-nowrap leading-tight"
                 style={{
                   color: isActive ? "#1a1a1a" : isCompleted ? "#1f5c3a" : "#9ca3af",
                   fontWeight: isActive ? 600 : 400,
@@ -145,21 +147,38 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
                 {step.label}
               </span>
             );
+
+            const inner = (
+              <div className="flex items-center gap-1">
+                {circle}
+                {label}
+              </div>
+            );
+
             return (
-              <div key={step.key} className="flex items-center gap-1 sm:gap-2 shrink-0">
+              <div key={step.key} className="flex items-center min-w-0 shrink">
                 {clickable ? (
-                  <Link href={href} className="flex items-center gap-1.5 hover:opacity-75 transition-opacity">{circle}{label}</Link>
-                ) : (
-                  <div className="flex items-center gap-1.5">{circle}{label}</div>
-                )}
+                  <Link href={href} className="flex items-center gap-1 hover:opacity-75 transition-opacity">
+                    {inner}
+                  </Link>
+                ) : inner}
                 {i < STEPS.length - 1 && (
-                  <div className="h-px" style={{ width: 14, background: isCompleted ? "#1f5c3a" : "#d1d5db" }} />
+                  <div
+                    className="shrink mx-1"
+                    style={{
+                      height: 1,
+                      minWidth: 4,
+                      flex: "1 1 8px",
+                      maxWidth: 20,
+                      background: isCompleted ? "#1f5c3a" : "#d1d5db",
+                    }}
+                  />
                 )}
               </div>
             );
           })}
         </div>
-        <p className="text-center text-[11px] text-[#6b6b6b] mt-2">Step {active + 1} of {total}</p>
+        <p className="text-center text-[10px] text-[#6b6b6b] mt-1.5">Step {active + 1} of {total}</p>
       </div>
     </div>
   );
