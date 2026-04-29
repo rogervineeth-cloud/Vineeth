@@ -111,8 +111,8 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
 
   return (
     <div className="sticky z-20 border-b" style={{ top: "3.5rem", background: "#f7f3ea", borderColor: "rgba(0,0,0,0.06)" }}>
-      <div className="max-w-5xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto px-2">
+      <div className="max-w-5xl mx-auto px-4 py-4">
+        <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto overflow-y-visible px-2 pb-1">
           {STEPS.map((step, i) => {
             const isPast = i < active;
             const isCompleted = isPast && (completion[step.key] || step.optional);

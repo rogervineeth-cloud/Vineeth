@@ -70,10 +70,7 @@ export default function OnboardingPage() {
   const isFresher = candidateType === "fresher";
   // scratch path skips upload step
   const isScratch = path === "scratch";
-  // Progress: scratch = 1 step (basics), others = 2 (upload + basics)
-  const totalSteps = isScratch ? 1 : 2;
-  // normalise for dot rendering: step 1 = upload, step 2 = basics
-  const displayStep = isScratch ? 1 : step;
+
 
   // ── Path selection ─────────────────────────────────────────────────────
   function choosePath(chosen: Path) {
@@ -174,27 +171,7 @@ export default function OnboardingPage() {
 
       <div className="max-w-2xl mx-auto px-6 py-12">
 
-        {/* Progress dots — only shown after path is chosen */}
-        {step > 0 && (
-          <div className="flex items-center gap-2 mb-10">
-            {Array.from({ length: totalSteps }).map((_, i) => {
-              const dotStep = i + 1;
-              const active = displayStep === dotStep;
-              const done = displayStep > dotStep;
-              return (
-                <div key={i} className="flex items-center gap-2">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
-                    done ? "bg-[#1f5c3a] text-white" : active ? "bg-[#1f5c3a] text-white ring-2 ring-[#1f5c3a]/30 ring-offset-1" : "bg-stone-200 text-[#6b6b6b]"
-                  }`}>
-                    {done ? "✓" : dotStep}
-                  </div>
-                  {i < totalSteps - 1 && <div className={`h-px w-8 ${done ? "bg-[#1f5c3a]" : "bg-stone-200"}`} />}
-                </div>
-              );
-            })}
-            <span className="ml-2 text-xs text-[#6b6b6b]">Step {displayStep} of {totalSteps}</span>
-          </div>
-        )}
+
 
         {/* ── STEP -1: Candidate type selection ── */}
         {step === -1 && (
