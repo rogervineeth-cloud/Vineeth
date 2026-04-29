@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
-import { AppHeader } from "@/components/app-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -373,7 +372,7 @@ function ProfilePageInner() {
   if (!loaded) {
     return (
       <div className="min-h-screen bg-[#f7f3ea]">
-        <AppHeader />
+        
         <div className="flex items-center justify-center min-h-[60vh]"><p className="text-[#6b6b6b]">Loading profile…</p></div>
       </div>
     );
@@ -631,7 +630,7 @@ function ProfilePageInner() {
 
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
-      <AppHeader />
+      
       {/* Two-column wrapper on desktop */}
       {/* scroll-padding-top ensures anchored scrolls clear the sticky header + stepper (~7rem) */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col lg:flex-row gap-8 items-start" style={{ scrollPaddingTop: "8rem" }}>

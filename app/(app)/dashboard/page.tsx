@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Download, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { AppHeader } from "@/components/app-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PLAN_LABELS } from "@/lib/plan-config";
@@ -151,7 +150,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
-      <AppHeader />
+      
 
       <div className="max-w-5xl mx-auto px-6 py-12">
         {/* Plan badge */}

@@ -4,7 +4,6 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -192,7 +191,7 @@ export default function PreviewPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f7f3ea]">
-        <AppHeader />
+        
         <div className="flex items-center justify-center min-h-[60vh]">
           <p className="text-[#6b6b6b]">Loading resume…</p>
         </div>
@@ -205,7 +204,7 @@ export default function PreviewPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
-      <AppHeader />
+      
       <UpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
 
       <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">

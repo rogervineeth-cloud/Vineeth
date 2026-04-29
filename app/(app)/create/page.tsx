@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/client";
 import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { AppHeader } from "@/components/app-header";
 import { CheckCircle2, AlertCircle, Sparkles, FileText, ChevronLeft } from "lucide-react";
 
 type ProfileData = {
@@ -505,7 +504,7 @@ export default function CreatePage() {
 
   return (
     <div className={`flex flex-col bg-[#f7f3ea] ${flowStep < 4 ? "h-screen overflow-hidden" : "min-h-screen"}`}>
-      <AppHeader />
+      
 
       {/* 3-step progress bar */}
       <div className="hidden">

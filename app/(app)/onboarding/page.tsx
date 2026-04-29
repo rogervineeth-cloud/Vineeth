@@ -10,7 +10,6 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AppHeader } from "@/components/app-header";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Path = "linkedin" | "resume" | "scratch";
@@ -167,7 +166,7 @@ export default function OnboardingPage() {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
-      <AppHeader />
+      
 
       <div className="max-w-2xl mx-auto px-6 py-12">
 
