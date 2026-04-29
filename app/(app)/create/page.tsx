@@ -186,6 +186,49 @@ const TECH_SKILL_PATTERNS: { canonical: string; pattern: string }[] = (() => {
           for (const a of s.aliases ?? []) out.push({ canonical: s.name, pattern: a });
     }
     return out;
+})();
+
+// Custom word boundary: a "tech token" can include letters, digits,
+// `+`, `#`, `.`, `/`, and `-`. We refuse to match if the character
+// immediately before/after the candidate is one of those — this stops
+// "Go" from matching inside "go-to-market" while still letting
+// "Node.js", "C++", "A/B Testing", "CI/CD" match correctly.
+const SKILL_BOUNDARY_CHARS = "A-Za-z0-9+#./\\-";
+
+function escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function analyzeJd(text: string): JdAnalysis {
+    if (text.length < 100) {
+          return { detectedRole: null, keywords: [], quality: "weak" };
+    }
+    const seen = new Set<string>();
+    const found: string[] = [];
+    for (const p of TECH_SKILL_PATTERNS) {
+          const re = new RegExp(
+                  `(?<![${SKILL_BOUNDARY_CHARS}])${escapeRegex(p.pattern)}(?![${SKILL_BOUNDARY_CHARS}])`,
+                  "i"
+                );
+          if (re.test(text) && !seen.has(p.canonical)) {
+                  seen.add(p.canonical);
+                  found.push(p.canonical);
+          }
+    }
+    const roleMatch = text.match(
+          /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i
+        );
+    const detectedRole = roleMatch ? roleMatch[1].trim().slice(0, 40) : null;
+    // Quality is now driven both by length AND signal density: a long JD
+    // with no recognized skills is still treated as "weak" so we surface
+    // a warning to the user instead of a falsely-confident green tick.
+    let quality: JdAnalysis["quality"];
+    if (text.length < 300 || found.length < 2) quality = "weak";
+    else if (text.length < 800 || found.length < 5) quality = "ok";
+    else quality = "good";
+    return { detectedRole, keywords: found.slice(0, 12), quality };
+}
+
 
 function checkCompleteness(profile: Profile | null): { complete: boolean; missing: string } {
   if (!profile) return { complete: false, missing: "your profile" };
