@@ -14,6 +14,12 @@
   --font-serif: var(--font-instrument-serif);
 }
 
+html {
+  /* Offset for sticky AppHeader (3.5rem / 56px) + GlobalStepper (~3.5rem / 56px) + small gap */
+  scroll-padding-top: 8rem;
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

@@ -5,9 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Upload, Link2, FileText, PenLine, X, Briefcase, GraduationCap } from "lucide-react";
+import { Upload, Link2, FileText, PenLine, Briefcase, GraduationCap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +41,8 @@ type BasicsData = z.infer<typeof basicsSchema>;
 // ── Component ──────────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter();
-  // Auto-select candidate type from landing page CTA (reads window.location on mount)
+
+  // Auto-select candidate type from landing page CTA
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -51,7 +51,7 @@ export default function OnboardingPage() {
     else if (pathParam === "fresher") { setCandidateType("fresher"); setStep(0); }
   }, []);
 
-  // step -1 = candidate type (experienced/fresher), 0 = path selection, 1 = upload, 2 = roles, 3 = basics
+  // step -1 = candidate type, 0 = path selection, 1 = upload, 2 = basics
   const [candidateType, setCandidateType] = useState<"experienced" | "fresher" | null>(null);
   const [path, setPath] = useState<Path | null>(null);
   const [step, setStep] = useState(-1);
@@ -60,7 +60,6 @@ export default function OnboardingPage() {
   const [uploadDone, setUploadDone] = useState(false);
   const [extractedProfile, setExtractedProfile] = useState<ExtractedProfile | null>(null);
 
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -68,12 +67,13 @@ export default function OnboardingPage() {
     resolver: zodResolver(basicsSchema),
   });
 
-  // Progress dots: scratch = 2 steps (roles + basics), others = 3 (upload + roles + basics)
-  const isScratch = path === "scratch";
-  // For freshers, default to scratch if no path chosen yet
   const isFresher = candidateType === "fresher";
-  const totalSteps = isScratch ? 2 : 3;
-  const displayStep = isScratch ? step - 1 : step; // normalise for dot rendering
+  // scratch path skips upload step
+  const isScratch = path === "scratch";
+  // Progress: scratch = 1 step (basics), others = 2 (upload + basics)
+  const totalSteps = isScratch ? 1 : 2;
+  // normalise for dot rendering: step 1 = upload, step 2 = basics
+  const displayStep = isScratch ? 1 : step;
 
   // ── Path selection ─────────────────────────────────────────────────────
   function choosePath(chosen: Path) {
@@ -85,42 +85,33 @@ export default function OnboardingPage() {
     setStep(0);
   }
 
-  // ── Upload handler (LinkedIn PDF or any resume PDF) ────────────────────
+  // ── Upload handler ────────────────────────────────────────────────────
   const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setUploading(true);
     setUploadDone(false);
-
     try {
       const form = new FormData();
       form.append("file", file);
-
       const res = await fetch("/api/parse-resume", { method: "POST", body: form });
       const data = await res.json();
-
       if (data.error && !data.extracted) {
         toast.error(data.error || "Couldn't parse the file. You can fill in your details below.");
         return;
       }
-
       const ep: ExtractedProfile = data.extracted ?? {};
       setExtractedProfile(ep);
       setUploadDone(true);
-
-      // Pre-fill basics form from extracted contact info
       if (ep.name) setValue("full_name", ep.name);
       if (ep.email) setValue("email", ep.email);
       if (ep.phone) setValue("phone", ep.phone);
       if (ep.city) setValue("current_city", ep.city);
       if (ep.graduation_year) setValue("graduation_year", String(ep.graduation_year));
-
       const hasContent =
         (ep.experience?.length ?? 0) > 0 ||
         (ep.education?.length ?? 0) > 0 ||
         (ep.skills?.length ?? 0) > 0;
-
       if (hasContent) {
         toast.success("Resume parsed — experience, education and skills extracted. Review your details in Step 3.");
       } else if (data.partial) {
@@ -135,34 +126,17 @@ export default function OnboardingPage() {
     }
   }, [setValue]);
 
-  // ── Role toggle ────────────────────────────────────────────────────────
-  function toggleRole(role: string) {
-    setSelectedRoles((prev) => {
-      if (prev.includes(role)) return prev.filter((r) => r !== role);
-      if (prev.length >= 3) { toast.info("Pick up to 3 roles."); return prev; }
-      return [...prev, role];
-    });
-  }
-
   // ── Save and redirect ──────────────────────────────────────────────────
   async function onSubmitBasics(data: BasicsData) {
-    if (selectedRoles.length === 0) {
-      toast.error("Please go back and pick at least one target role.");
-      return;
-    }
-
     setSaving(true);
     setSaveError(null);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-
     if (!user) {
       toast.error("Session expired — please sign in again.");
       router.push("/login");
       return;
     }
-
-    // Build profile_data from whatever was extracted
     const profileData = extractedProfile ? {
       summary: extractedProfile.summary ?? undefined,
       experience: extractedProfile.experience ?? [],
@@ -170,7 +144,6 @@ export default function OnboardingPage() {
       skills: extractedProfile.skills ?? [],
       projects: extractedProfile.projects ?? [],
     } : null;
-
     const { error } = await supabase.from("profiles").upsert({
       user_id: user.id,
       full_name: data.full_name,
@@ -178,11 +151,9 @@ export default function OnboardingPage() {
       phone: data.phone || null,
       current_city: data.current_city || null,
       graduation_year: data.graduation_year ? parseInt(data.graduation_year) : null,
-      target_roles: selectedRoles,
       profile_data: profileData,
       onboarded_at: new Date().toISOString(),
     });
-
     if (error) {
       const msg = error.code === "42501"
         ? "Permission denied — please sign out and sign in again."
@@ -192,7 +163,7 @@ export default function OnboardingPage() {
       setSaving(false);
       return;
     }
-
+    // Send to profile page — the stepper will guide them through all steps
     router.push("/profile?from=onboarding");
   }
 
@@ -333,7 +304,7 @@ export default function OnboardingPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-[#1a1a1a] mb-1">I&apos;ll fill it in myself</p>
-                  <p className="text-sm text-[#6b6b6b]">No PDF? No problem. Pick your target roles and fill in your basics — you&apos;ll complete your profile details on the next screen.</p>
+                  <p className="text-sm text-[#6b6b6b]">No PDF? No problem. Enter your basic details and complete your full profile on the next screen — the stepper will guide you through each section.</p>
                   <p className="text-xs text-[#6b6b6b] mt-2 italic">Good for freshers or anyone starting fresh</p>
                 </div>
               </button>
@@ -401,57 +372,18 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── STEP 2: Target roles ── */}
+        {/* ── STEP 2: Confirm basics ── */}
         {step === 2 && (
           <div className="flex flex-col gap-6">
             <div>
-              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">What roles are you targeting?</h1>
-              <p className="text-[#6b6b6b] text-sm">Pick up to 3. We&apos;ll use these to tailor your resume keywords.</p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {INDIAN_JOB_ROLES.map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => toggleRole(role)}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                    selectedRoles.includes(role)
-                      ? "bg-[#1f5c3a] text-white border-[#1f5c3a]"
-                      : "bg-white text-[#1a1a1a] border-stone-200 hover:border-[#1f5c3a]"
-                  }`}
-                >
-                  {selectedRoles.includes(role) && <X className="inline w-3 h-3 mr-1 -mt-0.5" />}
-                  {role}
-                </button>
-              ))}
-            </div>
-
-            {selectedRoles.length > 0 && (
-              <p className="text-sm text-[#1f5c3a] font-medium">Selected: {selectedRoles.join(", ")}</p>
-            )}
-
-            <div className="flex justify-between pt-2">
-              <Button variant="ghost" onClick={() => setStep(isScratch ? 0 : 1)}>Back</Button>
-              <Button onClick={() => {
-                if (selectedRoles.length === 0) { toast.error("Pick at least one role."); return; }
-                setStep(3);
-              }}>
-                Continue
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP 3: Confirm basics ── */}
-        {step === 3 && (
-          <div className="flex flex-col gap-6">
-            <div>
-              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">Confirm your details</h1>
+              <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-2">Your basic details</h1>
               <p className="text-[#6b6b6b] text-sm">
                 {extractedProfile
                   ? "We've pre-filled these from your uploaded file. Edit anything that looks wrong."
                   : "These will appear on your resume. You can change them any time from your profile."}
+              </p>
+              <p className="text-xs text-[#6b6b6b] mt-1">
+                Your target job roles, experience, education, and skills will be set up on the next screen using the step-by-step guide.
               </p>
             </div>
 
@@ -462,25 +394,25 @@ export default function OnboardingPage() {
             <form onSubmit={handleSubmit(onSubmitBasics)} className="flex flex-col gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="full_name">Full name *</Label>
+                  <Label htmlFor="full_name">Full name <span className="text-red-500">*</span></Label>
                   <Input id="full_name" placeholder="Your full name" {...register("full_name")} />
                   {errors.full_name && <p className="text-xs text-red-500">{errors.full_name.message}</p>}
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
                   <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
                   {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone">Phone <span className="text-xs text-[#6b6b6b] font-normal">(optional)</span></Label>
                   <Input id="phone" placeholder="+91 98765 43210" {...register("phone")} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="current_city">Current city</Label>
+                  <Label htmlFor="current_city">Current city <span className="text-xs text-[#6b6b6b] font-normal">(optional)</span></Label>
                   <Input id="current_city" placeholder="e.g. Kochi" {...register("current_city")} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="graduation_year">Graduation year</Label>
+                  <Label htmlFor="graduation_year">Graduation year <span className="text-xs text-[#6b6b6b] font-normal">(optional)</span></Label>
                   <Input id="graduation_year" inputMode="numeric" placeholder="e.g. 2022" {...register("graduation_year")} />
                 </div>
               </div>
@@ -495,9 +427,9 @@ export default function OnboardingPage() {
               )}
 
               <div className="flex justify-between pt-2">
-                <Button type="button" variant="ghost" onClick={() => setStep(2)}>Back</Button>
+                <Button type="button" variant="ghost" onClick={() => setStep(isScratch ? 0 : 1)}>Back</Button>
                 <Button type="submit" disabled={saving}>
-                  {saving ? "Saving…" : "Complete setup →"}
+                  {saving ? "Saving…" : "Continue to profile →"}
                 </Button>
               </div>
             </form>
