@@ -6,6 +6,14 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 
 const plans = [
   {
+    name: "Fresher",
+    price: "₹299",
+    resumes: "5 downloads",
+    popular: true,
+    free: false,
+    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
+  },
+  {
     name: "Free Preview",
     price: "₹0",
     resumes: "Unlimited previews",
@@ -22,14 +30,6 @@ const plans = [
     features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
   },
   {
-    name: "Fresher",
-    price: "₹299",
-    resumes: "5 downloads",
-    popular: true,
-    free: false,
-    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
-  },
-  {
     name: "Job Hunter",
     price: "₹599",
     resumes: "12 downloads",
@@ -40,38 +40,43 @@ const plans = [
 ];
 
 const faqs = [
-  { q: "Will my resume pass ATS?", a: "Yes. We use single-column, ATS-optimized formatting. Every resume includes a live ATS match score." },
-  { q: "What if I don't have LinkedIn?", a: "Upload your LinkedIn PDF (Settings → Save as PDF on LinkedIn) or build from scratch using the manual form." },
+  { q: "Will my resume pass ATS?", a: "Yes. We use single-column, ATS-optimised formatting. Every resume includes a live ATS match score before you download." },
+  { q: "What if I don't have LinkedIn?", a: "No problem. You can build from scratch using our guided manual form, or upload an existing resume to get started." },
   { q: "Can I edit after generating?", a: "Yes, freely. Re-downloads of the same resume don't count as new credits." },
   { q: "How long are resumes valid?", a: "One year from purchase date." },
-  { q: "Is there a free trial?", a: "Try it free — generate a resume and see the watermarked preview. Download requires a paid pack starting at ₹100." },
+  { q: "Is there a free trial?", a: "Yes. Generate a resume and see the watermarked preview free, forever. Download requires a paid pack starting at ₹100." },
 ];
 
 export default async function Home() {
   const supabase = await createClient();
   const { count } = await supabase.from("resumes").select("*", { count: "exact", head: true });
   const resumeCount = count ?? 0;
-  const resumeCountDisplay = resumeCount < 50 ? "500+" : `${Math.round(resumeCount / 10) * 10}+`;
+  const showResumeCount = resumeCount >= 50;
+  const resumeCountDisplay = showResumeCount ? `${Math.round(resumeCount / 10) * 10}+` : null;
 
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
       <LandingHeader />
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-6 pt-14 pb-16">
+      <section className="max-w-6xl mx-auto px-6 pt-10 sm:pt-14 pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left column */}
           <div>
             <div className="inline-flex items-center gap-2 bg-[#1f5c3a]/10 border border-[#1f5c3a]/25 text-[#1f5c3a] text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
               <Sparkles className="w-3 h-3" />
-              Neduresume AI — The AI Resume Maker
+              The AI Resume Maker, made for India
             </div>
-            <h1 className="font-serif italic text-4xl sm:text-5xl lg:text-[3.25rem] text-[#1a1a1a] leading-[1.15] mb-5">
-              Your AI resume, tailored<br />to your dream job —<br />
-              <span className="text-[#1f5c3a]">built to get you hired.</span>
+            {/* Mobile headline (shorter, fewer line breaks) */}
+            <h1 className="font-serif text-[2.25rem] text-[#1a1a1a] leading-[1.15] mb-5 sm:hidden">
+              Your AI resume,<br />tailored to land<br /><span className="text-[#1f5c3a]">your dream job.</span>
+            </h1>
+            {/* Desktop / tablet headline */}
+            <h1 className="hidden sm:block font-serif italic text-4xl sm:text-5xl lg:text-[3.25rem] text-[#1a1a1a] leading-[1.15] mb-5">
+              Your AI resume, tailored<br />to your dream job —<br /><span className="text-[#1f5c3a]">built to get you hired.</span>
             </h1>
             <p className="text-[#6b6b6b] text-base sm:text-lg max-w-lg mb-8 leading-relaxed">
-              Paste a job description. Neduresume AI reads it, matches your profile, and crafts a resume that gets you shortlisted at the world's leading firms — ATS-ready, every time.
+              Paste a job description. Neduresume reads it, matches your profile, and crafts a resume tailored to the role you're applying for — ATS-optimised on every download.
             </p>
             {/* Two-path CTAs */}
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -84,14 +89,16 @@ export default async function Home() {
             </div>
             {/* Trust strip */}
             <div className="flex flex-wrap gap-2 mb-4">
-              <span className="text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">✦ ATS-optimised</span>
-              <span className="text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">✦ LinkedIn</span>
-              <span className="text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">✦ Naukri</span>
-              <span className="text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">✦ Monster</span>
-              <span className="text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">✦ Indeed</span>
-              <span className="text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">✦ Top MNCs</span>
+              {["ATS-optimised", "LinkedIn", "Naukri", "Monster", "Indeed", "Top MNCs"].map((label) => (
+                <span key={label} className="inline-flex items-center gap-1 text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">
+                  <Sparkles className="w-3 h-3" />
+                  {label}
+                </span>
+              ))}
             </div>
-            <p className="text-xs text-[#6b6b6b]">{resumeCountDisplay} resumes generated · Free preview forever · Download from ₹100</p>
+            <p className="text-xs text-[#6b6b6b]">
+              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}Free preview forever · Download from ₹100 · Pay once, no subscription
+            </p>
           </div>
 
           {/* Right column — resume mockup */}
@@ -125,7 +132,7 @@ export default async function Home() {
                 </div>
                 <div className="mt-4 flex items-center gap-1.5 text-[10px] text-[#6b6b6b]">
                   <Sparkles className="w-3 h-3 text-[#1f5c3a]" />
-                  ✦ Generated by Neduresume AI in 12s
+                  Generated by Neduresume in 12s
                 </div>
               </div>
             </div>
@@ -139,7 +146,7 @@ export default async function Home() {
               <Zap className="w-4 h-4 text-[#1f5c3a]" />
             </div>
             <div>
-              <p className="font-semibold text-sm text-[#1a1a1a]">AI writes your bullets</p>
+              <p className="font-semibold text-sm text-[#1a1a1a]">Bullets written for you</p>
               <p className="text-xs text-[#6b6b6b] mt-0.5">Tailored to the job description, not generic templates.</p>
             </div>
           </div>
@@ -158,7 +165,7 @@ export default async function Home() {
             </div>
             <div>
               <p className="font-semibold text-sm text-[#1a1a1a]">ATS-ready PDF</p>
-              <p className="text-xs text-[#6b6b6b] mt-0.5">Single-column, clean formatting that passes every ATS scanner.</p>
+              <p className="text-xs text-[#6b6b6b] mt-0.5">Single-column, clean formatting designed to parse cleanly.</p>
             </div>
           </div>
         </div>
@@ -169,9 +176,12 @@ export default async function Home() {
         <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-2">Simple pricing</h2>
         <p className="text-center text-[#6b6b6b] mb-10 text-sm">All plans valid 1 year · No subscription · Pay once, use anytime</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {plans.map((plan) => (
-            <div key={plan.name} className={`relative rounded-xl border p-5 flex flex-col gap-4 ${plan.popular ? "border-[#1f5c3a] bg-[#1f5c3a] text-white shadow-lg" : plan.free ? "border-stone-200 bg-stone-50" : "border-stone-200 bg-white"}`}>
-              {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">Most popular</span>}
+          {plans.map((plan, idx) => (
+            <div
+              key={plan.name}
+              className={`relative rounded-xl border p-5 flex flex-col gap-4 ${plan.popular ? "border-[#1f5c3a] bg-[#1f5c3a] text-white shadow-lg" : plan.free ? "border-stone-200 bg-stone-50" : "border-stone-200 bg-white"} ${idx === 0 ? "mt-3 sm:mt-0" : ""}`}
+            >
+              {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">Best value</span>}
               {plan.free && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-stone-200 text-stone-700 text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">Always free</span>}
               <div>
                 <p className={`text-sm font-medium mb-1 ${plan.popular ? "text-white/80" : "text-[#6b6b6b]"}`}>{plan.name}</p>
@@ -212,8 +222,12 @@ export default async function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-stone-200/60 py-8 text-center text-sm text-[#6b6b6b]">
-        © 2026 Neduresume AI · Made in India
+      <footer className="border-t border-stone-200/60 py-8 px-6 text-center text-sm text-[#6b6b6b]">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
+          <span>© 2026 Neduresume · Made in India</span>
+          <span className="hidden sm:inline text-stone-300">|</span>
+          <a href="mailto:rogervineeth@gmail.com" className="hover:text-[#1a1a1a] transition-colors">Contact</a>
+        </div>
       </footer>
     </div>
   );
