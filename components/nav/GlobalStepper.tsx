@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 const STEPS = [
   { key: "basics",     label: "Basics",    route: "/profile", subStep: "basics",     optional: false },
   { key: "experience", label: "Experience", route: "/profile", subStep: "experience", optional: true  },
-  { key: "education",  label: "Education",  route: "/profile", subStep: "education",  optional: false },
+  { key: "education",  label: "Education",  route: "/profile", subStep: "education",  optional: true  },
   { key: "projects",   label: "Projects",   route: "/profile", subStep: "projects",   optional: true  },
   { key: "roles",      label: "Roles",      route: "/profile", subStep: "roles",      optional: false },
   { key: "jd",         label: "Job Desc",   route: "/create",  subStep: "",           optional: false },
@@ -48,6 +48,12 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
     projects: false, jd: false, template: false, review: false, resume: false,
   });
 
+  // Tracks steps the user explicitly skipped (only optional steps).
+  // We persist this in profile_data JSONB so the stepper can render a 3rd state
+  // ("skipped") that's visually distinct from "completed" and "not visited yet".
+  type SkipKey = "experience" | "education" | "projects";
+  const [skipped, setSkipped] = useState<Record<SkipKey, boolean>>({ experience: false, education: false, projects: false });
+
   useEffect(() => {
     if (active < 0) { setLoaded(true); return; }
     const supabase = createClient();
@@ -84,6 +90,11 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
           review: !!(jd.trim().length >= 200 && template),
           resume: !!resumeId,
         });
+        setSkipped({
+          experience: !!pd?.expSkipped,
+          education:  !!pd?.eduSkipped,
+          projects:   !!pd?.projSkipped,
+        });
         setLoaded(true);
       } catch { setLoaded(true); }
     })();
@@ -115,7 +126,10 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
         <div className="flex items-center justify-between w-full min-w-0">
           {STEPS.map((step, i) => {
             const isPast = i < active;
-            const isCompleted = isPast && (completion[step.key] || step.optional);
+            // A step is "skipped" if user explicitly clicked Skip on it (only Experience/Education/Projects).
+            const stepKey = step.key as string;
+            const isSkipped = isPast && (stepKey === "experience" || stepKey === "education" || stepKey === "projects") && (skipped as Record<string, boolean>)[stepKey] && !completion[step.key];
+            const isCompleted = isPast && (completion[step.key] || (step.optional && !isSkipped));
             const isActive = i === active;
             const lastResumeHref = step.key === "resume" && latestResumeId ? "/preview/" + latestResumeId : null;
             const baseHref = step.route + (step.subStep ? "?step=" + step.subStep : "");
@@ -127,12 +141,12 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
                 className="flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-bold transition-all shrink-0"
                 style={{
                   background: isCompleted || isActive ? "#1f5c3a" : "transparent",
-                  border: "2px solid " + (isCompleted || isActive ? "#1f5c3a" : "#9ca3af"),
-                  color: isCompleted || isActive ? "white" : "#9ca3af",
+                  border: "2px " + (isSkipped ? "dashed #9ca3af" : "solid " + (isCompleted || isActive ? "#1f5c3a" : "#9ca3af")),
+                  color: isCompleted || isActive ? "white" : isSkipped ? "#6b6b6b" : "#9ca3af",
                 }}
                 aria-current={isActive ? "step" : undefined}
               >
-                {isCompleted && !isActive ? "✓" : i + 1}
+                {isCompleted && !isActive ? "✓" : isSkipped ? "–" : i + 1}
               </div>
             );
 
@@ -140,8 +154,9 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
               <span
                 className="hidden sm:inline text-[11px] whitespace-nowrap leading-tight"
                 style={{
-                  color: isActive ? "#1a1a1a" : isCompleted ? "#1f5c3a" : "#9ca3af",
+                  color: isActive ? "#1a1a1a" : isCompleted ? "#1f5c3a" : isSkipped ? "#6b6b6b" : "#9ca3af",
                   fontWeight: isActive ? 600 : 400,
+                  fontStyle: isSkipped ? "italic" : "normal",
                 }}
               >
                 {step.label}
@@ -170,7 +185,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
                       minWidth: 4,
                       flex: "1 1 8px",
                       maxWidth: 20,
-                      background: isCompleted ? "#1f5c3a" : "#d1d5db",
+                      background: isCompleted ? "#1f5c3a" : isSkipped ? "#9ca3af" : "#d1d5db",
                     }}
                   />
                 )}
