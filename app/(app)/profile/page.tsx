@@ -611,11 +611,11 @@ function ProfilePageInner() {
 
   // ── Right-panel checklist data ─────────────────────────────────────────
   const profileSteps = [
-    { label: "Basics",     required: true,  done: sec1Done },
-    { label: "Experience", required: false, done: sec3Done },
-    { label: "Education",  required: false, done: sec4Done },
-    { label: "Projects",   required: false, done: sec5Done },
-    { label: "Roles",      required: true,  done: sec2Done },
+    { label: "Basics",     required: true,  done: sec1Done, skipped: false },
+    { label: "Experience", required: false, done: experience.some((e) => e.company.trim()) || isFresher, skipped: expSkipped && !experience.some((e) => e.company.trim()) },
+    { label: "Education",  required: false, done: education.some((e) => e.institution.trim()), skipped: eduSkipped && !education.some((e) => e.institution.trim()) },
+    { label: "Projects",   required: false, done: projects.some((p) => p.name.trim()), skipped: projSkipped && !projects.some((p) => p.name.trim()) },
+    { label: "Roles",      required: true,  done: sec2Done, skipped: false },
   ];
   const mandatoryPending = profileSteps.filter((s) => s.required && !s.done).map((s) => s.label);
   const canGenerate = mandatoryPending.length === 0;
@@ -693,7 +693,7 @@ function ProfilePageInner() {
                         <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </span>
-                  ) : s.required ? (
+                  ) : s.skipped ? ( <span className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-stone-400 border-dashed bg-stone-50 shrink-0" title="Skipped"><span className="text-[11px] text-stone-500 leading-none">–</span></span> ) : s.required ? (
                     <span className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-amber-400 shrink-0">
                       <span className="text-[9px] font-bold text-amber-500">!</span>
                     </span>
@@ -701,7 +701,7 @@ function ProfilePageInner() {
                     <span className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-stone-300 shrink-0" />
                   )}
                   <span className={`text-sm ${
-                    s.done ? "text-[#1f5c3a] font-medium" : s.required ? "text-amber-700 font-medium" : "text-[#6b6b6b]"
+                    s.done ? "text-[#1f5c3a] font-medium" : s.skipped ? "text-stone-500 italic" : s.required ? "text-amber-700 font-medium" : "text-[#6b6b6b]"
                   }`}>
                     {s.label}
                     {!s.required && <span className="ml-1 text-[10px] text-stone-400 font-normal">(optional)</span>}
