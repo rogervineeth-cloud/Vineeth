@@ -295,7 +295,7 @@ function parseProjectsBlock(block: string[]): ProjectEntry[] {
   return entries;
 }
 
-// pdf-parse v2 inserts a "-- N of M --" page-break marker between pages. Strip it.
+// Some PDF text extractors emit "-- N of M --" page-break markers; strip them.
 const PAGE_MARKER_RE = /^\s*-{1,3}\s*\d+\s+of\s+\d+\s*-{1,3}\s*$/i;
 
 function extractProfile(text: string): ExtractedProfile {
@@ -344,8 +344,64 @@ export const maxDuration = 30;
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB — matches the upload UI
 
+// Extract plain text from a PDF using pdfjs-dist's legacy build directly.
+// We avoid pdf-parse and the pdfjs worker entirely — both have failed reliably on
+// Vercel/Lambda in the past (native @napi-rs/canvas binding, missing worker file).
+// pdfjs-dist runs the parse on the main thread when no worker is configured,
+// which is exactly what we want in a serverless function.
+async function extractTextFromPdf(data: Uint8Array): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
+
+  const loadingTask = pdfjs.getDocument({
+    data,
+    useWorkerFetch: false,
+    isEvalSupported: false,
+    useSystemFonts: false,
+    disableFontFace: true,
+    verbosity: 0,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let pdf: any | null = null;
+  try {
+    pdf = await loadingTask.promise;
+    const pagesText: string[] = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      try {
+        const content = await page.getTextContent();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const items = content.items as Array<any>;
+        let lastY: number | null = null;
+        let buf = "";
+        for (const item of items) {
+          if (typeof item.str !== "string") continue;
+          const itemY: number | null = Array.isArray(item.transform) ? item.transform[5] : null;
+          if (lastY !== null && itemY !== null && Math.abs(itemY - lastY) > 1) {
+            buf += "\n";
+          } else if (buf && !buf.endsWith(" ") && !buf.endsWith("\n")) {
+            buf += " ";
+          }
+          buf += item.str;
+          if (item.hasEOL) buf += "\n";
+          lastY = itemY;
+        }
+        pagesText.push(buf);
+      } finally {
+        page.cleanup();
+      }
+    }
+    return pagesText.join("\n");
+  } finally {
+    if (pdf) {
+      try { await pdf.cleanup(); } catch { /* ignore */ }
+      try { await pdf.destroy(); } catch { /* ignore */ }
+    }
+  }
+}
+
 export async function POST(req: NextRequest) {
-  let parser: { destroy: () => Promise<void> } | null = null;
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -367,18 +423,49 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const data = new Uint8Array(arrayBuffer);
 
-    // pdf-parse v2 exposes a PDFParse class instead of a callable default export.
-    // Use an untyped dynamic import to avoid clashing with stale @types/pdf-parse v1 typings.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mod = (await import("pdf-parse")) as any;
-    const PDFParse = mod.PDFParse ?? mod.default?.PDFParse;
-    if (!PDFParse) {
-      throw new Error("pdf-parse v2 export missing — check installed version (>=2.x)");
+    // Quick magic-byte sniff so corrupt/non-PDF uploads fail fast with a clear message.
+    if (data.length < 5 || data[0] !== 0x25 || data[1] !== 0x50 || data[2] !== 0x44 || data[3] !== 0x46) {
+      return NextResponse.json({
+        error: "This file doesn't look like a valid PDF. Please re-export and try again.",
+        extracted: null,
+        partial: true,
+      }, { status: 200 });
     }
-    parser = new PDFParse({ data, verbosity: 0 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (parser as any).getText();
-    const text: string = (result?.text ?? "").toString();
+
+    let text: string;
+    try {
+      text = await extractTextFromPdf(data);
+    } catch (err) {
+      // Log full diagnostics server-side so we can debug future failures from logs.
+      console.error("[parse-resume] pdfjs extraction failed:", {
+        name: (err as { name?: string } | null)?.name,
+        message: (err as { message?: string } | null)?.message,
+        stack: (err as { stack?: string } | null)?.stack,
+      });
+      const name = (err as { name?: string } | null)?.name ?? "";
+      const message = (err as { message?: string } | null)?.message ?? "";
+      if (name === "PasswordException" || /password/i.test(message)) {
+        return NextResponse.json({
+          error: "This PDF is password-protected. Please upload an unlocked copy.",
+          extracted: null,
+          partial: true,
+        }, { status: 200 });
+      }
+      if (name === "InvalidPDFException" || /invalid pdf/i.test(message)) {
+        return NextResponse.json({
+          error: "This file isn't a valid PDF. Please re-export and try again.",
+          extracted: null,
+          partial: true,
+        }, { status: 200 });
+      }
+      // Return partial success: empty extracted profile so the user can keep going
+      // by filling fields manually rather than being blocked behind a hard error.
+      return NextResponse.json({
+        error: "We couldn't read this PDF automatically. Click \"Skip — fill manually\" to enter your details by hand.",
+        extracted: null,
+        partial: true,
+      }, { status: 200 });
+    }
 
     if (!text.trim()) {
       return NextResponse.json({
@@ -392,23 +479,11 @@ export async function POST(req: NextRequest) {
     const extracted = extractProfile(text);
     return NextResponse.json({ text, extracted });
   } catch (err) {
-    console.error("Resume parse error:", err);
-    const name = (err as { name?: string } | null)?.name ?? "";
-    const message = (err as { message?: string } | null)?.message ?? "";
-    if (name === "PasswordException" || /password/i.test(message)) {
-      return NextResponse.json({ error: "This PDF is password-protected. Please upload an unlocked copy." }, { status: 200 });
-    }
-    if (name === "InvalidPDFException" || /invalid pdf/i.test(message)) {
-      return NextResponse.json({ error: "This file isn't a valid PDF. Please re-export and try again." }, { status: 200 });
-    }
+    console.error("[parse-resume] unexpected error:", err);
     return NextResponse.json({
-      error: "We couldn't parse this PDF. Try re-exporting it as a text PDF, or click \"Skip — fill manually\" to enter your details by hand.",
+      error: "Something went wrong on our side. Please try again, or click \"Skip — fill manually\" to enter your details by hand.",
       extracted: null,
       partial: true,
     }, { status: 200 });
-  } finally {
-    if (parser) {
-      try { await parser.destroy(); } catch { /* ignore */ }
-    }
   }
 }
