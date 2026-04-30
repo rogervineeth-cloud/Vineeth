@@ -6,14 +6,32 @@ export const maxDuration = 30;
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB — matches the upload UI
 
+// Resolve pdfjs-dist's legacy ESM entry. We try the legacy build first (it
+// targets older runtimes and avoids browser globals like DOMMatrix), then
+// fall back to the default build. Some Vercel/Next builds occasionally fail
+// to trace the legacy subpath even with outputFileTracingIncludes — falling
+// back keeps the route working in that case.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadPdfjs(): Promise<any> {
+  try {
+    return await import("pdfjs-dist/legacy/build/pdf.mjs");
+  } catch (legacyErr) {
+    try {
+      return await import("pdfjs-dist");
+    } catch {
+      // Re-throw the original error — it's the more informative one.
+      throw legacyErr;
+    }
+  }
+}
+
 // Extract plain text from a PDF using pdfjs-dist's legacy build directly.
 // We avoid pdf-parse and the pdfjs worker entirely — both have failed reliably on
 // Vercel/Lambda in the past (native @napi-rs/canvas binding, missing worker file).
 // pdfjs-dist runs the parse on the main thread when no worker is configured,
 // which is exactly what we want in a serverless function.
 async function extractTextFromPdf(data: Uint8Array): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
+  const pdfjs = await loadPdfjs();
 
   const loadingTask = pdfjs.getDocument({
     data,
@@ -63,7 +81,20 @@ async function extractTextFromPdf(data: Uint8Array): Promise<string> {
   }
 }
 
+function debugInfoFromErr(err: unknown): { name: string; message: string; code?: string } {
+  const e = err as { name?: string; message?: string; code?: string } | null;
+  return {
+    name: e?.name ?? "Error",
+    message: e?.message ?? String(err),
+    code: e?.code,
+  };
+}
+
 export async function POST(req: NextRequest) {
+  // Allow callers to opt into a diagnostic payload that surfaces the
+  // underlying error name/message — handy for live debugging without dumping
+  // stack traces to every user. Pass `?debug=1` on the request URL.
+  const debug = new URL(req.url).searchParams.get("debug") === "1";
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -99,25 +130,25 @@ export async function POST(req: NextRequest) {
       text = await extractTextFromPdf(data);
     } catch (err) {
       // Log full diagnostics server-side so we can debug future failures from logs.
+      const info = debugInfoFromErr(err);
       console.error("[parse-resume] pdfjs extraction failed:", {
-        name: (err as { name?: string } | null)?.name,
-        message: (err as { message?: string } | null)?.message,
+        ...info,
         stack: (err as { stack?: string } | null)?.stack,
       });
-      const name = (err as { name?: string } | null)?.name ?? "";
-      const message = (err as { message?: string } | null)?.message ?? "";
-      if (name === "PasswordException" || /password/i.test(message)) {
+      if (info.name === "PasswordException" || /password/i.test(info.message)) {
         return NextResponse.json({
           error: "This PDF is password-protected. Please upload an unlocked copy.",
           extracted: null,
           partial: true,
+          ...(debug ? { debug: info } : {}),
         }, { status: 200 });
       }
-      if (name === "InvalidPDFException" || /invalid pdf/i.test(message)) {
+      if (info.name === "InvalidPDFException" || /invalid pdf/i.test(info.message)) {
         return NextResponse.json({
           error: "This file isn't a valid PDF. Please re-export and try again.",
           extracted: null,
           partial: true,
+          ...(debug ? { debug: info } : {}),
         }, { status: 200 });
       }
       // Return partial success: empty extracted profile so the user can keep going
@@ -126,6 +157,7 @@ export async function POST(req: NextRequest) {
         error: "We couldn't read this PDF automatically. Click \"Skip — fill manually\" to enter your details by hand.",
         extracted: null,
         partial: true,
+        ...(debug ? { debug: info } : {}),
       }, { status: 200 });
     }
 
@@ -150,15 +182,18 @@ export async function POST(req: NextRequest) {
         extracted: null,
         partial: true,
         error: "We read your PDF but couldn't auto-fill all fields. You can fill the rest manually.",
+        ...(debug ? { debug: debugInfoFromErr(err) } : {}),
       }, { status: 200 });
     }
     return NextResponse.json({ text, extracted });
   } catch (err) {
-    console.error("[parse-resume] unexpected error:", err);
+    const info = debugInfoFromErr(err);
+    console.error("[parse-resume] unexpected error:", info);
     return NextResponse.json({
       error: "Something went wrong on our side. Please try again, or click \"Skip — fill manually\" to enter your details by hand.",
       extracted: null,
       partial: true,
+      ...(debug ? { debug: info } : {}),
     }, { status: 200 });
   }
 }
