@@ -98,6 +98,16 @@ function classifySection(line: string): string | null {
   return null;
 }
 
+// Some resumes write a header inline with content, e.g. "Skills: Python, JS, AWS".
+// Detect that and split the line into a header + remainder so we don't lose the body.
+function splitInlineHeader(line: string): { section: string; rest: string } | null {
+  const m = line.match(/^([A-Za-z][A-Za-z &\/]{1,35})\s*[:\-–—]\s*(.+)$/);
+  if (!m) return null;
+  const section = classifySection(m[1]);
+  if (!section) return null;
+  return { section, rest: m[2].trim() };
+}
+
 function extractEmail(text: string): string {
   const m = text.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/);
   return m ? m[0] : "";
@@ -285,8 +295,14 @@ function parseProjectsBlock(block: string[]): ProjectEntry[] {
   return entries;
 }
 
+// pdf-parse v2 inserts a "-- N of M --" page-break marker between pages. Strip it.
+const PAGE_MARKER_RE = /^\s*-{1,3}\s*\d+\s+of\s+\d+\s*-{1,3}\s*$/i;
+
 function extractProfile(text: string): ExtractedProfile {
-  const lines = text.split("\n").map((l) => l.replace(/\u00a0/g, " ").trimEnd());
+  const lines = text
+    .split("\n")
+    .map((l) => l.replace(/\u00a0/g, " ").trimEnd())
+    .filter((l) => !PAGE_MARKER_RE.test(l));
   const buckets: Record<string, string[]> = { summary: [], experience: [], education: [], skills: [], projects: [] };
   let active: string | null = null;
   const headerLines: string[] = [];
@@ -295,6 +311,12 @@ function extractProfile(text: string): ExtractedProfile {
     const sec = classifySection(trimmed);
     if (sec) {
       active = (sec in buckets) ? sec : null;
+      continue;
+    }
+    const inline = splitInlineHeader(trimmed);
+    if (inline) {
+      active = (inline.section in buckets) ? inline.section : null;
+      if (active && inline.rest) buckets[active].push(inline.rest);
       continue;
     }
     if (active) {
@@ -317,29 +339,76 @@ function extractProfile(text: string): ExtractedProfile {
   return { name, email, phone, city, graduation_year, summary, experience, education, skills, projects };
 }
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
+const MAX_BYTES = 5 * 1024 * 1024; // 5 MB — matches the upload UI
+
 export async function POST(req: NextRequest) {
+  let parser: { destroy: () => Promise<void> } | null = null;
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    if (!file || file.type !== "application/pdf") {
-      return NextResponse.json({ error: "PDF file required" }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: "Please select a PDF to upload." }, { status: 400 });
     }
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const isPdfMime = file.type === "application/pdf";
+    const isPdfName = /\.pdf$/i.test(file.name || "");
+    if (!isPdfMime && !isPdfName) {
+      return NextResponse.json({ error: "Only PDF files are supported." }, { status: 400 });
+    }
+    if (file.size === 0) {
+      return NextResponse.json({ error: "The uploaded file is empty." }, { status: 400 });
+    }
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json({ error: "PDF too large — please upload a file under 5 MB." }, { status: 400 });
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+
+    // pdf-parse v2 exposes a PDFParse class instead of a callable default export.
+    // Use an untyped dynamic import to avoid clashing with stale @types/pdf-parse v1 typings.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfParse = (await import("pdf-parse")) as any;
-    const data = await pdfParse.default(buffer);
-    const text: string = data.text || "";
+    const mod = (await import("pdf-parse")) as any;
+    const PDFParse = mod.PDFParse ?? mod.default?.PDFParse;
+    if (!PDFParse) {
+      throw new Error("pdf-parse v2 export missing — check installed version (>=2.x)");
+    }
+    parser = new PDFParse({ data, verbosity: 0 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await (parser as any).getText();
+    const text: string = (result?.text ?? "").toString();
+
     if (!text.trim()) {
       return NextResponse.json({
         error: "We couldn't read any text from this PDF. If it's a scanned/image PDF, please re-export it as a text PDF (File → Save As PDF) and try again.",
         text: "",
         extracted: null,
+        partial: true,
       }, { status: 200 });
     }
+
     const extracted = extractProfile(text);
     return NextResponse.json({ text, extracted });
   } catch (err) {
     console.error("Resume parse error:", err);
-    return NextResponse.json({ error: "Failed to parse the PDF. Please try a different file." }, { status: 500 });
+    const name = (err as { name?: string } | null)?.name ?? "";
+    const message = (err as { message?: string } | null)?.message ?? "";
+    if (name === "PasswordException" || /password/i.test(message)) {
+      return NextResponse.json({ error: "This PDF is password-protected. Please upload an unlocked copy." }, { status: 200 });
+    }
+    if (name === "InvalidPDFException" || /invalid pdf/i.test(message)) {
+      return NextResponse.json({ error: "This file isn't a valid PDF. Please re-export and try again." }, { status: 200 });
+    }
+    return NextResponse.json({
+      error: "We couldn't parse this PDF. Try re-exporting it as a text PDF, or click \"Skip — fill manually\" to enter your details by hand.",
+      extracted: null,
+      partial: true,
+    }, { status: 200 });
+  } finally {
+    if (parser) {
+      try { await parser.destroy(); } catch { /* ignore */ }
+    }
   }
 }
