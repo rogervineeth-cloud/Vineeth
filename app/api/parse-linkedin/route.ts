@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import "pdf-parse/worker";
+
+export const runtime = "nodejs";
+export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,13 +15,31 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Dynamically import pdf-parse to avoid build issues with Next.js
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfParse = (await import("pdf-parse")) as any;
-    const data = await pdfParse.default(buffer);
-    const text = data.text;
+    let text = "";
+    try {
+      const { PDFParse } = await import("pdf-parse");
+      const parser = new PDFParse({ data: new Uint8Array(buffer) });
+      try {
+        const result = await parser.getText();
+        text = (result.text ?? "").trim();
+      } finally {
+        await parser.destroy().catch(() => {});
+      }
+    } catch (parseErr) {
+      console.error("PDF text extraction failed:", parseErr);
+      return NextResponse.json(
+        { error: "We couldn't read this PDF. It may be scanned or image-based — try re-exporting as a text PDF, or click 'Skip — fill manually'." },
+        { status: 422 },
+      );
+    }
 
-    // Best-effort heuristic extraction from LinkedIn PDF
+    if (!text) {
+      return NextResponse.json(
+        { error: "No selectable text found in this PDF. Please re-export as a text PDF or skip and fill manually." },
+        { status: 422 },
+      );
+    }
+
     const extracted = parseLinkedInText(text);
 
     return NextResponse.json({ text, extracted });

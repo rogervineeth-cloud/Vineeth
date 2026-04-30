@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import "pdf-parse/worker";
 
+export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const EXTRACTION_PROMPT = `You are a resume parser. Extract all information from this resume or LinkedIn profile text and return it as JSON.
@@ -36,6 +38,17 @@ Rules:
 - For skills, list all technical tools, technologies, and domain skills mentioned
 - Return ONLY the JSON object, nothing else`;
 
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  try {
+    const result = await parser.getText();
+    return (result.text ?? "").trim();
+  } finally {
+    await parser.destroy().catch(() => {});
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -49,34 +62,55 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfParse = (await import("pdf-parse")) as any;
-    const { text } = await pdfParse.default(buffer);
 
-    if (!text?.trim()) {
-      return NextResponse.json({ error: "Could not extract text from this PDF. Try a different file." }, { status: 422 });
+    let text = "";
+    try {
+      text = await extractPdfText(buffer);
+    } catch (parseErr) {
+      console.error("PDF text extraction failed:", parseErr);
+      return NextResponse.json(
+        { error: "We couldn't read this PDF. It may be scanned or image-based — try re-exporting as a text PDF, or click 'Skip — fill manually' to enter your details by hand." },
+        { status: 422 },
+      );
     }
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 2000,
-      system: EXTRACTION_PROMPT,
-      messages: [{ role: "user", content: `Extract all resume data from this text:\n\n${text.slice(0, 8000)}` }],
-    });
+    if (!text) {
+      return NextResponse.json(
+        { error: "No selectable text found in this PDF. If it's scanned, please re-export as a text PDF or click 'Skip — fill manually'." },
+        { status: 422 },
+      );
+    }
 
-    const raw = message.content[0].type === "text" ? message.content[0].text : "";
-    const cleaned = raw.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
-
-    let extracted;
-    try {
-      extracted = JSON.parse(cleaned);
-    } catch {
-      console.error("Resume parse AI response not valid JSON:", raw.slice(0, 300));
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.warn("ANTHROPIC_API_KEY missing — returning raw text only");
       return NextResponse.json({ text, extracted: null, partial: true });
     }
 
-    return NextResponse.json({ text, extracted });
+    try {
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const message = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2000,
+        system: EXTRACTION_PROMPT,
+        messages: [{ role: "user", content: `Extract all resume data from this text:\n\n${text.slice(0, 8000)}` }],
+      });
+
+      const raw = message.content[0]?.type === "text" ? message.content[0].text : "";
+      const cleaned = raw.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
+
+      let extracted;
+      try {
+        extracted = JSON.parse(cleaned);
+      } catch {
+        console.error("Resume parse AI response not valid JSON:", raw.slice(0, 300));
+        return NextResponse.json({ text, extracted: null, partial: true });
+      }
+
+      return NextResponse.json({ text, extracted });
+    } catch (aiErr) {
+      console.error("Anthropic extraction failed:", aiErr);
+      return NextResponse.json({ text, extracted: null, partial: true });
+    }
   } catch (err) {
     console.error("Resume parse error:", err);
     return NextResponse.json({ error: "Failed to parse resume. Please try again." }, { status: 500 });
