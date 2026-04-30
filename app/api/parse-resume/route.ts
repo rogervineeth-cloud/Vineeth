@@ -97,10 +97,29 @@ function installPdfjsBrowserGlobalShims(): void {
 // Resolve pdfjs-dist's legacy ESM entry. The shims above must be installed
 // BEFORE this import runs so the top-level `new DOMMatrix()` inside the
 // legacy build doesn't throw on Node runtimes without @napi-rs/canvas.
+//
+// pdfjs also tries to spin up a fake worker via a *dynamic* `import(workerSrc)`
+// where `workerSrc` is a runtime-computed string ("./pdf.worker.mjs"). NFT
+// can't trace runtime strings, so on Vercel that file is missing from the
+// Lambda and pdfjs throws `Setting up fake worker failed: "Cannot find
+// module .../pdf.worker.mjs"`. pdfjs gives us a documented escape hatch:
+// if `globalThis.pdfjsWorker.WorkerMessageHandler` is set, it uses that
+// directly and skips the dynamic worker import entirely. We do the worker
+// import ourselves with a string literal — NFT traces that fine — then
+// attach it to globalThis before getDocument runs.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function loadPdfjs(): Promise<any> {
   installPdfjsBrowserGlobalShims();
-  return await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = globalThis as any;
+  if (!g.pdfjsWorker?.WorkerMessageHandler) {
+    // @ts-expect-error — pdfjs-dist ships no .d.ts for the worker subpath.
+    const workerModule = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    g.pdfjsWorker = workerModule as any;
+  }
+  return pdfjs;
 }
 
 // Extract plain text from a PDF using pdfjs-dist's legacy build directly.
