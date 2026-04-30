@@ -6,23 +6,101 @@ export const maxDuration = 30;
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB — matches the upload UI
 
-// Resolve pdfjs-dist's legacy ESM entry. We try the legacy build first (it
-// targets older runtimes and avoids browser globals like DOMMatrix), then
-// fall back to the default build. Some Vercel/Next builds occasionally fail
-// to trace the legacy subpath even with outputFileTracingIncludes — falling
-// back keeps the route working in that case.
+// pdfjs-dist's legacy build evaluates `const SCALE_MATRIX = new DOMMatrix()`
+// at module top level. It tries to polyfill DOMMatrix from @napi-rs/canvas
+// (an optionalDependency) when running under Node, but on Vercel the
+// optional native binary isn't installed, the polyfill silently warns,
+// and then the top-level `new DOMMatrix()` throws `ReferenceError:
+// DOMMatrix is not defined` — killing the entire pdfjs module load and
+// leaving the route stuck in its catch-all "couldn't read this PDF" path.
+//
+// We never RENDER PDFs, only call getTextContent(), so we don't need a
+// real DOMMatrix. A minimal, no-op constructor on globalThis is enough to
+// get past pdfjs's load-time evaluation. Same trick for ImageData and
+// Path2D, which sit behind the same polyfill block in the legacy build.
+function installPdfjsBrowserGlobalShims(): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = globalThis as any;
+  if (typeof g.DOMMatrix === "undefined") {
+    g.DOMMatrix = class DOMMatrix {
+      a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+      m11 = 1; m12 = 0; m13 = 0; m14 = 0;
+      m21 = 0; m22 = 1; m23 = 0; m24 = 0;
+      m31 = 0; m32 = 0; m33 = 1; m34 = 0;
+      m41 = 0; m42 = 0; m43 = 0; m44 = 1;
+      is2D = true;
+      isIdentity = true;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      constructor(_init?: any) { /* no-op — we never render */ }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      multiply(_other: any) { return this; }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      multiplySelf(_other: any) { return this; }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      preMultiplySelf(_other: any) { return this; }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      translate(_x?: number, _y?: number, _z?: number) { return this; }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      translateSelf(_x?: number, _y?: number, _z?: number) { return this; }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      scale(_sx?: number, _sy?: number) { return this; }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      scaleSelf(_sx?: number, _sy?: number) { return this; }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      rotate(_a?: number) { return this; }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      rotateSelf(_a?: number) { return this; }
+      invertSelf() { return this; }
+      inverse() { return this; }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      setMatrixValue(_v: any) { return this; }
+      toFloat32Array() { return new Float32Array(16); }
+      toFloat64Array() { return new Float64Array(16); }
+      toString() { return "matrix(1, 0, 0, 1, 0, 0)"; }
+    };
+  }
+  if (typeof g.ImageData === "undefined") {
+    g.ImageData = class ImageData {
+      data: Uint8ClampedArray;
+      width: number;
+      height: number;
+      colorSpace = "srgb" as const;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      constructor(...args: any[]) {
+        if (args[0] instanceof Uint8ClampedArray) {
+          this.data = args[0];
+          this.width = args[1] ?? 0;
+          this.height = args[2] ?? Math.floor(args[0].length / 4 / Math.max(1, args[1] ?? 1));
+        } else {
+          this.width = args[0] ?? 0;
+          this.height = args[1] ?? 0;
+          this.data = new Uint8ClampedArray(this.width * this.height * 4);
+        }
+      }
+    };
+  }
+  if (typeof g.Path2D === "undefined") {
+    g.Path2D = class Path2D {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      constructor(_init?: any) { /* no-op */ }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      addPath(..._args: any[]) { /* no-op */ }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      moveTo(..._args: any[]) { /* no-op */ }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+      lineTo(..._args: any[]) { /* no-op */ }
+      closePath() { /* no-op */ }
+    };
+  }
+}
+
+// Resolve pdfjs-dist's legacy ESM entry. The shims above must be installed
+// BEFORE this import runs so the top-level `new DOMMatrix()` inside the
+// legacy build doesn't throw on Node runtimes without @napi-rs/canvas.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function loadPdfjs(): Promise<any> {
-  try {
-    return await import("pdfjs-dist/legacy/build/pdf.mjs");
-  } catch (legacyErr) {
-    try {
-      return await import("pdfjs-dist");
-    } catch {
-      // Re-throw the original error — it's the more informative one.
-      throw legacyErr;
-    }
-  }
+  installPdfjsBrowserGlobalShims();
+  return await import("pdfjs-dist/legacy/build/pdf.mjs");
 }
 
 // Extract plain text from a PDF using pdfjs-dist's legacy build directly.
