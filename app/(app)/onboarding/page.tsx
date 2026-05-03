@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { ProfileData } from "@/lib/profile-data";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Path = "linkedin" | "resume" | "scratch";
@@ -25,6 +26,8 @@ type ExtractedProfile = {
   education?: Array<{ institution: string; degree: string; year: string; location: string; cgpa?: string }>;
   skills?: string[];
   projects?: Array<{ name: string; description: string; tech: string[] }>;
+  certifications?: string[];
+  achievements?: string[];
 };
 
 const basicsSchema = z.object({
@@ -104,12 +107,15 @@ export default function OnboardingPage() {
       if (ep.phone) setValue("phone", ep.phone);
       if (ep.city) setValue("current_city", ep.city);
       if (ep.graduation_year) setValue("graduation_year", String(ep.graduation_year));
-      const hasContent =
-        (ep.experience?.length ?? 0) > 0 ||
-        (ep.education?.length ?? 0) > 0 ||
-        (ep.skills?.length ?? 0) > 0;
-      if (hasContent) {
-        toast.success("Resume parsed — experience, education and skills extracted. Review your details in Step 3.");
+      const extracted: string[] = [];
+      if ((ep.experience?.length ?? 0) > 0) extracted.push("experience");
+      if ((ep.education?.length ?? 0) > 0) extracted.push("education");
+      if ((ep.skills?.length ?? 0) > 0) extracted.push("skills");
+      if ((ep.projects?.length ?? 0) > 0) extracted.push("projects");
+      if ((ep.certifications?.length ?? 0) > 0) extracted.push("certifications");
+      if ((ep.achievements?.length ?? 0) > 0) extracted.push("achievements");
+      if (extracted.length > 0) {
+        toast.success(`Resume parsed — ${extracted.join(", ")} extracted. Review your details in Step 3.`);
       } else if (data.partial) {
         toast.warning("We could read the file but couldn't extract structured data. Fill in your details below.");
       } else {
@@ -133,12 +139,14 @@ export default function OnboardingPage() {
       router.push("/login");
       return;
     }
-    const profileData = extractedProfile ? {
+    const profileData: ProfileData | null = extractedProfile ? {
       summary: extractedProfile.summary ?? undefined,
       experience: extractedProfile.experience ?? [],
       education: extractedProfile.education ?? [],
       skills: extractedProfile.skills ?? [],
       projects: extractedProfile.projects ?? [],
+      certifications: extractedProfile.certifications ?? [],
+      achievements: extractedProfile.achievements ?? [],
     } : null;
     const { error } = await supabase.from("profiles").upsert({
       user_id: user.id,
@@ -325,6 +333,8 @@ export default function OnboardingPage() {
                   {(extractedProfile.experience?.length ?? 0) > 0 && <li>· {extractedProfile.experience!.length} work experience {extractedProfile.experience!.length === 1 ? "entry" : "entries"}</li>}
                   {(extractedProfile.education?.length ?? 0) > 0 && <li>· {extractedProfile.education!.length} education {extractedProfile.education!.length === 1 ? "entry" : "entries"}</li>}
                   {(extractedProfile.skills?.length ?? 0) > 0 && <li>· {extractedProfile.skills!.length} skills</li>}
+                  {(extractedProfile.certifications?.length ?? 0) > 0 && <li>· {extractedProfile.certifications!.length} certification{extractedProfile.certifications!.length === 1 ? "" : "s"}</li>}
+                  {(extractedProfile.achievements?.length ?? 0) > 0 && <li>· {extractedProfile.achievements!.length} achievement{extractedProfile.achievements!.length === 1 ? "" : "s"}</li>}
                 </ul>
                 <p className="text-xs mt-1 text-green-700">You can review and edit everything on your profile page.</p>
               </div>
