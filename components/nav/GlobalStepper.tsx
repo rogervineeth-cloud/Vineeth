@@ -62,29 +62,34 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || cancelled) { setLoaded(true); return; }
-        const { data: p } = await supabase.from("profiles").select("full_name, email, target_roles, linkedin_data, profile_data").eq("user_id", user.id).single();
+        const { data: p } = await supabase.from("profiles").select("full_name, email, target_roles, profile_data").eq("user_id", user.id).single();
         if (cancelled) return;
-        const ld = (p?.linkedin_data ?? {}) as Record<string, unknown>;
         const pd = (p?.profile_data ?? {}) as Record<string, unknown>;
-        const exp = (Array.isArray(pd.experience) && pd.experience.length > 0)
-          ? pd.experience as { company?: string }[]
-          : (Array.isArray(ld.experience) ? ld.experience as { company?: string }[] : []);
-        const edu = (Array.isArray(pd.education) && pd.education.length > 0)
-          ? pd.education as { institution?: string }[]
-          : (Array.isArray(ld.education) ? ld.education as { institution?: string }[] : []);
-        const projects = (Array.isArray(pd.projects) && pd.projects.length > 0)
-          ? pd.projects as { name?: string }[]
-          : (Array.isArray(ld.projects) ? ld.projects as { name?: string }[] : []);
+        
+        // ONLY check profile_data (user-confirmed data), NEVER fall back to linkedin_data
+        const exp = Array.isArray(pd.experience) ? pd.experience as { company?: string }[] : [];
+        const edu = Array.isArray(pd.education) ? pd.education as { institution?: string }[] : [];
+        const projects = Array.isArray(pd.projects) ? pd.projects as { name?: string }[] : [];
+        
+        // Check skipped flags
+        const expSkipped = !!pd.expSkipped;
+        const eduSkipped = !!pd.eduSkipped;
+        const projSkipped = !!pd.projSkipped;
+        
         const jd = typeof window !== "undefined" ? (localStorage.getItem("ndrs_jd") ?? "") : "";
         const template = typeof window !== "undefined" ? (localStorage.getItem("ndrs_template") ?? "") : "";
         const resumeId = latestResumeId ?? (typeof window !== "undefined" ? (localStorage.getItem("ndrs_latest_resume_id") ?? "") : "");
         if (cancelled) return;
+        
         setCompletion({
           basics: !!p?.full_name?.trim() && !!p?.email?.trim(),
           roles: Array.isArray(p?.target_roles) && p.target_roles.length > 0,
-          experience: exp.some((e) => e.company?.trim()),
-          education: edu.some((e) => e.institution?.trim()),
-          projects: projects.some((pr) => pr.name?.trim()),
+          // Experience: complete if skipped OR has at least one entry with company
+          experience: expSkipped || exp.some((e) => e.company?.trim()),
+          // Education: complete if skipped OR has at least one entry with institution
+          education: eduSkipped || edu.some((e) => e.institution?.trim()),
+          // Projects: complete if skipped OR has at least one entry with name
+          projects: projSkipped || projects.some((pr) => pr.name?.trim()),
           jd: jd.trim().length >= 200,
           template: !!template,
           review: !!(jd.trim().length >= 200 && template),
