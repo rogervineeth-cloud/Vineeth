@@ -62,7 +62,7 @@ export default async function Home() {
       <section className="max-w-6xl mx-auto px-6 pt-10 sm:pt-14 pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left column */}
-          <div>
+          <div className="animate-fade-in-up">
             <div className="inline-flex items-center gap-2 bg-[#1f5c3a]/10 border border-[#1f5c3a]/25 text-[#1f5c3a] text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
               <Sparkles className="w-3 h-3" />
               The AI Resume Maker, made for India
@@ -80,21 +80,23 @@ export default async function Home() {
             </p>
             {/* Two-path CTAs */}
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
-              <Button size="lg" asChild className="text-base px-8 bg-[#1f5c3a] hover:bg-[#174d30]">
+              <Button size="lg" asChild className="text-base px-8 bg-[#1f5c3a] hover:bg-[#174d30] transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#1f5c3a]/20">
                 <Link href="/signup?path=experienced">I&apos;m experienced →</Link>
               </Button>
-              <Button size="lg" variant="outline" asChild className="text-base px-8 border-[#1f5c3a] text-[#1f5c3a] hover:bg-[#1f5c3a]/5">
+              <Button size="lg" variant="outline" asChild className="text-base px-8 border-[#1f5c3a] text-[#1f5c3a] hover:bg-[#1f5c3a]/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#1f5c3a]/10">
                 <Link href="/signup?path=fresher">I&apos;m a fresher →</Link>
               </Button>
             </div>
             {/* Trust strip */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {["ATS-optimised", "LinkedIn", "Naukri", "Monster", "Indeed", "Top MNCs"].map((label) => (
-                <span key={label} className="inline-flex items-center gap-1 text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1">
-                  <Sparkles className="w-3 h-3" />
-                  {label}
-                </span>
-              ))}
+            <div className="relative flex overflow-hidden group mb-4 w-full sm:max-w-md py-1" style={{ maskImage: 'linear-gradient(to right, black 80%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, black 80%, transparent 100%)' }}>
+              <div className="flex shrink-0 gap-2 animate-marquee group-hover:[animation-play-state:paused]">
+                {[...["ATS-optimised", "LinkedIn", "Naukri", "Monster", "Indeed", "Top MNCs"], ...["ATS-optimised", "LinkedIn", "Naukri", "Monster", "Indeed", "Top MNCs"]].map((label, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1 text-xs rounded-full border border-[#3d6b4f]/30 text-[#3d6b4f] px-3 py-1 whitespace-nowrap bg-[#1f5c3a]/5 transition-colors hover:bg-[#1f5c3a]/10">
+                    <Sparkles className="w-3 h-3" />
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
             <p className="text-xs text-[#6b6b6b]">
               {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}Free preview forever · Download from ₹100 · Pay once, no subscription
@@ -103,9 +105,9 @@ export default async function Home() {
 
           {/* Right column — resume mockup */}
           <div className="hidden lg:flex justify-center items-center">
-            <div className="relative">
+            <div className="relative animate-float">
               <div className="absolute inset-0 translate-x-3 translate-y-3 rounded-2xl bg-[#1f5c3a]/15" />
-              <div className="relative bg-white rounded-2xl shadow-xl border border-stone-200 p-6 w-[320px]">
+              <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl shadow-[#1f5c3a]/10 border border-stone-200/60 p-6 w-[320px]">
                 <div className="bg-[#1f5c3a] rounded-lg px-4 py-3 mb-4">
                   <div className="h-3 w-28 bg-white/90 rounded mb-1.5" />
                   <div className="h-2 w-20 bg-white/60 rounded mb-1" />
