@@ -71,43 +71,38 @@ function UpgradeModal({ open, onClose }: { open: boolean; onClose: () => void })
             Choose a plan to download your ATS-optimised PDF. No subscription — pay once.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
-          {PLANS.map((plan) => (
-            <div key={plan.type}
-              className={`relative rounded-xl border p-5 flex flex-col gap-3 ${
-                plan.popular ? "border-[#1f5c3a] bg-[#1f5c3a] text-white" : "border-stone-200 bg-white"
-              }`}
-            >
-              {plan.popular && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
-                  Most popular
-                </span>
-              )}
-              <div>
-                <p className={`text-xs font-medium mb-0.5 ${plan.popular ? "text-white/70" : "text-[#6b6b6b]"}`}>{plan.name}</p>
-                <p className="text-2xl font-bold">{plan.price}</p>
-                <p className={`text-xs ${plan.popular ? "text-white/70" : "text-[#6b6b6b]"}`}>
-                  {plan.resumes} download{plan.resumes !== 1 ? "s" : ""}
-                </p>
-              </div>
-              <ul className="flex flex-col gap-1 text-xs flex-1">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-1.5">
-                    <Check className={`w-3 h-3 shrink-0 ${plan.popular ? "text-white" : "text-[#1f5c3a]"}`} />
-                    <span className={plan.popular ? "text-white/90" : "text-[#1a1a1a]"}>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                size="sm"
-                variant={plan.popular ? "secondary" : "outline"}
-                className={plan.popular ? "bg-white text-[#1f5c3a] hover:bg-white/90 text-xs" : "text-xs"}
-                asChild
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+          {PLANS.map((plan) => {
+            const isPopular = plan.badge === "Most popular";
+            return (
+              <div key={plan.type}
+                className={`relative rounded-xl border p-5 flex flex-col gap-3 ${
+                  isPopular ? "border-[#1f5c3a] bg-[#1f5c3a] text-white" : "border-stone-200 bg-white"
+                }`}
               >
-                <Link href="/pricing" onClick={onClose}>View plans →</Link>
-              </Button>
-            </div>
-          ))}
+                {plan.badge && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
+                    {plan.badge}
+                  </span>
+                )}
+                <div>
+                  <p className={`text-xs font-medium mb-0.5 ${isPopular ? "text-white/70" : "text-[#6b6b6b]"}`}>{plan.name}</p>
+                  <p className="text-2xl font-bold">₹{plan.priceInr}</p>
+                  <p className={`text-xs ${isPopular ? "text-white/70" : "text-[#6b6b6b]"}`}>
+                    {plan.downloads} download{plan.downloads !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={isPopular ? "secondary" : "outline"}
+                  className={isPopular ? "bg-white text-[#1f5c3a] hover:bg-white/90 text-xs" : "text-xs"}
+                  asChild
+                >
+                  <Link href="/pricing" onClick={onClose}>View plans →</Link>
+                </Button>
+              </div>
+            );
+          })}
         </div>
       </DialogContent>
     </Dialog>

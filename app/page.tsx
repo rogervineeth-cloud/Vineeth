@@ -6,33 +6,51 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 
 const plans = [
   {
-    name: "Fresher",
-    price: "₹299",
-    resumes: "5 downloads",
-    popular: true,
-    free: false,
-    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
-  },
-  {
+    slug: "free",
     name: "Free Preview",
     price: "₹0",
-    resumes: "Unlimited previews",
+    resumes: "Unlimited ATS reviews",
     popular: false,
     free: true,
-    features: ["Generate resumes", "Watermarked preview", "ATS score & keywords", "No download"],
+    features: [
+      "ATS score & keyword gap",
+      "Template preview (watermarked)",
+      "Action-verb & formatting check",
+      "No AI generation — upgrade to generate",
+    ],
   },
   {
-    name: "Starter",
-    price: "₹100",
+    slug: "single",
+    name: "Single",
+    price: "₹99",
     resumes: "1 download",
     popular: false,
     free: false,
     features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
   },
   {
+    slug: "fresher",
+    name: "Fresher",
+    price: "₹269",
+    resumes: "5 downloads",
+    popular: true,
+    free: false,
+    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
+  },
+  {
+    slug: "job_hunter",
     name: "Job Hunter",
     price: "₹599",
     resumes: "12 downloads",
+    popular: false,
+    free: false,
+    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
+  },
+  {
+    slug: "career",
+    name: "Career Pack",
+    price: "₹999",
+    resumes: "25 downloads",
     popular: false,
     free: false,
     features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
@@ -44,7 +62,8 @@ const faqs = [
   { q: "What if I don't have LinkedIn?", a: "No problem. You can build from scratch using our guided manual form, or upload an existing resume to get started." },
   { q: "Can I edit after generating?", a: "Yes, freely. Re-downloads of the same resume don't count as new credits." },
   { q: "How long are resumes valid?", a: "One year from purchase date." },
-  { q: "Is there a free trial?", a: "Yes. Generate a resume and see the watermarked preview free, forever. Download requires a paid pack starting at ₹100." },
+  { q: "Is there a free trial?", a: "Yes. Run a free deterministic ATS review on any resume + JD, no card and no signup required. AI generation requires a paid pack starting at ₹99." },
+  { q: "What is the LinkedIn Profile Rewrite?", a: "An AI-rewritten LinkedIn Headline, About section, and your top 3 Experience entries — tailored to the role you're targeting. Available standalone for ₹499 or bundled with any resume plan for ₹399 (save ₹100). Truthful only — we never invent jobs or metrics." },
 ];
 
 export default async function Home() {
@@ -99,7 +118,7 @@ export default async function Home() {
               </div>
             </div>
             <p className="text-xs text-[#6b6b6b]">
-              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}Free preview forever · Download from ₹100 · Pay once, no subscription
+              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}Free ATS review · Resumes from ₹99 · Pay once, no subscription
             </p>
           </div>
 
@@ -176,14 +195,24 @@ export default async function Home() {
       {/* Pricing */}
       <section id="pricing" className="max-w-6xl mx-auto px-6 py-16 border-t border-stone-200/60">
         <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-2">Simple pricing</h2>
-        <p className="text-center text-[#6b6b6b] mb-10 text-sm">All plans valid 1 year · No subscription · Pay once, use anytime</p>
+        <p className="text-center text-[#6b6b6b] mb-8 text-sm">All plans valid 1 year · No subscription · Pay once, use anytime</p>
+
+        <Link
+          href="/free-review"
+          className="block max-w-3xl mx-auto mb-8 rounded-lg border border-[#1f5c3a]/25 bg-[#1f5c3a]/5 px-5 py-3 text-sm hover:bg-[#1f5c3a]/10 transition-colors text-center"
+        >
+          <span className="font-semibold text-[#1f5c3a]">Not ready to pay?</span>{" "}
+          <span className="text-[#1a1a1a]">Try a free ATS review — no card, no signup.</span>
+          <span className="ml-2 text-[#1f5c3a] font-medium">Start free review →</span>
+        </Link>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {plans.map((plan, idx) => (
+          {plans.filter((p) => !p.free).map((plan, idx) => (
             <div
-              key={plan.name}
+              key={plan.slug}
               className={`relative rounded-xl border p-5 flex flex-col gap-4 ${plan.popular ? "border-[#1f5c3a] bg-[#1f5c3a] text-white shadow-lg" : plan.free ? "border-stone-200 bg-stone-50" : "border-stone-200 bg-white"} ${idx === 0 ? "mt-3 sm:mt-0" : ""}`}
             >
-              {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">Best value</span>}
+              {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">Most popular</span>}
               {plan.free && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-stone-200 text-stone-700 text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">Always free</span>}
               <div>
                 <p className={`text-sm font-medium mb-1 ${plan.popular ? "text-white/80" : "text-[#6b6b6b]"}`}>{plan.name}</p>
@@ -199,12 +228,12 @@ export default async function Home() {
                 ))}
               </ul>
               <Button asChild variant={plan.popular ? "secondary" : "outline"} size="sm" className={plan.popular ? "bg-white text-[#1f5c3a] hover:bg-white/90" : ""}>
-                <Link href={plan.free ? "/signup" : `/signup?plan=${plan.name.toLowerCase().replace(/ /g, "_")}`}>{plan.free ? "Start free" : "Get started"}</Link>
+                <Link href={plan.free ? "/free-review" : `/pricing#${plan.slug}`}>{plan.free ? "Try free review" : "Get started"}</Link>
               </Button>
             </div>
           ))}
         </div>
-        <p className="text-center text-[#6b6b6b] text-sm mt-6">+ LinkedIn Profile Rewrite add-on available for ₹500</p>
+        <p className="text-center text-[#6b6b6b] text-sm mt-6">+ LinkedIn Profile Rewrite add-on — ₹499 standalone, ₹399 bundled with any plan</p>
       </section>
 
       {/* FAQ */}

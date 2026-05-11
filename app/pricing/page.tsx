@@ -1,15 +1,17 @@
 "use client";
 import Link from "next/link";
-import { Check, FlaskConical } from "lucide-react";
+import { Check, FlaskConical, Briefcase } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { PLANS } from "@/lib/plan-config";
+import { PLANS, ADDONS } from "@/lib/plan-config";
 import type { Plan } from "@/lib/plan-config";
 import { createClient } from "@/lib/supabase/client";
+import { track } from "@/lib/analytics";
 
 const TEST_MODE = process.env.NEXT_PUBLIC_TEST_MODE === "true";
+const LINKEDIN = ADDONS.find((a) => a.id === "linkedin_rewrite")!;
 
 const DEFAULT_FEATURES = [
   "ATS-optimised PDF",
@@ -18,23 +20,52 @@ const DEFAULT_FEATURES = [
   "1-year validity",
 ];
 
-function PlanCard({ plan }: { plan: Plan }) {
+function PlanCard({
+  plan,
+  withAddon,
+  onToggleAddon,
+}: {
+  plan: Plan;
+  withAddon: boolean;
+  onToggleAddon: (next: boolean) => void;
+}) {
   const [granting, setGranting] = useState(false);
   const router = useRouter();
 
+  const total = plan.priceInr + (withAddon ? LINKEDIN.bundlePriceInr : 0);
+
   async function handleChoose() {
-    // Check if user is already logged in
+    track("plan_click", { plan: plan.type, addon_linkedin: withAddon, total_inr: total });
+    track("checkout_start", { plan: plan.type, addon_linkedin: withAddon, total_inr: total });
+
+    // Server-side amount validation. Catches client tampering even though
+    // payments are deferred — when Razorpay lands, this is where the order
+    // intent is created.
+    const validate = await fetch("/api/checkout/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planType: plan.type, withAddon, totalInr: total }),
+    });
+    if (!validate.ok) {
+      const err = await validate.json().catch(() => ({}));
+      toast.error(err.error ?? "Could not start checkout. Please refresh and retry.");
+      return;
+    }
+
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // User is logged in — show payment coming soon toast and redirect to dashboard
-      toast.info("Payment integration coming soon! Contact support@neduresume.com to get early access.", {
-        duration: 5000,
-        action: { label: "Go to Dashboard", onClick: () => router.push("/dashboard") },
-      });
+      toast.info(
+        `Payment integration coming soon! Your selection: ${plan.name}${withAddon ? " + LinkedIn Rewrite" : ""} — ₹${total}.`,
+        {
+          duration: 6000,
+          action: { label: "Go to Dashboard", onClick: () => router.push("/dashboard") },
+        }
+      );
     } else {
-      // Not logged in — send to signup with plan pre-selected
-      router.push(`/signup?plan=${plan.type}`);
+      const params = new URLSearchParams({ plan: plan.type });
+      if (withAddon) params.set("addon", "linkedin_rewrite");
+      router.push(`/signup?${params.toString()}`);
     }
   }
 
@@ -44,14 +75,17 @@ function PlanCard({ plan }: { plan: Plan }) {
       const res = await fetch("/api/dev/grant-test-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_type: plan.type }),
+        body: JSON.stringify({ plan_type: plan.type, addon: withAddon ? "linkedin_rewrite" : undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error ?? "Grant failed.");
         return;
       }
-      toast.success(`✓ ${plan.name} test plan granted — ${data.plan.resumes_allotted} credits, 1 year validity.`);
+      toast.success(
+        `${plan.name} test plan granted (${data.plan.resumes_allotted} credits).` +
+          (withAddon ? " LinkedIn Rewrite entitlement granted." : "")
+      );
     } catch {
       toast.error("Grant failed.");
     } finally {
@@ -79,9 +113,10 @@ function PlanCard({ plan }: { plan: Plan }) {
         <p className={`text-sm font-medium mb-1 ${isPopular ? "text-white/80" : "text-[#6b6b6b]"}`}>
           {plan.name}
         </p>
-        <p className="text-3xl font-bold">₹{plan.priceInr}</p>
+        <p className="text-3xl font-bold">₹{total}</p>
         <p className={`text-sm mt-1 ${isPopular ? "text-white/70" : "text-[#6b6b6b]"}`}>
           {plan.downloads} download{plan.downloads !== 1 ? "s" : ""}
+          {withAddon ? " · incl. LinkedIn Rewrite" : ""}
         </p>
       </div>
 
@@ -93,6 +128,34 @@ function PlanCard({ plan }: { plan: Plan }) {
           </li>
         ))}
       </ul>
+
+      <label
+        className={`flex items-center gap-2 text-xs cursor-pointer rounded-md border px-2 py-1.5 ${
+          isPopular
+            ? "border-white/30 bg-white/10 text-white"
+            : "border-stone-200 bg-stone-50 text-[#1a1a1a]"
+        }`}
+      >
+        <input
+          type="checkbox"
+          className="accent-[#1f5c3a]"
+          checked={withAddon}
+          onChange={(e) => {
+            onToggleAddon(e.target.checked);
+            track("addon_toggle", {
+              addon: "linkedin_rewrite",
+              on: e.target.checked,
+              plan: plan.type,
+            });
+          }}
+        />
+        <span>
+          Add LinkedIn Rewrite — ₹{LINKEDIN.bundlePriceInr}{" "}
+          <span className={isPopular ? "text-white/70" : "text-[#6b6b6b]"}>
+            (save ₹{LINKEDIN.priceInr - LINKEDIN.bundlePriceInr})
+          </span>
+        </span>
+      </label>
 
       <Button
         variant={isPopular ? "secondary" : "outline"}
@@ -119,11 +182,86 @@ function PlanCard({ plan }: { plan: Plan }) {
   );
 }
 
+function BriefcaseAddonCard() {
+  const router = useRouter();
+
+  async function handleBuy() {
+    track("plan_click", { plan: "linkedin_only", addon_linkedin: true, total_inr: LINKEDIN.priceInr });
+    track("checkout_start", { plan: "linkedin_only", addon_linkedin: true, total_inr: LINKEDIN.priceInr });
+
+    const validate = await fetch("/api/checkout/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planType: null, withAddon: true, totalInr: LINKEDIN.priceInr }),
+    });
+    if (!validate.ok) {
+      toast.error("Could not start checkout. Please refresh and retry.");
+      return;
+    }
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      toast.info(
+        `Payment integration coming soon! Your selection: LinkedIn Rewrite — ₹${LINKEDIN.priceInr}.`,
+        {
+          duration: 6000,
+          action: { label: "Go to Dashboard", onClick: () => router.push("/dashboard") },
+        }
+      );
+    } else {
+      router.push(`/signup?addon=linkedin_rewrite`);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 p-6 flex flex-col sm:flex-row gap-5 items-start sm:items-center">
+      <div className="w-12 h-12 rounded-lg bg-[#0A66C2]/10 flex items-center justify-center shrink-0">
+        <Briefcase className="w-6 h-6 text-[#0A66C2]" />
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-semibold text-[#1a1a1a]">{LINKEDIN.name}</p>
+        <p className="text-xs text-[#6b6b6b] mt-1">
+          AI-rewritten Headline, About, and 3 Experience sections — paste your current LinkedIn URL or text.
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <p className="text-2xl font-bold text-[#1a1a1a]">₹{LINKEDIN.priceInr}</p>
+        <Button variant="outline" size="sm" onClick={handleBuy}>
+          Buy LinkedIn Rewrite
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function FreeReviewBanner() {
+  return (
+    <Link
+      href="/free-review"
+      onClick={() => track("free_review_start", { from: "pricing_banner" })}
+      className="block rounded-lg border border-[#1f5c3a]/25 bg-[#1f5c3a]/5 px-5 py-3 text-sm hover:bg-[#1f5c3a]/10 transition-colors"
+    >
+      <span className="font-semibold text-[#1f5c3a]">Not ready to pay?</span>{" "}
+      <span className="text-[#1a1a1a]">
+        Try a free ATS review — no card, no signup.
+      </span>
+      <span className="ml-2 text-[#1f5c3a] font-medium">Start free review →</span>
+    </Link>
+  );
+}
+
 export default function PricingPage() {
+  const [withAddon, setWithAddon] = useState(false);
+
+  useEffect(() => {
+    track("pricing_view");
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
       <header className="border-b border-stone-200/60 sticky top-0 bg-[#f7f3ea]/90 backdrop-blur-sm z-10">
-        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="font-serif italic text-xl text-[#1f5c3a] font-bold">
             Neduresume
           </Link>
@@ -133,26 +271,33 @@ export default function PricingPage() {
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-6 py-16">
-        <div className="text-center mb-14">
+      <div className="max-w-6xl mx-auto px-6 py-16">
+        <div className="text-center mb-10">
           <h1 className="font-serif italic text-5xl text-[#1a1a1a] mb-4">Pricing</h1>
           <p className="text-[#6b6b6b]">All plans valid 1 year · No subscription · Pay once, use anytime</p>
           {TEST_MODE && (
             <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-4 py-1.5 inline-block">
-              TEST MODE — "Grant test plan" buttons are visible
+              TEST MODE — &quot;Grant test plan&quot; buttons are visible
             </p>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+        <div className="mb-8">
+          <FreeReviewBanner />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {PLANS.map((plan) => (
-            <PlanCard key={plan.type} plan={plan} />
+            <PlanCard
+              key={plan.type}
+              plan={plan}
+              withAddon={withAddon}
+              onToggleAddon={setWithAddon}
+            />
           ))}
         </div>
 
-        <p className="text-center text-[#6b6b6b] text-sm">
-          + LinkedIn Profile Rewrite add-on available for ₹500
-        </p>
+        <BriefcaseAddonCard />
 
         <div className="mt-16 text-center">
           <p className="text-sm text-[#6b6b6b]">

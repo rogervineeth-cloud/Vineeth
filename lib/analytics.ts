@@ -20,7 +20,6 @@ export type AnalyticsProps = Record<string, string | number | boolean | null | u
 
 export function track(event: AnalyticsEvent, props: AnalyticsProps = {}): void {
   if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
     console.log(`[analytics] ${event}`, props);
   }
 }

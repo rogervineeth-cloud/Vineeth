@@ -12,8 +12,12 @@ import { resolve, dirname, join } from "path";
 
 const ROOT = resolve(__dirname, "..");
 
+// Match module specifiers in import/require statements only — not stray
+// mentions in comments. Each entry must be of the form `from "<name>"` or
+// `require("<name>")`.
 const BANNED = [
-  /@anthropic-ai\/sdk/,
+  /from\s+["']@anthropic-ai\/sdk["']/,
+  /require\(["']@anthropic-ai\/sdk["']\)/,
   /from\s+["']openai["']/,
   /require\(["']openai["']\)/,
   /from\s+["']ai["']/,           // vercel ai sdk
