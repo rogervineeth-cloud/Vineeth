@@ -363,7 +363,7 @@ export async function POST(req: NextRequest) {
     );
     resumeJson = sanitised.resume;
     if (sanitised.warnings.length > 0) {
-      track("generate_resume_sanitised", { user_id: userId, warnings: sanitised.warnings });
+      track("generate_resume_sanitised", { user_id: userId, warnings: sanitised.warnings.join(","), warning_count: sanitised.warnings.length });
       console.warn("[generate-resume] sanitiser warnings:", sanitised.warnings);
     }
     // Consume credit only after a successful parse
