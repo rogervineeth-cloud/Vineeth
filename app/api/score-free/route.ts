@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { scoreFree } from "@/lib/score-free";
+import { isPricingV2Enabled } from "@/lib/feature-flags";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,9 @@ const inputSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  if (!isPricingV2Enabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   let body: unknown;
   try {
     body = await req.json();

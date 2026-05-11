@@ -7,6 +7,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { hasAddonEntitlement, consumeAddon } from "@/lib/addons";
 import { track } from "@/lib/analytics";
+import { isPricingV2Enabled } from "@/lib/feature-flags";
 
 export const maxDuration = 60;
 
@@ -40,6 +41,9 @@ function extractJson(raw: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isPricingV2Enabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   let body: unknown;
   try {
     body = await req.json();
