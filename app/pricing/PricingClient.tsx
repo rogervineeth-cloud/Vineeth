@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Check, FlaskConical, Briefcase } from "lucide-react";
+import { Check, FlaskConical, Briefcase, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -13,12 +13,15 @@ import { track } from "@/lib/analytics";
 const TEST_MODE = process.env.NEXT_PUBLIC_TEST_MODE === "true";
 const LINKEDIN = ADDONS.find((a) => a.id === "linkedin_rewrite")!;
 
-const DEFAULT_FEATURES = [
-  "ATS-optimised PDF",
-  "Live keyword score",
-  "Unlimited edits",
-  "1-year validity",
-];
+function planFeatures(plan: Plan): string[] {
+  const n = plan.aiGenerations;
+  return [
+    `${n} AI-tailored resume${n !== 1 ? "s" : ""}`,
+    "Unlimited PDF downloads",
+    "Live ATS keyword score",
+    "1-year validity",
+  ];
+}
 
 function PlanCard({
   plan,
@@ -117,13 +120,13 @@ function PlanCard({
         </p>
         <p className="text-3xl font-bold">₹{total}</p>
         <p className={`text-sm mt-1 ${isPopular ? "text-white/70" : "text-[#6b6b6b]"}`}>
-          {plan.downloads} download{plan.downloads !== 1 ? "s" : ""}
+          {plan.aiGenerations} AI-tailored resume{plan.aiGenerations !== 1 ? "s" : ""}
           {withAddon ? " · incl. LinkedIn Rewrite" : ""}
         </p>
       </div>
 
       <ul className="flex flex-col gap-2 text-sm flex-1">
-        {DEFAULT_FEATURES.map((f) => (
+        {planFeatures(plan).map((f) => (
           <li key={f} className="flex items-center gap-2">
             <Check className={`w-4 h-4 shrink-0 ${isPopular ? "text-white" : "text-[#1f5c3a]"}`} />
             <span className={isPopular ? "text-white/90" : "text-[#1a1a1a]"}>{f}</span>
@@ -241,17 +244,30 @@ function LinkedinAddonCard() {
 
 function FreeReviewBanner() {
   return (
-    <Link
-      href="/free-review"
-      onClick={() => track("free_review_start", { from: "pricing_banner" })}
-      className="block rounded-lg border border-[#1f5c3a]/25 bg-[#1f5c3a]/5 px-5 py-3 text-sm hover:bg-[#1f5c3a]/10 transition-colors"
-    >
-      <span className="font-semibold text-[#1f5c3a]">Not ready to pay?</span>{" "}
-      <span className="text-[#1a1a1a]">
-        Try a free ATS review — no card, no signup.
-      </span>
-      <span className="ml-2 text-[#1f5c3a] font-medium">Start free review →</span>
-    </Link>
+    <div className="rounded-xl border-2 border-dashed border-[#1f5c3a]/40 bg-gradient-to-r from-[#1f5c3a]/8 via-[#1f5c3a]/5 to-[#1f5c3a]/8 px-5 py-4 sm:px-6 sm:py-5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
+        <div className="flex-1">
+          <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#1f5c3a] bg-[#1f5c3a]/10 rounded-full px-2 py-0.5 mb-2">
+            <Sparkles className="w-3 h-3" />
+            Free ATS preview
+          </p>
+          <p className="text-base font-semibold text-[#1a1a1a]">
+            Score your resume against any JD — free, in 30 seconds.
+          </p>
+          <p className="text-sm text-[#1a1a1a]/80 mt-1">
+            1 free ATS preview per account · Keyword gap, missing skills, structure check
+            <span className="text-[#1f5c3a] font-medium"> · No card required</span>
+          </p>
+        </div>
+        <Link
+          href="/free-review"
+          onClick={() => track("free_review_start", { from: "pricing_banner" })}
+          className="inline-flex items-center justify-center gap-1.5 bg-[#1f5c3a] hover:bg-[#174d30] text-white font-medium text-sm rounded-md px-5 py-2.5 transition-colors whitespace-nowrap"
+        >
+          Sign up free →
+        </Link>
+      </div>
+    </div>
   );
 }
 

@@ -1,12 +1,15 @@
 // Shared plan constants — safe to import from client and server components.
 //
 // SKUs:
-//   free         — implicit default. NOT materialized as a user_plans row.
-//                  Used for the deterministic ATS review only.
-//   single       — 1 download
-//   fresher      — 5 downloads (Most popular)
-//   job_hunter   — 12 downloads
-//   career       — 25 downloads (Best value)
+//   free         — 1 free ATS preview per signed-up account. NOT materialized
+//                  as a user_plans row; usage is tracked on profiles.
+//                  free_review_used_at.
+//   single       — 1 AI-tailored resume
+//   fresher      — 5 AI-tailored resumes (Most popular)
+//   job_hunter   — 12 AI-tailored resumes
+//   career       — 25 AI-tailored resumes (Best value)
+//
+// Each AI-tailored resume can be re-downloaded as a PDF unlimited times.
 export type PlanType = "free" | "single" | "fresher" | "job_hunter" | "career";
 
 export const PLAN_LABELS: Record<PlanType, string> = {
@@ -29,15 +32,15 @@ export type Plan = {
   type: Exclude<PlanType, "free">;
   name: string;
   priceInr: number;
-  downloads: number;
+  aiGenerations: number;
   badge: "Most popular" | "Best value" | null;
 };
 
 export const PLANS: readonly Plan[] = [
-  { type: "single",     name: "Single",      priceInr: 99,  downloads: 1,  badge: null },
-  { type: "fresher",    name: "Fresher",     priceInr: 269, downloads: 5,  badge: "Most popular" },
-  { type: "job_hunter", name: "Job Hunter",  priceInr: 599, downloads: 12, badge: null },
-  { type: "career",     name: "Career Pack", priceInr: 999, downloads: 25, badge: "Best value" },
+  { type: "single",     name: "Single",      priceInr: 99,  aiGenerations: 1,  badge: null },
+  { type: "fresher",    name: "Fresher",     priceInr: 249, aiGenerations: 5,  badge: "Most popular" },
+  { type: "job_hunter", name: "Job Hunter",  priceInr: 599, aiGenerations: 12, badge: null },
+  { type: "career",     name: "Career Pack", priceInr: 999, aiGenerations: 25, badge: "Best value" },
 ];
 
 export type Addon = {

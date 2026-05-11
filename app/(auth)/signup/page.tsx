@@ -32,11 +32,14 @@ export default function SignupPage() {
     const searchParams = new URLSearchParams(window.location.search);
     const pathParam = searchParams.get("path");
     const planParam = searchParams.get("plan");
-    // Build onboarding destination with preserved params
+    const nextParam = searchParams.get("next");
+    // Build destination — explicit ?next= wins over the default onboarding flow.
     const onboardingParams = new URLSearchParams();
     if (pathParam) onboardingParams.set("path", pathParam);
     if (planParam) onboardingParams.set("plan", planParam);
-    const onboardingDest = `/onboarding${onboardingParams.toString() ? "?" + onboardingParams.toString() : ""}`;
+    const onboardingDest = nextParam
+      ? nextParam
+      : `/onboarding${onboardingParams.toString() ? "?" + onboardingParams.toString() : ""}`;
     const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -63,10 +66,13 @@ export default function SignupPage() {
     const searchParams = new URLSearchParams(window.location.search);
     const pathParam = searchParams.get("path");
     const planParam = searchParams.get("plan");
+    const nextParam = searchParams.get("next");
     const onboardingParams = new URLSearchParams();
     if (pathParam) onboardingParams.set("path", pathParam);
     if (planParam) onboardingParams.set("plan", planParam);
-    const onboardingDest = `/onboarding${onboardingParams.toString() ? "?" + onboardingParams.toString() : ""}`;
+    const onboardingDest = nextParam
+      ? nextParam
+      : `/onboarding${onboardingParams.toString() ? "?" + onboardingParams.toString() : ""}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
