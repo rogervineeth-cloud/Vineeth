@@ -1,29 +1,38 @@
 "use client";
 import Link from "next/link";
-import { Upload, FileText, Download, Check } from "lucide-react";
+import { Upload, FileText, Download, Check, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const plans = [
   {
-    name: "Free Preview",
+    name: "Free ATS Review",
     price: "₹0",
-    resumes: "Unlimited previews",
+    resumes: "Unlimited reviews",
     popular: false,
     free: true,
-    features: ["Generate resumes", "Watermarked preview", "ATS score & keywords", "No download"],
+    features: [
+      "ATS match score",
+      "Missing keywords report",
+      "Formatting check",
+      "No AI generation",
+    ],
+    ctaLabel: "Start free review",
+    ctaHref: "/signup",
   },
   {
     name: "Starter",
-    price: "₹100",
+    price: "₹99",
     resumes: "1 download",
+    perDownload: "₹99 / download",
     popular: false,
     free: false,
     features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
   },
   {
     name: "Fresher",
-    price: "₹299",
+    price: "₹249",
     resumes: "5 downloads",
+    perDownload: "₹49.80 / download · save 50%",
     popular: true,
     free: false,
     features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
@@ -32,9 +41,44 @@ const plans = [
     name: "Job Hunter",
     price: "₹599",
     resumes: "12 downloads",
+    perDownload: "₹49.92 / download · save 50%",
     popular: false,
     free: false,
     features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
+  },
+];
+
+const premiumOffers = [
+  {
+    name: "Placement Pro",
+    price: "₹999",
+    resumes: "25 downloads",
+    perDownload: "₹39.96 / download · save 60%",
+    features: [
+      "ATS-optimised PDF",
+      "Live keyword score",
+      "Unlimited edits",
+      "1-year validity",
+      "Priority support",
+    ],
+    ctaLabel: "Get Placement Pro",
+    ctaHref: "/signup?plan=placement_pro",
+    icon: "pro",
+  },
+  {
+    name: "LinkedIn Profile Rewrite",
+    price: "₹500",
+    resumes: "One-time add-on",
+    perDownload: "Recruiter-ready in 24 hours",
+    features: [
+      "Headline rewrite",
+      "About section rewrite",
+      "Experience bullets",
+      "Keyword-optimised for your target role",
+    ],
+    ctaLabel: "Add LinkedIn rewrite",
+    ctaHref: "/signup?addon=linkedin_rewrite",
+    icon: "linkedin",
   },
 ];
 
@@ -57,7 +101,7 @@ const faqs = [
   },
   {
     q: "Is there a free trial?",
-    a: "Try it free — generate a resume and see the watermarked preview. Download requires a paid pack starting at ₹100.",
+    a: "Yes — the Free ATS Review is unlimited and never expires. AI generation and downloads start at ₹99.",
   },
 ];
 
@@ -84,7 +128,7 @@ export default function Home() {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Button size="lg" asChild className="w-full sm:w-auto text-base px-10">
-            <Link href="/signup">Try free — no card needed</Link>
+            <Link href="/signup">Try the free ATS review</Link>
           </Button>
           <a
             href="#pricing"
@@ -93,7 +137,7 @@ export default function Home() {
             See pricing ↓
           </a>
         </div>
-        <p className="text-xs text-[#6b6b6b] mt-4">Free preview forever · Download from ₹100</p>
+        <p className="text-xs text-[#6b6b6b] mt-4">Free ATS review forever · Download from ₹99</p>
       </section>
 
       {/* How It Works */}
@@ -133,7 +177,9 @@ export default function Home() {
       {/* Pricing */}
       <section id="pricing" className="max-w-5xl mx-auto px-6 py-20 border-t border-stone-200/60">
         <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-4">Pricing</h2>
-        <p className="text-center text-[#6b6b6b] mb-14 text-sm">All plans valid 1 year · No subscription</p>
+        <p className="text-center text-[#6b6b6b] mb-14 text-sm">
+          Free ATS review forever · Pay only when you download · Credits valid 1 year
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {plans.map((plan) => (
             <div
@@ -148,7 +194,7 @@ export default function Home() {
             >
               {plan.popular && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
-                  Most popular
+                  Best value
                 </span>
               )}
               {plan.free && (
@@ -164,6 +210,11 @@ export default function Home() {
                 <p className={`text-sm mt-1 ${plan.popular ? "text-white/70" : "text-[#6b6b6b]"}`}>
                   {plan.resumes}
                 </p>
+                {plan.perDownload && (
+                  <p className={`text-xs mt-1 ${plan.popular ? "text-amber-200" : "text-[#1f5c3a]"}`}>
+                    {plan.perDownload}
+                  </p>
+                )}
               </div>
               <ul className="flex flex-col gap-2 text-sm flex-1">
                 {plan.features.map((f) => (
@@ -179,14 +230,57 @@ export default function Home() {
                 size="sm"
                 className={plan.popular ? "bg-white text-[#1f5c3a] hover:bg-white/90" : ""}
               >
-                <Link href={plan.free ? "/signup" : `/signup?plan=${plan.name.toLowerCase().replace(/ /g, "_")}`}>{plan.free ? "Start free" : "Get started"}</Link>
+                <Link href={plan.ctaHref ?? (plan.free ? "/signup" : `/signup?plan=${plan.name.toLowerCase().replace(/ /g, "_")}`)}>
+                  {plan.ctaLabel ?? (plan.free ? "Start free" : "Get started")}
+                </Link>
               </Button>
             </div>
           ))}
         </div>
-        <p className="text-center text-[#6b6b6b] text-sm mt-8">
-          + LinkedIn Profile Rewrite add-on available for ₹500
-        </p>
+
+        {/* Premium offers row */}
+        <div className="mt-10">
+          <p className="text-center text-xs uppercase tracking-widest text-[#6b6b6b] mb-6">
+            Premium &amp; add-ons
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {premiumOffers.map((offer) => (
+              <div
+                key={offer.name}
+                className="relative rounded-xl border border-stone-200 bg-white p-6 flex flex-col sm:flex-row gap-5 items-start"
+              >
+                <div className="w-12 h-12 rounded-full bg-[#1f5c3a]/10 flex items-center justify-center shrink-0">
+                  {offer.icon === "linkedin" ? (
+                    <Linkedin className="w-5 h-5 text-[#1f5c3a]" />
+                  ) : (
+                    <FileText className="w-5 h-5 text-[#1f5c3a]" />
+                  )}
+                </div>
+                <div className="flex-1 flex flex-col gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-[#6b6b6b]">{offer.name}</p>
+                    <p className="text-2xl font-bold text-[#1a1a1a]">
+                      {offer.price}
+                      <span className="text-sm font-normal text-[#6b6b6b]"> · {offer.resumes}</span>
+                    </p>
+                    <p className="text-xs text-[#1f5c3a] mt-1">{offer.perDownload}</p>
+                  </div>
+                  <ul className="flex flex-col gap-1.5 text-sm">
+                    {offer.features.map((f) => (
+                      <li key={f} className="flex items-center gap-2">
+                        <Check className="w-4 h-4 shrink-0 text-[#1f5c3a]" />
+                        <span className="text-[#1a1a1a]">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button asChild variant="outline" size="sm" className="self-start mt-2">
+                    <Link href={offer.ctaHref}>{offer.ctaLabel}</Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* FAQ */}
