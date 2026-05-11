@@ -14,7 +14,8 @@ export type AnalyticsEvent =
   | "checkout_success"
   | "free_review_start"
   | "free_review_complete"
-  | "generate_attempt_blocked_free";
+  | "generate_attempt_blocked_free"
+  | "generate_resume_sanitised";
 
 export type AnalyticsProps = Record<string, string | number | boolean | null | undefined>;
 
