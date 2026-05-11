@@ -6,12 +6,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PLANS } from "@/lib/plan-config";
-import type { PlanType } from "@/lib/plan-config";
+import type { Plan } from "@/lib/plan-config";
 import { createClient } from "@/lib/supabase/client";
 
 const TEST_MODE = process.env.NEXT_PUBLIC_TEST_MODE === "true";
 
-function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
+const DEFAULT_FEATURES = [
+  "ATS-optimised PDF",
+  "Live keyword score",
+  "Unlimited edits",
+  "1-year validity",
+];
+
+function PlanCard({ plan }: { plan: Plan }) {
   const [granting, setGranting] = useState(false);
   const router = useRouter();
 
@@ -52,7 +59,7 @@ function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
     }
   }
 
-  const isPopular = plan.popular;
+  const isPopular = plan.badge === "Most popular";
 
   return (
     <div
@@ -62,9 +69,9 @@ function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
           : "border-stone-200 bg-white"
       }`}
     >
-      {isPopular && (
+      {plan.badge && (
         <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
-          Most popular
+          {plan.badge}
         </span>
       )}
 
@@ -72,14 +79,14 @@ function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
         <p className={`text-sm font-medium mb-1 ${isPopular ? "text-white/80" : "text-[#6b6b6b]"}`}>
           {plan.name}
         </p>
-        <p className="text-3xl font-bold">{plan.price}</p>
+        <p className="text-3xl font-bold">₹{plan.priceInr}</p>
         <p className={`text-sm mt-1 ${isPopular ? "text-white/70" : "text-[#6b6b6b]"}`}>
-          {plan.resumes} download{plan.resumes !== 1 ? "s" : ""}
+          {plan.downloads} download{plan.downloads !== 1 ? "s" : ""}
         </p>
       </div>
 
       <ul className="flex flex-col gap-2 text-sm flex-1">
-        {plan.features.map((f) => (
+        {DEFAULT_FEATURES.map((f) => (
           <li key={f} className="flex items-center gap-2">
             <Check className={`w-4 h-4 shrink-0 ${isPopular ? "text-white" : "text-[#1f5c3a]"}`} />
             <span className={isPopular ? "text-white/90" : "text-[#1a1a1a]"}>{f}</span>

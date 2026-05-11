@@ -4,7 +4,10 @@ import { grantTestPlan } from "@/lib/plans";
 import type { PlanType } from "@/lib/plan-config";
 import { PLAN_ALLOTMENTS } from "@/lib/plan-config";
 
-const VALID_PLANS = Object.keys(PLAN_ALLOTMENTS) as PlanType[];
+// "free" is implicit — never materialized as a user_plans row.
+const VALID_PLANS = (Object.keys(PLAN_ALLOTMENTS) as PlanType[]).filter(
+  (p) => p !== "free"
+);
 
 export async function POST(req: NextRequest) {
   if (process.env.NEXT_PUBLIC_TEST_MODE !== "true") {

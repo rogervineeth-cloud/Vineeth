@@ -1,44 +1,57 @@
-// Shared plan constants — safe to import from client and server components
-
-export type PlanType = "starter" | "fresher" | "job_hunter" | "placement_pro";
+// Shared plan constants — safe to import from client and server components.
+//
+// SKUs:
+//   free         — implicit default. NOT materialized as a user_plans row.
+//                  Used for the deterministic ATS review only.
+//   single       — 1 download
+//   fresher      — 5 downloads (Most popular)
+//   job_hunter   — 12 downloads
+//   career       — 25 downloads (Best value)
+export type PlanType = "free" | "single" | "fresher" | "job_hunter" | "career";
 
 export const PLAN_LABELS: Record<PlanType, string> = {
-  starter: "Starter",
+  free: "Free",
+  single: "Single",
   fresher: "Fresher",
   job_hunter: "Job Hunter",
-  placement_pro: "Placement Pro",
+  career: "Career Pack",
 };
 
 export const PLAN_ALLOTMENTS: Record<PlanType, number> = {
-  starter: 1,
+  free: 0,
+  single: 1,
   fresher: 5,
   job_hunter: 12,
-  placement_pro: 25,
+  career: 25,
 };
 
-export const PLANS = [
+export type Plan = {
+  type: Exclude<PlanType, "free">;
+  name: string;
+  priceInr: number;
+  downloads: number;
+  badge: "Most popular" | "Best value" | null;
+};
+
+export const PLANS: readonly Plan[] = [
+  { type: "single",     name: "Single",      priceInr: 99,  downloads: 1,  badge: null },
+  { type: "fresher",    name: "Fresher",     priceInr: 269, downloads: 5,  badge: "Most popular" },
+  { type: "job_hunter", name: "Job Hunter",  priceInr: 599, downloads: 12, badge: null },
+  { type: "career",     name: "Career Pack", priceInr: 999, downloads: 25, badge: "Best value" },
+];
+
+export type Addon = {
+  id: "linkedin_rewrite";
+  name: string;
+  priceInr: number;       // standalone price
+  bundlePriceInr: number; // price when added to any paid plan
+};
+
+export const ADDONS: readonly Addon[] = [
   {
-    type: "starter" as PlanType,
-    name: "Starter",
-    price: "₹100",
-    resumes: 1,
-    popular: false,
-    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
+    id: "linkedin_rewrite",
+    name: "LinkedIn Profile Rewrite",
+    priceInr: 499,
+    bundlePriceInr: 399,
   },
-  {
-    type: "fresher" as PlanType,
-    name: "Fresher",
-    price: "₹299",
-    resumes: 5,
-    popular: true,
-    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
-  },
-  {
-    type: "job_hunter" as PlanType,
-    name: "Job Hunter",
-    price: "₹599",
-    resumes: 12,
-    popular: false,
-    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
-  },
-] as const;
+];
