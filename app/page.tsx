@@ -9,51 +9,51 @@ const plans = [
     slug: "free",
     name: "Free Preview",
     price: "₹0",
-    resumes: "Unlimited ATS reviews",
+    resumes: "1 free ATS preview",
     popular: false,
     free: true,
     features: [
       "ATS score & keyword gap",
-      "Template preview (watermarked)",
-      "Action-verb & formatting check",
-      "No AI generation — upgrade to generate",
+      "Structure & action-verb check",
+      "No card required",
+      "Sign up · 10 seconds",
     ],
   },
   {
     slug: "single",
     name: "Single",
     price: "₹99",
-    resumes: "1 download",
+    resumes: "1 AI-tailored resume",
     popular: false,
     free: false,
-    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
+    features: ["1 AI-tailored resume", "Unlimited PDF downloads", "Live ATS keyword score", "1-year validity"],
   },
   {
     slug: "fresher",
     name: "Fresher",
-    price: "₹269",
-    resumes: "5 downloads",
+    price: "₹249",
+    resumes: "5 AI-tailored resumes",
     popular: true,
     free: false,
-    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
+    features: ["5 AI-tailored resumes", "Unlimited PDF downloads", "Live ATS keyword score", "1-year validity"],
   },
   {
     slug: "job_hunter",
     name: "Job Hunter",
     price: "₹599",
-    resumes: "12 downloads",
+    resumes: "12 AI-tailored resumes",
     popular: false,
     free: false,
-    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
+    features: ["12 AI-tailored resumes", "Unlimited PDF downloads", "Live ATS keyword score", "1-year validity"],
   },
   {
     slug: "career",
     name: "Career Pack",
     price: "₹999",
-    resumes: "25 downloads",
+    resumes: "25 AI-tailored resumes",
     popular: false,
     free: false,
-    features: ["ATS-optimised PDF", "Live keyword score", "Unlimited edits", "1-year validity"],
+    features: ["25 AI-tailored resumes", "Unlimited PDF downloads", "Live ATS keyword score", "1-year validity"],
   },
 ];
 
@@ -62,7 +62,7 @@ const faqs = [
   { q: "What if I don't have LinkedIn?", a: "No problem. You can build from scratch using our guided manual form, or upload an existing resume to get started." },
   { q: "Can I edit after generating?", a: "Yes, freely. Re-downloads of the same resume don't count as new credits." },
   { q: "How long are resumes valid?", a: "One year from purchase date." },
-  { q: "Is there a free trial?", a: "Yes. Run a free deterministic ATS review on any resume + JD, no card and no signup required. AI generation requires a paid pack starting at ₹99." },
+  { q: "Is there a free trial?", a: "Yes. Sign up (10 seconds, no card) and you get one free deterministic ATS preview on any resume + JD. AI-tailored resume generation requires a paid pack starting at ₹99." },
   { q: "What is the LinkedIn Profile Rewrite?", a: "An AI-rewritten LinkedIn Headline, About section, and your top 3 Experience entries — tailored to the role you're targeting. Available standalone for ₹499 or bundled with any resume plan for ₹399 (save ₹100). Truthful only — we never invent jobs or metrics." },
 ];
 
@@ -118,7 +118,7 @@ export default async function Home() {
               </div>
             </div>
             <p className="text-xs text-[#6b6b6b]">
-              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}Free ATS review · Resumes from ₹99 · Pay once, no subscription
+              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}Free ATS preview · Resumes from ₹99 · Pay once, no subscription
             </p>
           </div>
 
@@ -197,14 +197,24 @@ export default async function Home() {
         <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-2">Simple pricing</h2>
         <p className="text-center text-[#6b6b6b] mb-8 text-sm">All plans valid 1 year · No subscription · Pay once, use anytime</p>
 
-        <Link
-          href="/free-review"
-          className="block max-w-3xl mx-auto mb-8 rounded-lg border border-[#1f5c3a]/25 bg-[#1f5c3a]/5 px-5 py-3 text-sm hover:bg-[#1f5c3a]/10 transition-colors text-center"
-        >
-          <span className="font-semibold text-[#1f5c3a]">Not ready to pay?</span>{" "}
-          <span className="text-[#1a1a1a]">Try a free ATS review — no card, no signup.</span>
-          <span className="ml-2 text-[#1f5c3a] font-medium">Start free review →</span>
-        </Link>
+        <div className="max-w-3xl mx-auto mb-8 rounded-xl border-2 border-dashed border-[#1f5c3a]/40 bg-[#1f5c3a]/5 px-5 py-4 sm:px-6 sm:py-5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
+            <div className="flex-1">
+              <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#1f5c3a] bg-[#1f5c3a]/10 rounded-full px-2 py-0.5 mb-2">
+                <Sparkles className="w-3 h-3" />
+                Free ATS preview
+              </p>
+              <p className="text-base font-semibold text-[#1a1a1a]">Score your resume against any JD — free.</p>
+              <p className="text-sm text-[#1a1a1a]/80 mt-1">
+                1 free preview per account · Keyword gap, missing skills, structure check
+                <span className="text-[#1f5c3a] font-medium"> · No card required</span>
+              </p>
+            </div>
+            <Button asChild size="sm" className="bg-[#1f5c3a] hover:bg-[#174d30] whitespace-nowrap">
+              <Link href="/signup?next=/free-review">Sign up free →</Link>
+            </Button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {plans.filter((p) => !p.free).map((plan, idx) => (

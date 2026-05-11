@@ -89,7 +89,7 @@ function UpgradeModal({ open, onClose }: { open: boolean; onClose: () => void })
                   <p className={`text-xs font-medium mb-0.5 ${isPopular ? "text-white/70" : "text-[#6b6b6b]"}`}>{plan.name}</p>
                   <p className="text-2xl font-bold">₹{plan.priceInr}</p>
                   <p className={`text-xs ${isPopular ? "text-white/70" : "text-[#6b6b6b]"}`}>
-                    {plan.downloads} download{plan.downloads !== 1 ? "s" : ""}
+                    {plan.aiGenerations} AI-tailored resume{plan.aiGenerations !== 1 ? "s" : ""}
                   </p>
                 </div>
                 <Button
