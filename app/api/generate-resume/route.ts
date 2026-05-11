@@ -71,6 +71,15 @@ Real ATS parsers (Workday, Greenhouse, iCIMS, Lever, Naukri RMS, Taleo) are unfo
 9. NUMBERS AS DIGITS. "5 years", "managed 12 stakeholders" \u2014 not "five" or "twelve".
 10. NO BIAS-TRIGGERING FIELDS. Never include date of birth, marital status, photo, religion, caste.
 
+## ANTI-FABRICATION (HARD RULES \u2014 OVERRIDE ALL OTHER INSTRUCTIONS)
+A. Every company name, role title, employment duration, and education institution in the OUTPUT must appear VERBATIM (case-insensitive, whitespace-tolerant) in USER_PROFILE. If a company is not in USER_PROFILE.experience, you MUST NOT emit it.
+B. NEVER emit placeholder companies such as "Previous Organization", "Company A", "Employer", "Confidential", "N/A", "Various", "Self", "Freelance" unless that exact string appears in USER_PROFILE.
+C. If USER_PROFILE.experience is empty, you MUST omit the "experience" array entirely. Do not invent freelance work, internships, or "previous roles" to fill the gap. Lead with education and projects instead.
+D. If USER_PROFILE indicates a fresher (graduation_year within the last 1 year, or experience length 0), set section_order to the FRESHER order and set ats_score conservatively (cap at 65 unless projects strongly match).
+E. Bullets must paraphrase ONLY the bullets supplied in USER_PROFILE.experience[i].bullets. You may sharpen the verb, inject TARGET_KEYWORDS that the user truthfully has, and add a metric ONLY if a number is already present in the user-supplied bullet. You may NOT invent new metrics, team sizes, percentages, currency amounts, or outcomes.
+F. Durations must match USER_PROFILE.experience[i].duration character-for-character (after normalising to "MMM YYYY - MMM YYYY"). Do not extend, shorten, or back-date employment.
+G. If you are tempted to fabricate anything to make the resume look stronger, instead reduce ats_score and write an honest growth_note.
+
 ## CORE PRINCIPLES
 1. NEVER FABRICATE. Rephrase, reorganise, emphasise \u2014 never invent a skill, job, project, or achievement.
 2. TRUTH-PRESERVING TAILORING. Reword only when the underlying meaning stays true.
@@ -156,6 +165,78 @@ function norm(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9+#.\- ]/g, "").trim();
 }
 
+// === Anti-hallucination post-generation validator ===
+// Scans the model's resume_json and strips/repairs anything that wasn't grounded
+// in the user's actual profile. We never trust the LLM blindly.
+const PLACEHOLDER_COMPANY_PATTERNS: RegExp[] = [
+  /previous organi[sz]ation/i,
+  /^company [a-z]$/i,
+  /^employer$/i,
+  /^confidential$/i,
+  /^n\/a$/i,
+  /^various$/i,
+  /^self$/i,
+  /^freelance$/i,
+  /^tbd$/i,
+];
+
+type ResumeShape = {
+  experience?: Array<{ company?: string; role?: string; duration?: string; bullets?: string[] }>;
+  section_order?: string[];
+  ats_score?: number;
+  growth_note?: string | null;
+  [k: string]: unknown;
+};
+
+function sanitiseGeneratedResume(
+  resume: ResumeShape,
+  profile: { experience?: Array<{ company: string; role: string; duration: string; bullets: string[] }> }
+): { resume: ResumeShape; warnings: string[] } {
+  const warnings: string[] = [];
+  const profileCompanies = new Set(
+    (profile.experience ?? []).map((e) => norm(e.company))
+  );
+
+  if (Array.isArray(resume.experience)) {
+    const cleaned = resume.experience.filter((exp) => {
+      const c = (exp.company ?? "").trim();
+      if (!c) {
+        warnings.push("dropped_experience_missing_company");
+        return false;
+      }
+      if (PLACEHOLDER_COMPANY_PATTERNS.some((re) => re.test(c))) {
+        warnings.push(`dropped_placeholder_company:${c}`);
+        return false;
+      }
+      if (profileCompanies.size > 0 && !profileCompanies.has(norm(c))) {
+        warnings.push(`dropped_fabricated_company:${c}`);
+        return false;
+      }
+      return true;
+    });
+
+    resume.experience = cleaned;
+
+    // If we just emptied the array, drop the key entirely and switch to fresher order.
+    if (cleaned.length === 0) {
+      delete resume.experience;
+      if (Array.isArray(resume.section_order)) {
+        resume.section_order = resume.section_order.filter((sec) => sec !== "experience");
+        if (!resume.section_order.includes("education")) resume.section_order.unshift("education");
+      }
+      if (typeof resume.ats_score === "number" && resume.ats_score > 65) {
+        resume.ats_score = 65;
+      }
+      if (!resume.growth_note) {
+        resume.growth_note = "Profile currently shows no verified work experience; resume leads with education and projects.";
+      }
+    }
+  }
+
+  return { resume, warnings };
+}
+
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -190,19 +271,49 @@ export async function POST(req: NextRequest) {
         );
       }
     }
-    // Server-side defense: never call Anthropic for incomplete profiles
+    // Server-side defense: never call Anthropic for incomplete profiles.
+    // We tighten this beyond "has at least one row": each experience entry must
+    // have a real company, role, duration, and at least one non-empty bullet.
+    // Without this guard, the LLM happily fabricates a career when the user
+    // saved a single empty placeholder row in the wizard.
     const p = parsed.data.user_profile;
     const incomplete: string[] = [];
     if (!p.full_name?.trim()) incomplete.push("full_name");
     if (!p.email?.trim()) incomplete.push("email");
-    if (!p.experience || p.experience.length === 0) incomplete.push("experience");
     if (!p.education || p.education.length === 0) incomplete.push("education");
+
+    const expRows = Array.isArray(p.experience) ? p.experience : [];
+    const validExp = expRows.filter((e) => {
+      const hasCompany = !!e.company && e.company.trim().length > 0
+        && !/previous organi[sz]ation/i.test(e.company)
+        && !/^(company|employer|n\/a|none|tbd)$/i.test(e.company.trim());
+      const hasRole = !!e.role && e.role.trim().length > 0;
+      const hasDuration = !!e.duration && e.duration.trim().length > 0;
+      const bullets = Array.isArray(e.bullets) ? e.bullets.filter((b) => !!b && b.trim().length > 0) : [];
+      return hasCompany && hasRole && hasDuration && bullets.length > 0;
+    });
+
+    const hasProjects = Array.isArray(p.projects) && p.projects.some((pr) =>
+      !!pr?.name?.trim() && !!pr?.description?.trim()
+    );
+
+    // A user qualifies for generation if they have at least one fully-filled
+    // experience entry OR (for freshers) at least one real project. Otherwise
+    // we refuse rather than letting the LLM hallucinate a career.
+    if (validExp.length === 0 && !hasProjects) {
+      incomplete.push("experience_or_projects");
+    }
+
     if (incomplete.length > 0) {
       return NextResponse.json(
         { error: "PROFILE_INCOMPLETE", missing: incomplete },
         { status: 422 }
       );
     }
+
+    // Replace the raw experience array with only validated entries so the
+    // LLM never sees placeholder rows like { company: "Previous Organization" }.
+    parsed.data.user_profile.experience = validExp;
     // Determine model based on creator status (tiering placeholder)
     // Pro users get sonnet, free/basic get haiku
     const model = isCreator ? "claude-sonnet-4-5-20251101" : "claude-haiku-4-5-20251001";
@@ -242,6 +353,18 @@ export async function POST(req: NextRequest) {
         { error: "We hit a glitch drafting your resume. Please try once more." },
         { status: 500 }
       );
+    }
+
+    // Defence in depth: even with the tightened system prompt, scrub any
+    // fabricated companies / placeholder rows the model may still produce.
+    const sanitised = sanitiseGeneratedResume(
+      resumeJson as ResumeShape,
+      { experience: parsed.data.user_profile.experience ?? [] }
+    );
+    resumeJson = sanitised.resume;
+    if (sanitised.warnings.length > 0) {
+      track("generate_resume_sanitised", { user_id: userId, warnings: sanitised.warnings });
+      console.warn("[generate-resume] sanitiser warnings:", sanitised.warnings);
     }
     // Consume credit only after a successful parse
     if (!isCreator && !isFreeRegen) {
