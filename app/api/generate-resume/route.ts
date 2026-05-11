@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { canGenerateResume, canGenerateFreeRegen, consumeCredit } from "@/lib/plans";
+import { track } from "@/lib/analytics";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
 const inputSchema = z.object({
@@ -182,8 +183,9 @@ export async function POST(req: NextRequest) {
     if (!isCreator && !isFreeRegen) {
       const { allowed, reason } = await canGenerateResume(userId);
       if (!allowed) {
+        track("generate_attempt_blocked_free", { user_id: userId, reason: reason ?? "NO_PLAN" });
         return NextResponse.json(
-          { error: "PAYMENT_REQUIRED", reason, upgrade_url: "/pricing" },
+          { error: "payment_required", reason, checkoutUrl: "/pricing" },
           { status: 402 }
         );
       }
@@ -245,8 +247,9 @@ export async function POST(req: NextRequest) {
     if (!isCreator && !isFreeRegen) {
       const credited = await consumeCredit(userId);
       if (!credited) {
+        track("generate_attempt_blocked_free", { user_id: userId, reason: "CREDITS_EXHAUSTED" });
         return NextResponse.json(
-          { error: "PAYMENT_REQUIRED", reason: "CREDITS_EXHAUSTED", upgrade_url: "/pricing" },
+          { error: "payment_required", reason: "CREDITS_EXHAUSTED", checkoutUrl: "/pricing" },
           { status: 402 }
         );
       }
