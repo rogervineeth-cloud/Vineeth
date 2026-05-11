@@ -61,6 +61,42 @@ const STOPWORDS = new Set<string>([
   "teams","role","roles","job","jobs","year","years","experience","experienced",
   "skills","skill","required","preferred","plus","etc","ideally","must","need",
   "needs","needed","candidate","candidates","you'll","we're","we'll",
+  // Additions from observed bad bigrams in production (Nov 2025).
+  "looking","seeking","seek","sought","hire","hiring","join","joining","apply",
+  "applying","applicants","wanted","want","wants","know","knowledge","knows",
+  "knowing","familiar","familiarity","prior","previous","plus","bonus","preferred",
+  "ideal","you","you've","were","being","been","also","since","because","whether",
+  "etc.","i.e.","e.g.","including","includes","etc",
+  // Common job-ad words that aren't actually skills.
+  "full","part","time","fulltime","parttime","remote","hybrid","onsite","onsite",
+  "office","working","worked","work","jobs","job","position","positions","roles",
+  "role","level","levels","tier","tiers","senior","junior","mid","entry","staff",
+  "principal","intern","internship","freelance","contractor","permanent",
+  "responsibility","responsibilities","duty","duties","day","daily","weekly",
+  "monthly","yearly","annual","annually",
+  // Pronouns / fillers.
+  "he","she","him","her","his","hers","theirs","oneself","themselves","ourselves",
+]);
+
+// Bigrams that frequently appear in JDs but aren't useful as ATS keywords.
+// Treat them as a hard denylist so they never enter the resume's "missing
+// keywords" suggestions.
+const JD_FILLER_BIGRAMS = new Set<string>([
+  "looking for","seeking for","apply now","please apply","strong candidate",
+  "ideal candidate","good candidate","ideal applicant","strong applicant",
+  "must have","should have","nice have","good have","great have","prior experience",
+  "previous experience","relevant experience","industry experience","work experience",
+  "years experience","years working","years prior","year experience","year experience",
+  "experience working","experience using","experience with","ability work","ability use",
+  "strong written","strong verbal","strong communication","excellent communication",
+  "excellent written","excellent verbal","good communication","good written","good verbal",
+  "team player","team environment","fast paced","high growth","high performing","high quality",
+  "high impact","problem solving","problem solver","critical thinking","attention detail",
+  "attention details","detail oriented","results oriented","results driven","self starter",
+  "self motivated","self driven","equal opportunity","candidate role","candidate must",
+  "candidate should","candidate will","you will","you should","you must","we are","we have",
+  "we offer","we believe","we want","our team","our company","our mission","our customers",
+  "the role","the candidate","the team","the company","the ideal","the successful",
 ]);
 
 const STRONG_VERBS = new Set<string>([
@@ -123,12 +159,24 @@ export function extractJdKeywords(jdText: string): string[] {
     if (t.length < 3) continue;
     if (STOPWORDS.has(t)) continue;
     if (/^\d+$/.test(t)) continue;
+    // Drop tokens that are dominated by digits ("3yrs", "2x", "10x").
+    if (/^\d/.test(t) && (t.match(/\d/g) ?? []).length >= t.length / 2) continue;
     freq.set(t, (freq.get(t) ?? 0) + 1);
   }
   for (const bg of ngrams(toks, 2)) {
     const [a, b] = bg.split(" ");
-    if (STOPWORDS.has(a) && STOPWORDS.has(b)) continue;
+    // STRICT: skip a bigram if EITHER token is a stopword. Previously this
+    // was && which let through garbage like "are looking", "looking for",
+    // "senior full" (only one side stopword). For a keyword extractor we
+    // want both sides to be meaningful.
+    if (STOPWORDS.has(a) || STOPWORDS.has(b)) continue;
+    // Drop bigrams that contain pure numbers — "2 years", "5 years" are not
+    // useful matchable keywords.
+    if (/^\d+$/.test(a) || /^\d+$/.test(b)) continue;
     if (a.length < 3 || b.length < 3) continue;
+    // Drop bigrams that look like job-ad filler ("looking for", "must have",
+    // "should have"). The list grows from observed garbage in production.
+    if (JD_FILLER_BIGRAMS.has(bg)) continue;
     freq.set(bg, (freq.get(bg) ?? 0) + 2); // weight bigrams slightly
   }
   return [...freq.entries()]
