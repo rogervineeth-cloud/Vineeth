@@ -61,7 +61,8 @@ type Section =
   | "skills"
   | "projects"
   | "certifications"
-  | "achievements";
+  | "achievements"
+  | "references";
 
 const SECTION_ALIASES: Record<string, Section> = {
   // ── Summary / objective ────────────────────────────────────────────────
@@ -173,6 +174,13 @@ const SECTION_ALIASES: Record<string, Section> = {
   "volunteer": "achievements",
   "volunteer experience": "achievements",
   "volunteering": "achievements",
+
+  // ── References (so referee names don't end up parsed as schools) ──────
+  "references": "references",
+  "reference": "references",
+  "referees": "references",
+  "referee": "references",
+  "professional references": "references",
 };
 
 function normaliseHeader(line: string): string {
@@ -450,6 +458,42 @@ export function parseEducationBlock(block: string[]): EducationEntry[] {
   return entries;
 }
 
+// Heuristics for rejecting things that look like personal data rather than
+// skills. We never want a user's email, phone, address, or referee details to
+// show up as a "skill chip" in the wizard or in the resume preview.
+const SKILL_REJECT_PATTERNS: RegExp[] = [
+  /@/, // email addresses
+  /\bhttps?:\/\//i, // URLs
+  /\bwww\./i, // bare www. URLs
+  /\blinkedin\.com\b/i,
+  /\bgithub\.com\b/i,
+  /^\+?\d[\d\s\-().]{6,}$/, // anything that's mostly a phone number
+  /^\d{6}$/, // 6-digit PIN codes (Indian postal)
+  /^\d{5,6}(?:-\d{4})?$/, // generic postcodes
+  /\b(19|20)\d{2}\s*[\-–—]\s*(?:(19|20)\d{2}|present|current|now)\b/i, // date ranges
+  /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{4}\b/i, // "Jun 2024"
+  /^(?:references|reference|referee|referees)$/i,
+  /^(?:available on request|on request|available upon request)$/i,
+  // pronouns and pure stopwords
+  /^(?:he|she|they|him|her|them|i|me|my|we|us|our|you|your|they|their|the|a|an|and|or|of|on|in|at|to|for|by|with|from|as|is|are|was|were|be|been|being|am|do|does|did|has|have|had)$/i,
+];
+
+const KNOWN_CITY_LOWER = new Set(KNOWN_CITIES.map((c) => c.toLowerCase()));
+
+function looksLikeSkill(candidate: string): boolean {
+  const t = candidate.trim();
+  if (t.length < 2 || t.length > 50) return false;
+  for (const re of SKILL_REJECT_PATTERNS) if (re.test(t)) return false;
+  // Drop entries that are just a known city name (e.g. "Bangalore", "Pune").
+  if (KNOWN_CITY_LOWER.has(t.toLowerCase())) return false;
+  // Drop entries that are mostly punctuation / digits.
+  const letters = t.replace(/[^A-Za-z]/g, "").length;
+  if (letters < 2) return false;
+  // Drop full sentences — a real skill rarely has more than 5 words.
+  if (t.split(/\s+/).length > 5) return false;
+  return true;
+}
+
 export function parseSkillsBlock(block: string[]): string[] {
   // Some skills sections are written as "Languages: Python, Go" subgroups —
   // strip the leading label from each line before splitting.
@@ -458,7 +502,12 @@ export function parseSkillsBlock(block: string[]): string[] {
   return joined
     .split(/[,;|·•\n\/]/)
     .map((s) => s.replace(/^[-–—\s]+/, "").trim())
+    // First, the original length gate.
     .filter((s) => s.length >= 2 && s.length <= 50)
+    // Then the new semantic filter: drop emails, phones, URLs, addresses,
+    // date ranges, city names on their own, and full sentences. These were
+    // showing up as "skill chips" in the onboarding wizard.
+    .filter(looksLikeSkill)
     // de-dupe case-insensitively, preserve first-seen casing.
     .filter((s, i, arr) => arr.findIndex((t) => t.toLowerCase() === s.toLowerCase()) === i);
 }
@@ -527,11 +576,21 @@ function fallbackBucket(lines: string[]): { experience: string[]; skills: string
   const experience: string[] = [];
   const skills: string[] = [];
   for (const line of lines) {
-    if (!line.trim()) continue;
+    const t = line.trim();
+    if (!t) continue;
     if (isBullet(line) || findDateRange(line)) {
       experience.push(line);
-    } else if (/[A-Za-z]{2,},\s*[A-Za-z]{2,},\s*[A-Za-z]{2,}/.test(line) && line.length < 200) {
-      // CSV-looking line with three+ comma-separated tokens — likely skills.
+      continue;
+    }
+    // Only treat a CSV-looking line as skills if it doesn't contain any
+    // obvious PII (email / phone / URL) and isn't a contact-info cluster.
+    // Without this guard, lines like "Mumbai, India, lakshmy@gmail.com" were
+    // ending up in the skills bucket and getting parsed into skill chips.
+    if (/[A-Za-z]{2,},\s*[A-Za-z]{2,},\s*[A-Za-z]{2,}/.test(t) && t.length < 200) {
+      if (/@/.test(t)) continue; // email present
+      if (/\bhttps?:\/\//i.test(t)) continue; // URL present
+      if (/\+?\d[\d\s\-().]{6,}/.test(t)) continue; // phone-ish digits
+      if (/[|·•]/.test(t)) continue; // contact-info separator chars
       skills.push(line);
     }
   }
@@ -552,6 +611,7 @@ export function extractProfile(text: string): ExtractedProfile {
     projects: [],
     certifications: [],
     achievements: [],
+    references: [],
   };
   let active: Section | null = null;
   const headerLines: string[] = [];
