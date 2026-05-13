@@ -133,8 +133,8 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
             const isPast = i < active;
             // A step is "skipped" if user explicitly clicked Skip on it (only Experience/Education/Projects).
             const stepKey = step.key as string;
-            const isSkipped = isPast && (stepKey === "experience" || stepKey === "education" || stepKey === "projects") && (skipped as Record<string, boolean>)[stepKey] && !completion[step.key];
-            const isCompleted = isPast && (completion[step.key] || (step.optional && !isSkipped));
+            const isSkipped = i !== active && (stepKey === "experience" || stepKey === "education" || stepKey === "projects") && (skipped as Record<string, boolean>)[stepKey];
+            const isCompleted = i !== active && (completion[step.key] || (isPast && step.optional && !isSkipped));
             const isActive = i === active;
             const lastResumeHref = step.key === "resume" && latestResumeId ? "/preview/" + latestResumeId : null;
             const baseHref = step.route + (step.subStep ? "?step=" + step.subStep : "");
