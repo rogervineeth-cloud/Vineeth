@@ -277,7 +277,7 @@ function ProfilePageInner() {
       toast.info("Pick at least one target role so the AI knows what to tailor for.");
       return;
     }
-    if (currentStep < STEPS.length - 1) {
+    if (currentStep === 1 && !isFresher && !experience.some((e) => e.company.trim())) setExpSkipped(true); if (currentStep === 2 && !education.some((e) => e.institution.trim())) setEduSkipped(true); if (currentStep === 3 && !projects.some((p) => p.name.trim())) setProjSkipped(true); if (currentStep < STEPS.length - 1) {
       setCurrentStep((s) => s + 1);
     } else {
       router.push("/create");
