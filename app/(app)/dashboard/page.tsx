@@ -43,7 +43,7 @@ function PlanBadge({ plan }: { plan: UserPlan | null }) {
     return (
       <div className="flex items-center gap-3 bg-stone-100 border border-stone-200 rounded-xl px-5 py-3">
         <div>
-          <p className="text-sm font-medium text-[#1a1a1a]">Free tier · 0 resumes</p>
+          <p className="text-sm font-medium text-[#1a1a1a]">Free tier · 0 downloads remaining</p>
           <p className="text-xs text-[#6b6b6b]">Preview is free. Download requires a paid pack.</p>
         </div>
         <Link href="/pricing" className="ml-auto shrink-0">
