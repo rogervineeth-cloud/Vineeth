@@ -322,7 +322,7 @@ export default function PreviewPage() {
             ) : (
               <Button size="lg" className="w-full mb-6 bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setUpgradeOpen(true)}>
                 <Lock className="w-4 h-4 mr-2" />
-                Unlock Download — ₹100
+                Unlock Download — ₹99
               </Button>
             )}
 
