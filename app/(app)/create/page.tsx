@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { AppHeader } from "@/components/app-header";
+import { AppHeader } from "@/components/app-header"; import { checkProfileCompleteness } from "@/lib/profile-completeness";
 import { CheckCircle2, AlertCircle, Sparkles, FileText, ChevronLeft } from "lucide-react";
 
 type ProfileData = {
@@ -86,15 +86,9 @@ function analyzeJd(text: string): JdAnalysis {
   return { detectedRole, keywords: found.slice(0, 12), quality };
 }
 
-function checkCompleteness(profile: Profile | null): { complete: boolean; missing: string } {
-  if (!profile) return { complete: false, missing: "your profile" };
-  if (!profile.full_name?.trim()) return { complete: false, missing: "your name" };
-  if (!profile.target_roles?.length) return { complete: false, missing: "target roles" };
-  const pd = profile.profile_data;
-  if (!(pd?.experience?.length ?? 0) && !(pd?.education?.length ?? 0))
-    return { complete: false, missing: "experience or education" };
-  return { complete: true, missing: "" };
-}
+// checkCompleteness is now provided by the shared lib/profile-completeness helper
+// (imported above as checkProfileCompleteness)
+const checkCompleteness = checkProfileCompleteness;
 
 type TemplateId = "classic" | "modern" | "compact" | "executive";
 
