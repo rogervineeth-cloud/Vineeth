@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import type { ProfileData } from "@/lib/profile-data";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type ExpEntry = {
@@ -176,6 +177,10 @@ function ProfilePageInner() {
   const [eduSkipped, setEduSkipped] = useState(false);
   const [projects, setProjects] = useState<ProjEntry[]>([]);
   const [projSkipped, setProjSkipped] = useState(false);
+  const [certifications, setCertifications] = useState<string[]>([]);
+  const [achievements, setAchievements] = useState<string[]>([]);
+  const [certInput, setCertInput] = useState("");
+  const [achievementInput, setAchievementInput] = useState("");
   const [isFresher, setIsFresher] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [skillInput, setSkillInput] = useState("");
@@ -205,12 +210,14 @@ function ProfilePageInner() {
           graduation_year: cleanGradYear,
         });
         setTargetRoles(p.target_roles ?? []);
-        const pd = p.profile_data ?? {};
+        const pd: ProfileData = p.profile_data ?? {};
         if (pd.summary && !pd.summary.startsWith("e.g.")) setSummary(pd.summary);
-        if (pd.experience?.length) setExperience(pd.experience.map((e: Omit<ExpEntry, "id">) => ({ ...e, id: uid() })));
+        if (pd.experience?.length) setExperience(pd.experience.map((e) => ({ ...e, id: uid() })));
         if (pd.skills?.length) setSkills(pd.skills);
-        if (pd.education?.length) setEducation(pd.education.map((e: Omit<EduEntry, "id">) => ({ ...e, id: uid() })));
-        if (pd.projects?.length) setProjects(pd.projects.map((e: Omit<ProjEntry, "id">) => ({ ...e, id: uid() })));
+        if (pd.education?.length) setEducation(pd.education.map((e) => ({ ...e, id: uid(), cgpa: e.cgpa ?? "" })));
+        if (pd.projects?.length) setProjects(pd.projects.map((e) => ({ ...e, id: uid() })));
+        if (pd.certifications?.length) setCertifications(pd.certifications);
+        if (pd.achievements?.length) setAchievements(pd.achievements);
         if (pd.isFresher !== undefined) setIsFresher(!!pd.isFresher);
         if (pd.expSkipped !== undefined) setExpSkipped(!!pd.expSkipped);
         if (pd.eduSkipped !== undefined) setEduSkipped(!!pd.eduSkipped);
@@ -227,7 +234,7 @@ function ProfilePageInner() {
     saveTimerRef.current = setTimeout(async () => {
       setSaveStatus("saving");
       const supabase = createClient();
-      const profileData = {
+      const profileData: ProfileData = {
         isFresher,
         expSkipped,
         eduSkipped,
@@ -237,6 +244,8 @@ function ProfilePageInner() {
         skills,
         education: education.map((e) => ({ institution: e.institution, degree: e.degree, year: e.year, location: e.location, cgpa: e.cgpa })),
         projects: projects.map((p) => ({ name: p.name, description: p.description, tech: p.tech })),
+        certifications,
+        achievements,
       };
       const { error } = await supabase.from("profiles").update({
         full_name: basics.full_name, email: basics.email, phone: basics.phone || null,
@@ -247,12 +256,12 @@ function ProfilePageInner() {
       setSaveStatus(error ? "error" : "saved");
       if (error) toast.error("Auto-save failed: " + error.message);
     }, 1000);
-  }, [userId, basics, targetRoles, summary, experience, skills, education, projects, isFresher, expSkipped, eduSkipped, projSkipped]);
+  }, [userId, basics, targetRoles, summary, experience, skills, education, projects, certifications, achievements, isFresher, expSkipped, eduSkipped, projSkipped]);
 
   useEffect(() => {
     if (!loaded) return;
     scheduleSave();
-  }, [loaded, basics, targetRoles, summary, experience, skills, education, projects, isFresher, expSkipped, eduSkipped, projSkipped, scheduleSave]);
+  }, [loaded, basics, targetRoles, summary, experience, skills, education, projects, certifications, achievements, isFresher, expSkipped, eduSkipped, projSkipped, scheduleSave]);
 
   const sec1Done = !!(basics.full_name.trim() && basics.email.trim());
   const sec2Done = targetRoles.length > 0;
@@ -335,8 +344,16 @@ function ProfilePageInner() {
       if (ep.education?.length) setEducation(ep.education.map((e: Omit<EduEntry, "id">) => ({ ...e, id: uid(), cgpa: e.cgpa ?? "" })));
       if (ep.skills?.length) setSkills(ep.skills);
       if (ep.projects?.length) setProjects(ep.projects.map((p: Omit<ProjEntry, "id">) => ({ ...p, id: uid() })));
-      const hasContent = (ep.experience?.length ?? 0) > 0 || (ep.education?.length ?? 0) > 0 || (ep.skills?.length ?? 0) > 0;
-      if (hasContent) toast.success("Resume parsed — experience, education and skills pre-filled. Review and edit as needed.");
+      if (ep.certifications?.length) setCertifications(ep.certifications);
+      if (ep.achievements?.length) setAchievements(ep.achievements);
+      const extracted: string[] = [];
+      if (ep.experience?.length) extracted.push("experience");
+      if (ep.education?.length) extracted.push("education");
+      if (ep.skills?.length) extracted.push("skills");
+      if (ep.projects?.length) extracted.push("projects");
+      if (ep.certifications?.length) extracted.push("certifications");
+      if (ep.achievements?.length) extracted.push("achievements");
+      if (extracted.length) toast.success(`Resume parsed — ${extracted.join(", ")} pre-filled. Review and edit as needed.`);
       else toast.info("Contact details extracted. Fill in experience and education below.");
     } catch { toast.error("Upload failed. Please try again."); }
     finally { setUploadingResume(false); e.target.value = ""; }
@@ -353,6 +370,11 @@ function ProfilePageInner() {
   function updateProjTech(id: string, val: string) { setProjects((prev) => prev.map((p) => p.id === id ? { ...p, tech: val.split(",").map((t) => t.trim()).filter(Boolean) } : p)); }
   function addProj() { setProjects((prev) => [...prev, emptyProj()]); }
   function removeProj(id: string) { setProjects((prev) => prev.filter((p) => p.id !== id)); }
+
+  function addCert(val: string) { const t = val.trim(); if (!t || certifications.includes(t)) return; setCertifications((prev) => [...prev, t]); setCertInput(""); }
+  function removeCert(c: string) { setCertifications((prev) => prev.filter((x) => x !== c)); }
+  function addAchievement(val: string) { const t = val.trim(); if (!t || achievements.includes(t)) return; setAchievements((prev) => [...prev, t]); setAchievementInput(""); }
+  function removeAchievement(a: string) { setAchievements((prev) => prev.filter((x) => x !== a)); }
 
   async function submitIssue() {
     if (!issueResumeId) { toast.error("Select a resume."); return; }
@@ -567,6 +589,53 @@ function ProfilePageInner() {
                 <button type="button" onClick={addProj} className="mt-3 text-sm text-[#1f5c3a] font-medium flex items-center gap-1.5 hover:underline"><Plus className="w-4 h-4" />Add project</button>
               </>
             )}
+
+            {/* Extras: Certifications & Achievements (auto-filled from PDF when present) */}
+            <div className="mt-8 pt-6 border-t border-stone-200">
+              <p className="text-sm font-semibold text-[#1a1a1a] mb-1">Certifications &amp; achievements <span className="text-xs text-[#6b6b6b] font-normal">(optional)</span></p>
+              <p className="text-xs text-[#6b6b6b] mb-4">Pre-filled from your uploaded resume when found. Type and press Enter to add more.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white border border-stone-200 rounded-xl p-4">
+                  <p className="text-xs font-medium text-[#1a1a1a] mb-2">Certifications</p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {certifications.map((c) => (
+                      <span key={c} className="flex items-center gap-1 text-sm bg-[#1f5c3a]/10 text-[#1f5c3a] px-2.5 py-1 rounded-full border border-[#1f5c3a]/20">
+                        {c}<button type="button" onClick={() => removeCert(c)} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                    {certifications.length === 0 && <p className="text-xs text-[#9ca3af] italic">None added.</p>}
+                  </div>
+                  <Input
+                    value={certInput}
+                    onChange={(e) => setCertInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCert(certInput); } }}
+                    onBlur={() => { if (certInput.trim()) addCert(certInput); }}
+                    placeholder="e.g. AWS Certified Solutions Architect"
+                    className="bg-white text-sm"
+                  />
+                </div>
+                <div className="bg-white border border-stone-200 rounded-xl p-4">
+                  <p className="text-xs font-medium text-[#1a1a1a] mb-2">Achievements / awards</p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {achievements.map((a) => (
+                      <span key={a} className="flex items-center gap-1 text-sm bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full border border-amber-200">
+                        {a}<button type="button" onClick={() => removeAchievement(a)} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                    {achievements.length === 0 && <p className="text-xs text-[#9ca3af] italic">None added.</p>}
+                  </div>
+                  <Input
+                    value={achievementInput}
+                    onChange={(e) => setAchievementInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAchievement(achievementInput); } }}
+                    onBlur={() => { if (achievementInput.trim()) addAchievement(achievementInput); }}
+                    placeholder="e.g. Top 1% in National Math Olympiad"
+                    className="bg-white text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
             {resumes.length > 0 && (
               <div className="mt-8 pt-6 border-t border-stone-200">
                 <details className="group">
