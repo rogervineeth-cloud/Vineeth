@@ -6,16 +6,17 @@
 // database awake.
 //
 // Security notes:
-//  - Uses the ANON client, not the service-role client. Row Level Security
-//    applies, so an unauthenticated request reads nothing. The query still
-//    reaches Postgres, which is all the pause timer cares about.
-//  - `head: true` fetches no rows at all — just a count — so this is about as
-//    cheap as a query gets.
-//  - If CRON_SECRET is set, Vercel sends it as a bearer token on cron
-//    invocations and we reject anything else. If it is not set, the route is
-//    open but harmless.
+//  - Uses the service-role client. The anon role has no SELECT grant on any
+//    public table (verified), so an anon ping is rejected by Postgres before
+//    it proves anything about liveness. Service role is the only client that
+//    can issue a query guaranteed to succeed when the database is healthy.
+//  - The query is `head: true` + `count: exact`: Postgres returns a row COUNT
+//    and zero row data. Nothing from the table is read into memory or
+//    returned to the caller — the response body is just `{ ok, pingedAt }`.
+//  - The route is gated by CRON_SECRET, which Vercel sends as a bearer token
+//    on cron invocations. Anything without it gets a 401.
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,14 +28,40 @@ export async function GET(req: Request) {
   }
 
   try {
-    const supabase = await createClient();
-    const { error } = await supabase
+    const supabase = await createServiceClient();
+    // NOTE: deliberately NOT using `head: true`. A HEAD request's error
+    // responses carry no body, so PostgREST failures came back with every
+    // field empty and were impossible to diagnose. A normal GET capped at
+    // zero rows is just as cheap and returns real error messages.
+    const { error, count } = await supabase
       .from("profiles")
-      .select("user_id", { count: "exact", head: true });
+      .select("user_id", { count: "exact" })
+      .limit(0);
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Logged (private, Vercel dashboard only), never returned to the caller.
+      console.error("keep-alive supabase error:", JSON.stringify({
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      }));
+      // Env presence/length only — never the values themselves.
+      console.error("keep-alive env check:", JSON.stringify({
+        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        serviceKeyLen: (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").length,
+        hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        anonKeyLen: (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").length,
+      }));
+      throw new Error(error.message || error.code || "unknown supabase error");
+    }
 
-    return NextResponse.json({ ok: true, pingedAt: new Date().toISOString() });
+    return NextResponse.json({
+      ok: true,
+      rows: count ?? null,
+      pingedAt: new Date().toISOString(),
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("keep-alive ping failed:", msg);

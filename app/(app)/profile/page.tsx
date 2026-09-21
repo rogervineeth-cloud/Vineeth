@@ -120,13 +120,43 @@ function StepNav({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: string | null }) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label className="text-xs text-[#6b6b6b]">{label}</Label>
       {children}
+      {/* Inline, next to the field itself. Previously the only signal was the
+          right-hand checklist, which drops below the fold on narrow windows. */}
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
+}
+
+// ── Basics validation ──────────────────────────────────────────────────────
+// Previously unvalidated: "notanemail" passed, the checklist went green, and
+// resumes shipped with unreachable contact details.
+
+/** Pragmatic email check — something@something.tld, no spaces. */
+export function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
+}
+
+/** Optional field: blank is fine. Otherwise needs 7-15 digits, allowing +, -, spaces, brackets. */
+export function isValidPhone(value: string): boolean {
+  const v = value.trim();
+  if (!v) return true;
+  if (!/^\+?[\d\s\-()]+$/.test(v)) return false;
+  const digits = v.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+/** Optional field: blank is fine. Otherwise a 4-digit year within a sane range. */
+export function isValidGradYear(value: string): boolean {
+  const v = value.trim();
+  if (!v) return true;
+  if (!/^\d{4}$/.test(v)) return false;
+  const year = Number(v);
+  return year >= 1950 && year <= new Date().getFullYear() + 10;
 }
 
 function ProfilePageInner() {
@@ -175,6 +205,9 @@ function ProfilePageInner() {
   const [education, setEducation] = useState<EduEntry[]>([emptyEdu()]);
   const [eduSkipped, setEduSkipped] = useState(false);
   const [projects, setProjects] = useState<ProjEntry[]>([]);
+  // Raw, unparsed text for the tech-stack inputs, keyed by project id. Present
+  // only while a field is being edited — see updateProjTech.
+  const [techDrafts, setTechDrafts] = useState<Record<string, string>>({});
   const [projSkipped, setProjSkipped] = useState(false);
   const [isFresher, setIsFresher] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
@@ -254,7 +287,14 @@ function ProfilePageInner() {
     scheduleSave();
   }, [loaded, basics, targetRoles, summary, experience, skills, education, projects, isFresher, expSkipped, eduSkipped, projSkipped, scheduleSave]);
 
-  const sec1Done = !!(basics.full_name.trim() && basics.email.trim());
+  // Basics are only "done" when the contact details are actually usable —
+  // a malformed email used to pass and ship on the finished resume.
+  const sec1Done = !!(
+    basics.full_name.trim() &&
+    isValidEmail(basics.email) &&
+    isValidPhone(basics.phone) &&
+    isValidGradYear(basics.graduation_year)
+  );
   const sec2Done = targetRoles.length > 0;
   // Experience: done if skipped, fresher-flagged, or has at least one entry
   const sec3Done = expSkipped || isFresher || experience.some((e) => e.company.trim());
@@ -350,6 +390,11 @@ function ProfilePageInner() {
   function removeEdu(id: string) { setEducation((prev) => prev.filter((e) => e.id !== id)); }
 
   function updateProj(id: string, field: keyof Omit<ProjEntry, "id" | "tech">, val: string) { setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: val } : p))); }
+  // Tech stack is a comma-separated string in the UI but an array in state.
+  // Parsing on every keystroke round-trips through split/trim/filter, which
+  // deletes the comma or space the moment it is typed ("React, Node" became
+  // "ReactNode"). Keep the raw text in techDrafts while the field has focus and
+  // only commit the parsed array on blur.
   function updateProjTech(id: string, val: string) { setProjects((prev) => prev.map((p) => p.id === id ? { ...p, tech: val.split(",").map((t) => t.trim()).filter(Boolean) } : p)); }
   function addProj() { setProjects((prev) => [...prev, emptyProj()]); }
   function removeProj(id: string) { setProjects((prev) => prev.filter((p) => p.id !== id)); }
@@ -385,10 +430,25 @@ function ProfilePageInner() {
           <div className="flex flex-col gap-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Full name *"><Input value={basics.full_name} onChange={(e) => setBasics((b) => ({ ...b, full_name: e.target.value }))} placeholder="Your full name" /></Field>
-              <Field label="Email *"><Input type="email" value={basics.email} onChange={(e) => setBasics((b) => ({ ...b, email: e.target.value }))} placeholder="you@example.com" /></Field>
-              <Field label="Phone (optional)"><Input value={basics.phone} onChange={(e) => setBasics((b) => ({ ...b, phone: e.target.value }))} placeholder="+91 98765 43210" /></Field>
+              <Field
+                label="Email *"
+                error={basics.email.trim() && !isValidEmail(basics.email) ? "Enter a valid email address, e.g. you@example.com" : null}
+              >
+                <Input type="email" value={basics.email} onChange={(e) => setBasics((b) => ({ ...b, email: e.target.value }))} placeholder="you@example.com" />
+              </Field>
+              <Field
+                label="Phone (optional)"
+                error={!isValidPhone(basics.phone) ? "Enter a valid phone number, e.g. +91 98765 43210" : null}
+              >
+                <Input value={basics.phone} onChange={(e) => setBasics((b) => ({ ...b, phone: e.target.value }))} placeholder="+91 98765 43210" />
+              </Field>
               <Field label="Current city (optional)"><Input value={basics.current_city} onChange={(e) => setBasics((b) => ({ ...b, current_city: e.target.value }))} placeholder="e.g. Kochi" /></Field>
-              <Field label="Graduation year (optional)"><Input value={basics.graduation_year} onChange={(e) => setBasics((b) => ({ ...b, graduation_year: e.target.value }))} inputMode="numeric" placeholder="e.g. 2022" /></Field>
+              <Field
+                label="Graduation year (optional)"
+                error={!isValidGradYear(basics.graduation_year) ? "Enter a 4-digit year, e.g. 2022" : null}
+              >
+                <Input value={basics.graduation_year} onChange={(e) => setBasics((b) => ({ ...b, graduation_year: e.target.value }))} inputMode="numeric" placeholder="e.g. 2022" />
+              </Field>
             </div>
             <div>
               <p className="text-sm font-medium text-[#1a1a1a] mb-1">Professional summary <span className="text-xs text-[#6b6b6b] font-normal">(optional)</span></p>
@@ -560,7 +620,20 @@ function ProfilePageInner() {
                       </div>
                       <Input value={proj.name} onChange={(e) => updateProj(proj.id, "name", e.target.value)} placeholder="Project name" className="text-sm" />
                       <Textarea value={proj.description} onChange={(e) => updateProj(proj.id, "description", e.target.value)} placeholder="What did it do? What was your role and impact?" className="min-h-[80px] bg-white resize-none text-sm" />
-                      <Input value={proj.tech.join(", ")} onChange={(e) => updateProjTech(proj.id, e.target.value)} placeholder="Tech stack, comma-separated e.g. React, Node.js, PostgreSQL" className="text-sm" />
+                      <Input
+                        value={techDrafts[proj.id] ?? proj.tech.join(", ")}
+                        onChange={(e) => setTechDrafts((d) => ({ ...d, [proj.id]: e.target.value }))}
+                        onBlur={(e) => {
+                          updateProjTech(proj.id, e.target.value);
+                          setTechDrafts((d) => {
+                            const next = { ...d };
+                            delete next[proj.id];
+                            return next;
+                          });
+                        }}
+                        placeholder="Tech stack, comma-separated e.g. React, Node.js, PostgreSQL"
+                        className="text-sm"
+                      />
                     </div>
                   ))}
                 </div>

@@ -40,15 +40,17 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
+  // getUser() revalidates the JWT with the auth server; getSession() just
+  // decodes the cookie, which is forgeable on the server side.
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (!authUser) {
     return NextResponse.json(
       { error: "auth_required", loginUrl: "/signup?next=/free-review" },
       { status: 401 }
     );
   }
-  const userId = session.user.id;
-  const isCreator = session.user.email === CREATOR_EMAIL;
+  const userId = authUser.id;
+  const isCreator = authUser.email === CREATOR_EMAIL;
 
   // 1-per-account gate (creators bypass).
   if (!isCreator) {

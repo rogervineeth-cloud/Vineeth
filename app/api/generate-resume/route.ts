@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { canGenerateResume, canGenerateFreeRegen, consumeCredit } from "@/lib/plans";
 import { track } from "@/lib/analytics";
+import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD } from "@/lib/models";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
 const inputSchema = z.object({
@@ -248,14 +249,15 @@ export async function POST(req: NextRequest) {
       );
     }
     const { jd_text, jd_url, jd_keywords, template, user_profile, regen_of_resume_id } = parsed.data;
-    // Auth
+    // Auth. getUser() revalidates the JWT with the auth server; getSession()
+    // just decodes the cookie, which is forgeable on the server side.
     const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const userId = session.user.id;
-    const isCreator = session.user.email === CREATOR_EMAIL;
+    const userId = authUser.id;
+    const isCreator = authUser.email === CREATOR_EMAIL;
     // Credit gating
     let isFreeRegen = false;
     if (regen_of_resume_id) {
@@ -315,8 +317,9 @@ export async function POST(req: NextRequest) {
     // LLM never sees placeholder rows like { company: "Previous Organization" }.
     parsed.data.user_profile.experience = validExp;
     // Determine model based on creator status (tiering placeholder)
-    // Pro users get sonnet, free/basic get haiku
-    const model = isCreator ? "claude-sonnet-4-5-20251101" : "claude-haiku-4-5-20251001";
+    // Pro users get sonnet, free/basic get haiku. IDs live in lib/models.ts —
+    // an inlined, non-existent ID here broke generation entirely once already.
+    const model = isCreator ? MODEL_RESUME_CREATOR : MODEL_RESUME_STANDARD;
     // Build the labelled payload that the upgraded SYSTEM_PROMPT expects.
     const curated = (jd_keywords ?? []).map(k => k.trim()).filter(Boolean);
     const profileSkills = (p.skills ?? []).map(s => s.trim()).filter(Boolean);
