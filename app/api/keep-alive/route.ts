@@ -29,20 +29,39 @@ export async function GET(req: Request) {
 
   try {
     const supabase = await createServiceClient();
-    const { error } = await supabase
+    // NOTE: deliberately NOT using `head: true`. A HEAD request's error
+    // responses carry no body, so PostgREST failures came back with every
+    // field empty and were impossible to diagnose. A normal GET capped at
+    // zero rows is just as cheap and returns real error messages.
+    const { error, count } = await supabase
       .from("profiles")
-      .select("user_id", { count: "exact", head: true });
+      .select("user_id", { count: "exact" })
+      .limit(0);
 
-    // head:true issues a HEAD request, whose error responses carry no body —
-    // so error.message is often empty. Fall back to the other fields rather
-    // than logging a blank line.
     if (error) {
-      throw new Error(
-        error.message || error.code || error.hint || "unknown supabase error"
-      );
+      // Logged (private, Vercel dashboard only), never returned to the caller.
+      console.error("keep-alive supabase error:", JSON.stringify({
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      }));
+      // Env presence/length only — never the values themselves.
+      console.error("keep-alive env check:", JSON.stringify({
+        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        serviceKeyLen: (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").length,
+        hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        anonKeyLen: (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").length,
+      }));
+      throw new Error(error.message || error.code || "unknown supabase error");
     }
 
-    return NextResponse.json({ ok: true, pingedAt: new Date().toISOString() });
+    return NextResponse.json({
+      ok: true,
+      rows: count ?? null,
+      pingedAt: new Date().toISOString(),
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("keep-alive ping failed:", msg);
