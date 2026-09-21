@@ -407,6 +407,55 @@ export function parseExperienceBlock(block: string[]): ExperienceEntry[] {
   return entries;
 }
 
+// Lines that are unmistakably NOT an education entry. Once the section
+// classifier mis-files a line under "education", the loop below turns it into
+// an entry — which is how one imported profile ended up with ~30 entries
+// including "References", a referee's email, and headings like
+// "C E R T I F I C A T I O N" and "Languages & Tools".
+const EDUCATION_REJECT_PATTERNS: RegExp[] = [
+  /@/,                                   // emails (referee contact details)
+  /\bhttps?:\/\//i,
+  /\bwww\./i,
+  /^\+?\d[\d\s\-().]{6,}$/,              // phone numbers
+  /^(?:references|reference|referee|referees)\b/i,
+  /^(?:available on request|on request|available upon request)$/i,
+  /^(?:languages?|tools?|languages? *& *tools?|technical skills?|skills?)\b[:\s]*$/i,
+  /^(?:certification|certifications|certificate|certificates)\b[:\s]*$/i,
+  /^(?:projects?|experience|summary|objective|achievements?|awards?|interests?|hobbies)\b[:\s]*$/i,
+  /^(?:declaration|personal details?|date of birth|dob)\b/i,
+];
+
+/**
+ * A plausible education entry needs a real institution or degree — not a
+ * section heading, a contact detail, or a spaced-out banner.
+ */
+function looksLikeEducation(e: EducationEntry): boolean {
+  const inst = e.institution.trim();
+  const deg = e.degree.trim();
+  const probe = (inst || deg).trim();
+  if (!probe) return false;
+
+  for (const re of EDUCATION_REJECT_PATTERNS) {
+    if (re.test(inst) || re.test(deg)) return false;
+  }
+
+  // "C E R T I F I C A T I O N" — a banner, not an institution. Detected as a
+  // run of single characters separated by spaces.
+  const tokens = probe.split(/\s+/);
+  if (tokens.length >= 4 && tokens.every((t) => t.replace(/[^A-Za-z]/g, "").length <= 1)) {
+    return false;
+  }
+
+  // Needs actual letters.
+  if (probe.replace(/[^A-Za-z]/g, "").length < 3) return false;
+
+  // A whole sentence is a project description that got mis-filed, not a
+  // qualification. Institutions and degrees are short.
+  if (tokens.length > 14) return false;
+
+  return true;
+}
+
 export function parseEducationBlock(block: string[]): EducationEntry[] {
   const entries: EducationEntry[] = [];
   let cur: EducationEntry | null = null;
@@ -455,7 +504,10 @@ export function parseEducationBlock(block: string[]): EducationEntry[] {
     }
   }
   flush();
-  return entries;
+  // Drop anything that clearly is not a qualification, then cap the list.
+  // A real person does not have 30 degrees; a run that long means the
+  // section classifier swallowed unrelated content.
+  return entries.filter(looksLikeEducation).slice(0, 8);
 }
 
 // Heuristics for rejecting things that look like personal data rather than
