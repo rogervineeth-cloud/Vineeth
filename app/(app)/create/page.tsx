@@ -394,8 +394,28 @@ export default function CreatePage() {
   });
 
   const [showMissingPopup, setShowMissingPopup] = useState(false);
-  const [removedKeywords, setRemovedKeywords] = useState<Set<string>>(new Set());
-  const [extraKeywords, setExtraKeywords] = useState<string[]>([]);
+  // Keyword edits persist alongside ndrs_jd. Previously only the JD text
+  // survived a remount, so a skill you added by hand silently disappeared the
+  // moment you navigated away and came back — and so did any keyword you had
+  // deliberately removed.
+  const [removedKeywords, setRemovedKeywords] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem("ndrs_jd_removed");
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+      return new Set();
+    }
+  });
+  const [extraKeywords, setExtraKeywords] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem("ndrs_jd_extra");
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [newSkillInput, setNewSkillInput] = useState("");
   const [genError, setGenError] = useState<string | null>(null);
 
@@ -446,6 +466,20 @@ export default function CreatePage() {
   useEffect(() => {
     localStorage.setItem("ndrs_jd", jdText);
   }, [jdText]);
+
+  // Persist the user's keyword edits so they survive navigation, same as the
+  // JD text itself.
+  useEffect(() => {
+    try {
+      localStorage.setItem("ndrs_jd_extra", JSON.stringify(extraKeywords));
+    } catch { /* quota or private mode — non-fatal */ }
+  }, [extraKeywords]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ndrs_jd_removed", JSON.stringify([...removedKeywords]));
+    } catch { /* quota or private mode — non-fatal */ }
+  }, [removedKeywords]);
 
   useEffect(() => {
     const t = setTimeout(() => setJdAnalysis(analyzeJd(jdText)), 400);
@@ -914,10 +948,15 @@ export default function CreatePage() {
                   </div>
                 )}
 
+                {/* Only nag for a JD while one is actually missing. This used
+                    to keep saying "paste a JD above" after a 2,700-character
+                    JD had been pasted and analysed. */}
                 {completeness.complete && (
                   <div className="flex items-center gap-2 text-xs text-[#6b6b6b]">
                     <FileText className="w-3.5 h-3.5 shrink-0 text-[#1f5c3a]" />
-                    Profile looks good — paste a JD above to continue.
+                    {jdReady
+                      ? "Profile and job description look good — you're ready to continue."
+                      : "Profile looks good — paste a JD above to continue."}
                   </div>
                 )}
               </div>
@@ -932,8 +971,15 @@ export default function CreatePage() {
               >
                 Next — Choose template →
               </Button>
+              {/* Tell the user how far off they are. "Paste a job description
+                  to continue" was actively misleading when one WAS pasted and
+                  simply too short. */}
               {!jdReady && (
-                <p className="text-xs text-center text-[#999] mt-2">Paste a job description to continue</p>
+                <p className="text-xs text-center text-[#999] mt-2">
+                  {jdText.trim().length === 0
+                    ? "Paste a job description to continue"
+                    : `Needs at least 200 characters (${jdText.trim().length} so far)`}
+                </p>
               )}
             </div>
           </div>
