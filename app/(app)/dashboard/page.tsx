@@ -42,8 +42,16 @@ function PlanBadge({ plan }: { plan: UserPlan | null }) {
     return (
       <div className="flex items-center gap-3 bg-stone-100 border border-stone-200 rounded-xl px-5 py-3">
         <div>
-          <p className="text-sm font-medium text-[#1a1a1a]">Free tier · 0 resumes</p>
-          <p className="text-xs text-[#6b6b6b]">Preview is free. Download requires a paid pack.</p>
+          {/* Was "Free tier · 0 resumes", which read as a resume count and
+              contradicted the "3 resumes" heading right below it. It means
+              credits, so say credits.
+              The subtitle also used to claim previewing was free, which is not
+              true: /api/generate-resume returns 402 without a plan. Free means
+              one deterministic ATS review, nothing more. */}
+          <p className="text-sm font-medium text-[#1a1a1a]">Free tier · 0 credits left</p>
+          <p className="text-xs text-[#6b6b6b]">
+            Free includes 1 ATS review. Generating and downloading resumes needs a paid pack.
+          </p>
         </div>
         <Link href="/pricing" className="ml-auto shrink-0">
           <Button size="sm" variant="outline">Upgrade to download →</Button>
@@ -213,7 +221,11 @@ export default function DashboardPage() {
                   </div>
                   {truncated && <p className="text-xs text-[#6b6b6b] leading-relaxed flex-1">{truncated}</p>}
                   <p className="text-xs text-[#6b6b6b]">{formatDate(resume.created_at)}</p>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Always visible on touch devices. These were hover-only,
+                      which made View and Download unreachable on phones and
+                      tablets — the majority of this product's audience. On
+                      pointer devices they still fade in on hover. */}
+                  <div className="flex gap-2 opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100">
                     <Button size="sm" variant="outline" className="flex-1 text-xs h-8"
                       onClick={(e) => handleViewResume(e, resume.id)}>
                       <Eye className="w-3 h-3 mr-1" />View

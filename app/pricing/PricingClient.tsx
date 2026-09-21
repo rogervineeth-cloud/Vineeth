@@ -242,7 +242,10 @@ function LinkedinAddonCard() {
   );
 }
 
-function FreeReviewBanner() {
+// The CTA has to reflect who is looking at it. A signed-in user was being
+// shown "Sign up free →", which is nonsense for someone already holding an
+// account.
+function FreeReviewBanner({ signedIn }: { signedIn: boolean }) {
   return (
     <div className="rounded-xl border-2 border-dashed border-[#1f5c3a]/40 bg-gradient-to-r from-[#1f5c3a]/8 via-[#1f5c3a]/5 to-[#1f5c3a]/8 px-5 py-4 sm:px-6 sm:py-5">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
@@ -264,7 +267,7 @@ function FreeReviewBanner() {
           onClick={() => track("free_review_start", { from: "pricing_banner" })}
           className="inline-flex items-center justify-center gap-1.5 bg-[#1f5c3a] hover:bg-[#174d30] text-white font-medium text-sm rounded-md px-5 py-2.5 transition-colors whitespace-nowrap"
         >
-          Sign up free →
+          {signedIn ? "Run free review →" : "Sign up free →"}
         </Link>
       </div>
     </div>
@@ -273,9 +276,23 @@ function FreeReviewBanner() {
 
 export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
   const [withAddon, setWithAddon] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     track("pricing_view");
+  }, []);
+
+  // Pricing sits outside the (app) route group, so it has its own header and
+  // no session awareness. Without this it showed signed-out UI — "Sign up
+  // free" and a nav missing Profile — to users who were already logged in.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await createClient().auth.getUser();
+      if (!cancelled) setSignedIn(!!user);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -285,9 +302,34 @@ export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
           <Link href="/" className="font-serif italic text-xl text-[#1f5c3a] font-bold">
             Neduresume
           </Link>
-          <Link href="/dashboard" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">
-            Dashboard
-          </Link>
+          {/* Match the nav on every other page for signed-in users instead of
+              offering a bare "Dashboard" link and nothing else. */}
+          <nav className="flex items-center gap-5">
+            <Link href="/dashboard" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">
+              Dashboard
+            </Link>
+            {signedIn ? (
+              <>
+                <Link href="/profile" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">
+                  Profile
+                </Link>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await createClient().auth.signOut();
+                    router.push("/");
+                  }}
+                  className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <Link href="/login" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">
+                Sign in
+              </Link>
+            )}
+          </nav>
         </div>
       </header>
 
@@ -304,7 +346,7 @@ export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
 
         {pricingV2 && (
           <div className="mb-8">
-            <FreeReviewBanner />
+            <FreeReviewBanner signedIn={signedIn} />
           </div>
         )}
 
