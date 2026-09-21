@@ -12,6 +12,10 @@ import {
 import { Download, Loader2, Lock, Check } from "lucide-react";
 import { PLANS } from "@/lib/plan-config";
 
+// Derived from PLANS so this can never drift from the pricing page again —
+// the unlock button used to hardcode ₹100 while the cheapest plan was ₹99.
+const CHEAPEST_PLAN_INR = Math.min(...PLANS.map((p) => p.priceInr));
+
 type ResumeJson = {
   summary: string;
   experience: Array<{ company: string; role: string; duration: string; location: string; bullets: string[] }>;
@@ -33,6 +37,8 @@ type Resume = {
   missing_keywords: string[];
   created_at: string;
   downloaded_at: string | null;
+  /** Contact details frozen at generation time. NULL on resumes created before migration 009. */
+  contact_snapshot: Profile | null;
 };
 
 type Profile = {
@@ -140,7 +146,15 @@ export default function PreviewPage() {
 
       const r = resumeRes.data as Resume;
       setResume(r);
-      if (profileRes.data) setProfile(profileRes.data as Profile);
+      // Prefer the contact details captured when this resume was generated, so
+      // later profile edits don't rewrite the identity on an already-generated
+      // (and possibly already-downloaded) resume. Resumes created before
+      // migration 009 have no snapshot and fall back to the live profile.
+      if (r.contact_snapshot) {
+        setProfile(r.contact_snapshot);
+      } else if (profileRes.data) {
+        setProfile(profileRes.data as Profile);
+      }
 
       const hasPlan = plansRes.data?.some((p) => p.resumes_used < p.resumes_allotted) ?? false;
       setCanDownload(hasPlan || !!r.downloaded_at);
@@ -316,7 +330,7 @@ export default function PreviewPage() {
             ) : (
               <Button size="lg" className="w-full mb-6 bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setUpgradeOpen(true)}>
                 <Lock className="w-4 h-4 mr-2" />
-                Unlock Download — ₹100
+                Unlock Download — from ₹{CHEAPEST_PLAN_INR}
               </Button>
             )}
 

@@ -23,8 +23,10 @@ export async function POST(req: NextRequest) {
     }
 
   const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    // getUser() revalidates the JWT with the auth server; getSession() just
+    // decodes the cookie, which is forgeable on the server side.
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
           return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -45,9 +47,9 @@ export async function POST(req: NextRequest) {
     }
 
   try {
-        const plan = await grantTestPlan(session.user.id, plan_type as PlanType);
+        const plan = await grantTestPlan(authUser.id, plan_type as PlanType);
         const addonRow = addon
-          ? await grantTestAddon(session.user.id, addon as AddonId)
+          ? await grantTestAddon(authUser.id, addon as AddonId)
                 : null;
         return NextResponse.json({ plan, addon: addonRow });
   } catch (err) {

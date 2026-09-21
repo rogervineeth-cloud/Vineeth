@@ -104,12 +104,15 @@ export async function GET(
     const { id } = await params;
     const supabase = await createClient();
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    // getUser() revalidates the JWT with the auth server; getSession() just
+    // decodes the cookie, which is forgeable on the server side. This gate
+    // guards a paid download, so it must not trust an unverified cookie.
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const allowed = await canDownloadResume(session.user.id, id);
+    const allowed = await canDownloadResume(authUser.id, id);
     if (!allowed) {
       return NextResponse.json(
         { error: "PAYMENT_REQUIRED", message: "A paid plan is required to download.", upgrade_url: "/pricing" },
@@ -118,8 +121,8 @@ export async function GET(
     }
 
     const [resumeRes, profileRes] = await Promise.all([
-      supabase.from("resumes").select("*").eq("id", id).eq("user_id", session.user.id).single(),
-      supabase.from("profiles").select("full_name,email,phone,current_city").eq("user_id", session.user.id).single(),
+      supabase.from("resumes").select("*").eq("id", id).eq("user_id", authUser.id).single(),
+      supabase.from("profiles").select("full_name,email,phone,current_city").eq("user_id", authUser.id).single(),
     ]);
 
     if (resumeRes.error || !resumeRes.data) {
@@ -127,7 +130,14 @@ export async function GET(
     }
 
             const rj = JSON.parse(JSON.stringify(resumeRes.data.resume_json).replace(/\u20B9/g, 'Rs.').replace(/[\u2013\u2014]/g, '-').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[^\x00-\xFF]/g, '')) as ResumeJson;
-    const profile = profileRes.data;
+    // Prefer the contact details frozen onto the resume at generation time.
+    // Falling back to the live profile would mean a later profile edit silently
+    // changes the identity on a PDF the user already paid for. Resumes created
+    // before migration 009 have no snapshot and still use the live profile.
+    const snapshot = resumeRes.data.contact_snapshot as {
+      full_name?: string; email?: string; phone?: string; current_city?: string;
+    } | null;
+    const profile = snapshot ?? profileRes.data;
     const name = profile?.full_name ?? "Candidate";
     const safeFilename = (rj.tailored_role ?? name).replace(/[^\x20-\x7E]/g, '-').replace(/\s+/g, '_').replace(/-+/g, '-');
     const contact = [profile?.email, profile?.phone, profile?.current_city].filter(Boolean).join("  ·  ");

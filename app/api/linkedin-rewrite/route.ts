@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasAddonEntitlement, consumeAddon } from "@/lib/addons";
 import { track } from "@/lib/analytics";
 import { isPricingV2Enabled } from "@/lib/feature-flags";
+import { MODEL_LINKEDIN_REWRITE } from "@/lib/models";
 
 export const maxDuration = 60;
 
@@ -57,13 +58,15 @@ export async function POST(req: NextRequest) {
   }
   const { linkedin_url, current_text, target_role } = parsed.data;
 
+  // getUser() revalidates the JWT with the auth server; getSession() just
+  // decodes the cookie, which is forgeable on the server side.
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const userId = session.user.id;
-  const isCreator = session.user.email === CREATOR_EMAIL;
+  const userId = authUser.id;
+  const isCreator = authUser.email === CREATOR_EMAIL;
 
   if (!isCreator) {
     const ok = await hasAddonEntitlement(userId, "linkedin_rewrite");
@@ -79,7 +82,7 @@ export async function POST(req: NextRequest) {
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await client.messages.create({
-      model: "claude-sonnet-4-5-20251101",
+      model: MODEL_LINKEDIN_REWRITE,
       max_tokens: 2000,
       system: SYSTEM_PROMPT,
       messages: [

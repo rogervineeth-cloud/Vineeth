@@ -573,6 +573,15 @@ export default function CreatePage() {
       }
 
       const resumeJson = data.resume_json;
+      // Freeze the contact details as they are right now. Preview and PDF used
+      // to join to the live profile, so editing your profile silently rewrote
+      // the name/email/phone on resumes you had already generated.
+      const contactSnapshot = {
+        full_name: profile?.full_name ?? "",
+        email: profile?.email ?? "",
+        phone: profile?.phone ?? "",
+        current_city: profile?.current_city ?? "",
+      };
       const { data: savedResume, error: saveError } = await supabase
         .from("resumes")
         .insert({
@@ -583,6 +592,7 @@ export default function CreatePage() {
           tailored_role: resumeJson.tailored_role,
           matched_keywords: resumeJson.matched_keywords,
           missing_keywords: resumeJson.missing_keywords,
+          contact_snapshot: contactSnapshot,
         })
         .select("id")
         .single();

@@ -22,10 +22,12 @@ jest.mock("@anthropic-ai/sdk", () => {
   };
 });
 
-const mockGetSession: jest.Mock = jest.fn();
+// The route authenticates with getUser() (which revalidates the JWT against
+// the auth server), NOT getSession() (which just decodes a forgeable cookie).
+const mockGetUser: jest.Mock = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn(async () => ({
-    auth: { getSession: mockGetSession },
+    auth: { getUser: mockGetUser },
   })),
   createServiceClient: jest.fn(async () => ({})),
 }));
@@ -90,9 +92,9 @@ function makeRequest(body: unknown): NextRequest {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  // Default: a non-creator authenticated session.
-  mockGetSession.mockResolvedValue({
-    data: { session: { user: { id: "user-1", email: "someone@example.com" } } },
+  // Default: a non-creator authenticated user.
+  mockGetUser.mockResolvedValue({
+    data: { user: { id: "user-1", email: "someone@example.com" } },
   });
 });
 
@@ -138,10 +140,19 @@ describe("/api/generate-resume guard", () => {
     );
   });
 
-  it("returns 401 when there is no session", async () => {
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+  it("returns 401 when there is no authenticated user", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
     const res = await POST(makeRequest(VALID_BODY));
     expect(res.status).toBe(401);
     expect(mockMessagesCreate).not.toHaveBeenCalled();
+  });
+
+  it("authenticates via getUser(), never the forgeable getSession()", async () => {
+    mockCanGenerateResume.mockResolvedValue({ allowed: true });
+    mockMessagesCreate.mockResolvedValue({
+      content: [{ type: "text", text: '{"ats_score":70}' }],
+    });
+    await POST(makeRequest(VALID_BODY));
+    expect(mockGetUser).toHaveBeenCalled();
   });
 });
