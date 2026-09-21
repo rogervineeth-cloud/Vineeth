@@ -14,19 +14,35 @@
 //   claude-sonnet-5
 //   claude-haiku-4-5-20251001
 
-/** Resume generation for the creator account. */
-export const MODEL_RESUME_CREATOR = "claude-sonnet-5";
+// Cost policy: Haiku everywhere for resume generation. It is the cheapest
+// current model, and per-resume margin matters at ₹99.
+//
+// Quality is protected by structure rather than by spending more per call:
+//   - temperature 0 (see GENERATION_TEMPERATURE) so output is deterministic
+//     and the model stops improvising
+//   - the ANTI-FABRICATION section of the system prompt
+//   - lib/sanitise-resume.ts, which mechanically strips any company, school or
+//     metric that is not grounded in the user's profile
+//
+// That last one is the real guarantee: it does not depend on the model
+// behaving, so a cheaper model cannot introduce fabrications that survive.
 
-/**
- * Resume generation for everyone else.
- *
- * NOTE: paying customers currently get Haiku while the creator gets Sonnet.
- * That tiering predates this fix and is a cost decision, so it is left as-is
- * here — but Sonnet follows the ANTI-FABRICATION section of the system prompt
- * considerably more reliably, and invented metrics are the product's biggest
- * quality risk. Worth revisiting.
- */
+/** Resume generation for the creator account. Same model as everyone else. */
+export const MODEL_RESUME_CREATOR = "claude-haiku-4-5-20251001";
+
+/** Resume generation for paying customers. */
 export const MODEL_RESUME_STANDARD = "claude-haiku-4-5-20251001";
 
-/** LinkedIn profile rewrite. */
+/**
+ * LinkedIn profile rewrite. Kept on Sonnet: it is a ₹499 add-on producing
+ * long-form prose, where quality is the product and volume is low.
+ */
 export const MODEL_LINKEDIN_REWRITE = "claude-sonnet-5";
+
+/**
+ * 0 for resume generation. The task is structured extraction and rewriting
+ * against a fixed JSON contract, not creative writing — sampling variance here
+ * shows up as invented detail and inconsistent formatting, which is exactly
+ * what we do not want.
+ */
+export const GENERATION_TEMPERATURE = 0;

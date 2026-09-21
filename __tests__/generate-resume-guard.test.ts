@@ -147,6 +147,33 @@ describe("/api/generate-resume guard", () => {
     expect(mockMessagesCreate).not.toHaveBeenCalled();
   });
 
+  it("parses a prefilled completion that omits the opening brace", async () => {
+    // The assistant turn is prefilled with "{", so the model continues from
+    // there and never echoes it back. Without re-adding it, extractJson would
+    // latch onto the first NESTED brace and truncate the object.
+    mockCanGenerateResume.mockResolvedValue({ allowed: true });
+    mockMessagesCreate.mockResolvedValue({
+      content: [{ type: "text", text: '"summary":"x","experience":[{"company":"Acme"}],"ats_score":72}' }],
+    });
+
+    const res = await POST(makeRequest(VALID_BODY));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.resume_json.ats_score).toBe(72);
+    expect(body.resume_json.summary).toBe("x");
+  });
+
+  it("sends temperature 0 so output is deterministic", async () => {
+    mockCanGenerateResume.mockResolvedValue({ allowed: true });
+    mockMessagesCreate.mockResolvedValue({
+      content: [{ type: "text", text: '"ats_score":70}' }],
+    });
+    await POST(makeRequest(VALID_BODY));
+    expect(mockMessagesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ temperature: 0 })
+    );
+  });
+
   it("authenticates via getUser(), never the forgeable getSession()", async () => {
     mockCanGenerateResume.mockResolvedValue({ allowed: true });
     mockMessagesCreate.mockResolvedValue({

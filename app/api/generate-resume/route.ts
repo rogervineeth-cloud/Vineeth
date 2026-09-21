@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { canGenerateResume, canGenerateFreeRegen, consumeCredit } from "@/lib/plans";
 import { track } from "@/lib/analytics";
-import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD } from "@/lib/models";
+import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD, GENERATION_TEMPERATURE } from "@/lib/models";
 import { sanitiseGeneratedResume, type ResumeShape } from "@/lib/sanitise-resume";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
@@ -274,10 +274,24 @@ export async function POST(req: NextRequest) {
     const message = await client.messages.create({
       model,
       max_tokens: 4000,
+      // Structured extraction against a fixed JSON contract — not creative
+      // writing. Sampling variance here surfaces as invented detail and
+      // inconsistent formatting.
+      temperature: GENERATION_TEMPERATURE,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: JSON.stringify(userPayload) }],
+      messages: [
+        { role: "user", content: JSON.stringify(userPayload) },
+        // Prefill the opening brace so the model cannot preamble its way into
+        // unparseable output ("Here is the resume: ```json ...").
+        { role: "assistant", content: "{" },
+      ],
     });
-    const rawText = message.content[0].type === "text" ? message.content[0].text : "";
+    // The assistant turn was prefilled with "{", so the model's completion
+    // continues from there and the opening brace is not echoed back. Re-add it
+    // before parsing. (extractJson also looks for the first "{", so without
+    // this the object would be truncated at the first nested one.)
+    const completion = message.content[0].type === "text" ? message.content[0].text : "";
+    const rawText = completion.trimStart().startsWith("{") ? completion : `{${completion}`;
     let resumeJson;
     try {
       resumeJson = JSON.parse(extractJson(rawText));

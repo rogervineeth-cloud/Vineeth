@@ -266,7 +266,7 @@ const TEMPLATES: { id: TemplateId; label: string; description: string; svg: Reac
   {
     id: "modern",
     label: "Modern",
-    description: "Two-column layout",
+    description: "Green accents, bold name",
     svg: (
       <svg viewBox="0 0 40 52" className="w-full h-full">
         <rect x="0" y="0" width="12" height="52" fill="#1f5c3a" opacity="0.1" />
@@ -319,7 +319,7 @@ const TEMPLATES: { id: TemplateId; label: string; description: string; svg: Reac
   {
     id: "executive",
     label: "Executive",
-    description: "Bold dark header",
+    description: "Serif, roomy, senior",
     svg: (
       <svg viewBox="0 0 40 52" className="w-full h-full">
         <rect x="0" y="0" width="40" height="12" fill="#1f5c3a" opacity="0.65" />
@@ -627,6 +627,9 @@ export default function CreatePage() {
           matched_keywords: resumeJson.matched_keywords,
           missing_keywords: resumeJson.missing_keywords,
           contact_snapshot: contactSnapshot,
+          // Persist the template so the PDF can actually render it. This used
+          // to be sent to the generator as a prompt hint and then thrown away.
+          template: selectedTemplate,
         })
         .select("id")
         .single();
