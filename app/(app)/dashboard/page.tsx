@@ -3,7 +3,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Download, Eye } from "lucide-react";
+import { Plus, Download, Eye, Trash2 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -88,11 +91,50 @@ export default function DashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
+  // Delete is confirmed in a dialog rather than fired on a single click —
+  // there is no undo, and the row is gone for good.
+  const [pendingDelete, setPendingDelete] = useState<Resume | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   function handleViewResume(e: React.MouseEvent, resumeId: string) {
     e.preventDefault();
     e.stopPropagation();
     router.push(`/preview/${resumeId}`);
+  }
+
+  function handleAskDelete(e: React.MouseEvent, resume: Resume) {
+    e.preventDefault();
+    e.stopPropagation();
+    setPendingDelete(resume);
+  }
+
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    const target = pendingDelete;
+    try {
+      const supabase = createClient();
+      // RLS restricts this to the owner's own rows; the user_id filter is a
+      // second line of defence, not the only one.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { toast.error("Session expired."); return; }
+
+      const { error } = await supabase
+        .from("resumes")
+        .delete()
+        .eq("id", target.id)
+        .eq("user_id", user.id);
+
+      if (error) { toast.error("Couldn't delete: " + error.message); return; }
+
+      setResumes((prev) => prev.filter((r) => r.id !== target.id));
+      setPendingDelete(null);
+      toast.success(`Deleted "${target.tailored_role || "Resume"}".`);
+    } catch {
+      toast.error("Couldn't delete that resume. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   useEffect(() => {
@@ -236,6 +278,12 @@ export default function DashboardPage() {
                       <Download className="w-3 h-3 mr-1" />
                       {downloading === resume.id ? "…" : "Download"}
                     </Button>
+                    <Button size="sm" variant="ghost"
+                      className="text-xs h-8 px-2 text-[#6b6b6b] hover:text-red-600 hover:bg-red-50"
+                      aria-label={`Delete ${resume.tailored_role || "resume"}`}
+                      onClick={(e) => handleAskDelete(e, resume)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                 </Link>
               );
@@ -250,6 +298,33 @@ export default function DashboardPage() {
           <Plus className="w-6 h-6" />
         </Link>
       )}
+
+      <Dialog open={!!pendingDelete} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif italic text-2xl">Delete this resume?</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-[#1a1a1a]">
+                {pendingDelete?.tailored_role || "Resume"}
+              </span>
+              {" — "}this can&apos;t be undone. If you already downloaded the PDF, that
+              copy is unaffected.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 justify-end mt-2">
+            <Button variant="outline" onClick={() => setPendingDelete(null)} disabled={deleting}>
+              Keep it
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Delete resume"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

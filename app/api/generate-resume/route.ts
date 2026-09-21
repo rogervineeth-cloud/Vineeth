@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canGenerateResume, canGenerateFreeRegen, consumeCredit } from "@/lib/plans";
 import { track } from "@/lib/analytics";
 import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD } from "@/lib/models";
+import { sanitiseGeneratedResume, type ResumeShape } from "@/lib/sanitise-resume";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
 const inputSchema = z.object({
@@ -166,76 +167,6 @@ function norm(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9+#.\- ]/g, "").trim();
 }
 
-// === Anti-hallucination post-generation validator ===
-// Scans the model's resume_json and strips/repairs anything that wasn't grounded
-// in the user's actual profile. We never trust the LLM blindly.
-const PLACEHOLDER_COMPANY_PATTERNS: RegExp[] = [
-  /previous organi[sz]ation/i,
-  /^company [a-z]$/i,
-  /^employer$/i,
-  /^confidential$/i,
-  /^n\/a$/i,
-  /^various$/i,
-  /^self$/i,
-  /^freelance$/i,
-  /^tbd$/i,
-];
-
-type ResumeShape = {
-  experience?: Array<{ company?: string; role?: string; duration?: string; bullets?: string[] }>;
-  section_order?: string[];
-  ats_score?: number;
-  growth_note?: string | null;
-  [k: string]: unknown;
-};
-
-function sanitiseGeneratedResume(
-  resume: ResumeShape,
-  profile: { experience?: Array<{ company: string; role: string; duration: string; bullets: string[] }> }
-): { resume: ResumeShape; warnings: string[] } {
-  const warnings: string[] = [];
-  const profileCompanies = new Set(
-    (profile.experience ?? []).map((e) => norm(e.company))
-  );
-
-  if (Array.isArray(resume.experience)) {
-    const cleaned = resume.experience.filter((exp) => {
-      const c = (exp.company ?? "").trim();
-      if (!c) {
-        warnings.push("dropped_experience_missing_company");
-        return false;
-      }
-      if (PLACEHOLDER_COMPANY_PATTERNS.some((re) => re.test(c))) {
-        warnings.push(`dropped_placeholder_company:${c}`);
-        return false;
-      }
-      if (profileCompanies.size > 0 && !profileCompanies.has(norm(c))) {
-        warnings.push(`dropped_fabricated_company:${c}`);
-        return false;
-      }
-      return true;
-    });
-
-    resume.experience = cleaned;
-
-    // If we just emptied the array, drop the key entirely and switch to fresher order.
-    if (cleaned.length === 0) {
-      delete resume.experience;
-      if (Array.isArray(resume.section_order)) {
-        resume.section_order = resume.section_order.filter((sec) => sec !== "experience");
-        if (!resume.section_order.includes("education")) resume.section_order.unshift("education");
-      }
-      if (typeof resume.ats_score === "number" && resume.ats_score > 65) {
-        resume.ats_score = 65;
-      }
-      if (!resume.growth_note) {
-        resume.growth_note = "Profile currently shows no verified work experience; resume leads with education and projects.";
-      }
-    }
-  }
-
-  return { resume, warnings };
-}
 
 
 export async function POST(req: NextRequest) {
@@ -359,11 +290,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Defence in depth: even with the tightened system prompt, scrub any
-    // fabricated companies / placeholder rows the model may still produce.
-    const sanitised = sanitiseGeneratedResume(
-      resumeJson as ResumeShape,
-      { experience: parsed.data.user_profile.experience ?? [] }
-    );
+    // fabricated companies, placeholder rows, or invented metrics the model
+    // may still produce. The WHOLE profile is passed, not just experience —
+    // education placeholders and numeric grounding both need it.
+    const sanitised = sanitiseGeneratedResume(resumeJson as ResumeShape, {
+      summary: parsed.data.user_profile.summary,
+      experience: parsed.data.user_profile.experience ?? [],
+      education: parsed.data.user_profile.education ?? [],
+      projects: parsed.data.user_profile.projects ?? [],
+      skills: parsed.data.user_profile.skills ?? [],
+    });
     resumeJson = sanitised.resume;
     if (sanitised.warnings.length > 0) {
       track("generate_resume_sanitised", { user_id: userId, warnings: sanitised.warnings.join(","), warning_count: sanitised.warnings.length });
