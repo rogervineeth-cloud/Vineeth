@@ -50,7 +50,6 @@ export async function GET(
     const profile = snapshot ?? profileRes.data;
     const name = profile?.full_name ?? "Candidate";
     const safeFilename = (rj.tailored_role ?? name).replace(/[^\x20-\x7E]/g, '-').replace(/\s+/g, '_').replace(/-+/g, '-');
-    const contact = [profile?.email, profile?.phone, profile?.current_city].filter(Boolean).join("  ·  ");
 
     // ── Build PDF ────────────────────────────────────────────────────────
     // Layout lives in lib/resume-pdf.ts: it honours the generator's
@@ -70,7 +69,6 @@ export async function GET(
     // Mark as downloaded — fire and forget
     supabase.from("resumes").update({ downloaded_at: new Date().toISOString() }).eq("id", id).then(() => {});
 
-    const role = (rj.tailored_role ?? "resume").toLowerCase().replace(/\s+/g, "-");
 
     return new Response(Buffer.from(pdfBytes), {
       headers: {

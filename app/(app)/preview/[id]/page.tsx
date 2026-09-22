@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Download, Loader2, Lock, Check } from "lucide-react";
+import { Download, Loader2, Lock } from "lucide-react";
 import { PLANS } from "@/lib/plan-config";
 
 // Derived from PLANS so this can never drift from the pricing page again —
