@@ -126,6 +126,64 @@ export function unverifiableNumbers(text: string, allowed: Set<string>): string[
   return [...extractNumbers(text)].filter((n) => !allowed.has(n));
 }
 
+/**
+ * The four fields app/(app)/create/page.tsx writes straight into typed columns
+ * on public.resumes:
+ *
+ *   ats_score, tailored_role, matched_keywords, missing_keywords
+ *
+ * If the model omits any of them the client passes `undefined`, JSON.stringify
+ * drops the key, and the row lands with NULLs. The damage is silent and
+ * downstream: the dashboard renders `ats_score ?? 0` as a red "0", and the
+ * preview's score ring divides null by 100 and draws an empty dial. The user
+ * sees a resume that looks like it scored nothing.
+ *
+ * `repaired` lists fields we could safely default — labels and lists, where an
+ * empty value asserts nothing about the candidate.
+ *
+ * `fatal` lists fields we cannot default honestly. Only ats_score qualifies:
+ * there is no truthful number to substitute, and inventing one is exactly the
+ * behaviour the rest of this module exists to prevent. The caller treats a
+ * fatal problem as a failed generation — which costs the user a retry and no
+ * credit, rather than persisting a resume that appears to have scored zero.
+ */
+export function normaliseGeneratedResume(
+  resume: ResumeShape,
+  fallbackRole: string
+): { resume: ResumeShape; repaired: string[]; fatal: string[] } {
+  const repaired: string[] = [];
+  const fatal: string[] = [];
+
+  const asStringArray = (v: unknown): string[] | null =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null;
+
+  for (const key of ["matched_keywords", "missing_keywords"] as const) {
+    const arr = asStringArray(resume[key]);
+    if (arr === null) {
+      resume[key] = [];
+      repaired.push(key);
+    } else {
+      resume[key] = arr;
+    }
+  }
+
+  if (typeof resume.tailored_role !== "string" || !resume.tailored_role.trim()) {
+    resume.tailored_role = fallbackRole.trim() || "Resume";
+    repaired.push("tailored_role");
+  }
+
+  // Accept a numeric string ("78") — models emit them — but nothing else.
+  const rawScore = resume.ats_score;
+  const score = typeof rawScore === "string" ? Number(rawScore) : rawScore;
+  if (typeof score !== "number" || !Number.isFinite(score)) {
+    fatal.push("ats_score");
+  } else {
+    resume.ats_score = Math.max(0, Math.min(100, Math.round(score)));
+  }
+
+  return { resume, repaired, fatal };
+}
+
 export function sanitiseGeneratedResume(
   resume: ResumeShape,
   profile: SanitiseProfile
