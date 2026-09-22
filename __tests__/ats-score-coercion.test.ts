@@ -92,26 +92,62 @@ describe("ats_score — non-numeric types are fatal", () => {
   });
 });
 
-describe("ats_score — in-range values are clamped and rounded", () => {
+describe("ats_score — out-of-range values are fatal, never clamped", () => {
+  // Clamping -5 to 0 produces the same misleading red zero as a blank score,
+  // and clamping 142 to 100 manufactures a perfect result the model never
+  // claimed. A value outside 0..100 means the output contract was ignored.
   it.each([
-    ["above range", 142, 100],
-    ["far above range", 10_000, 100],
-    ["below range", -5, 0],
+    ["negative", -5],
+    ["just below zero", -1],
+    ["just above the ceiling", 101],
+    ["well above the ceiling", 142],
+    ["absurdly high", 10_000],
+    ["negative numeric string", "-5"],
+    ["numeric string just over", "101"],
+    ["numeric string well over", "142"],
+  ])("%s is rejected", (_label, value) => {
+    expect(run(value).fatal).toContain("ats_score");
+  });
+
+  it.each([
+    ["-5", -5],
+    ["142", 142],
+    ['"-5"', "-5"],
+    ['"142"', "142"],
+  ])("%s is not silently rewritten into a valid-looking score", (_label, value) => {
+    const { resume } = run(value);
+    expect(resume.ats_score).not.toBe(0);
+    expect(resume.ats_score).not.toBe(100);
+  });
+
+  it("checks the range before rounding, so the boundary is consistent", () => {
+    // 100.4 would round back into range and 100.6 would not. Both are
+    // contract violations; neither should sneak through on a rounding quirk.
+    expect(run(100.4).fatal).toContain("ats_score");
+    expect(run(100.6).fatal).toContain("ats_score");
+    expect(run(-0.4).fatal).toContain("ats_score");
+  });
+});
+
+describe("ats_score — in-range values are kept and rounded", () => {
+  it.each([
     ["exactly 0", 0, 0],
     ["exactly 100", 100, 100],
     ["rounds up", 78.6, 79],
     ["rounds down", 78.4, 78],
-    ["numeric string above range", "142", 100],
+    ["rounds half up", 45.5, 46],
+    ["numeric string decimal", "61.7", 62],
   ])("%s -> %s becomes %s", (_label, input, expected) => {
     const { fatal, resume } = run(input);
     expect(fatal).toEqual([]);
     expect(resume.ats_score).toBe(expected);
   });
 
-  it("always yields an integer", () => {
+  it("always yields an integer for in-range input", () => {
     for (const v of [12.3, 45.5, 99.99, "61.7"]) {
-      const score = run(v).resume.ats_score as number;
-      expect(Number.isInteger(score)).toBe(true);
+      const { fatal, resume } = run(v);
+      expect(fatal).toEqual([]);
+      expect(Number.isInteger(resume.ats_score as number)).toBe(true);
     }
   });
 });

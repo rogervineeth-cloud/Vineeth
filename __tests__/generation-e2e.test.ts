@@ -257,14 +257,34 @@ describe("generation pipeline — model omits fields", () => {
     expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
   });
 
-  it("coerces a numeric-string score and clamps out-of-range values", async () => {
+  it("accepts a valid numeric-string score", async () => {
     mockMessagesCreate.mockResolvedValue(
-      completion(`"summary": "A summary.", "ats_score": "142", "tailored_role": "Backend Engineer"}`)
+      completion(`"summary": "A summary.", "ats_score": "78", "tailored_role": "Backend Engineer"}`)
     );
     const body = await (await POST(request())).json();
-    expect(body.resume_json.ats_score).toBe(100);
+    expect(body.resume_json.ats_score).toBe(78);
     expect(typeof body.resume_json.ats_score).toBe("number");
   });
+
+  it.each([
+    ["number above the ceiling", "142"],
+    ["number just above the ceiling", "101"],
+    ["negative number", "-5"],
+    ['string above the ceiling', '"142"'],
+    ['negative string', '"-5"'],
+  ])(
+    "refuses to save, and charges nothing, for an out-of-range score (%s)",
+    async (_label, literal) => {
+      // Out-of-range is a contract violation, not something to clamp: 142 -> 100
+      // would manufacture a perfect result and -5 -> 0 would show a red zero.
+      mockMessagesCreate.mockResolvedValue(
+        completion(`"summary": "A summary.", "tailored_role": "Backend Engineer", "ats_score": ${literal}}`)
+      );
+      const res = await POST(request());
+      expect(res.status).toBe(500);
+      expect(mockConsumeCredit).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe("generation pipeline — fabrication is stripped before storage", () => {

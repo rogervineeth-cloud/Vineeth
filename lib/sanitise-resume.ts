@@ -146,6 +146,12 @@ export function unverifiableNumbers(text: string, allowed: Set<string>): string[
  * behaviour the rest of this module exists to prevent. The caller treats a
  * fatal problem as a failed generation — which costs the user a retry and no
  * credit, rather than persisting a resume that appears to have scored zero.
+ *
+ * ats_score is fatal when it is missing, non-numeric, blank/whitespace, NaN,
+ * infinite, OR outside 0..100. Out-of-range values are NOT clamped: clamping
+ * -5 to 0 produces the same misleading zero as a blank score, and clamping
+ * 142 to 100 manufactures a perfect result the model never claimed. In-range
+ * decimals are rounded normally.
  */
 export function normaliseGeneratedResume(
   resume: ResumeShape,
@@ -194,8 +200,21 @@ export function normaliseGeneratedResume(
     // Covers: missing, null, booleans, objects, arrays, "", "   ", "abc",
     // "NaN", "Infinity", and the NaN / ±Infinity numbers themselves.
     fatal.push("ats_score");
+  } else if (score < 0 || score > 100) {
+    // Out of contract. Previously these were clamped, but clamping -5 to 0
+    // produces the same misleading red "0" as a blank score, and clamping 142
+    // to 100 silently manufactures a perfect result the model never claimed.
+    // A score outside 0..100 means the model ignored the output contract, so
+    // the whole response is suspect — fail before the credit is spent rather
+    // than repair a number we have no basis to trust.
+    //
+    // The range is checked on the RAW value, before rounding, so the boundary
+    // is consistent: 100.4 and 100.6 are both violations rather than one
+    // rounding quietly back into range and the other failing.
+    fatal.push("ats_score");
   } else {
-    resume.ats_score = Math.max(0, Math.min(100, Math.round(score)));
+    // In range: round normally. 78.6 -> 79, 78.4 -> 78.
+    resume.ats_score = Math.round(score);
   }
 
   return { resume, repaired, fatal };
