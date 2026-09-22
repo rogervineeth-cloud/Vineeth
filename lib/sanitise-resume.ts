@@ -173,9 +173,26 @@ export function normaliseGeneratedResume(
   }
 
   // Accept a numeric string ("78") — models emit them — but nothing else.
-  const rawScore = resume.ats_score;
-  const score = typeof rawScore === "string" ? Number(rawScore) : rawScore;
-  if (typeof score !== "number" || !Number.isFinite(score)) {
+  //
+  // The blank-string case has to be rejected explicitly. Number("") and
+  // Number("   ") are both 0, and 0 is finite, so a naive coercion would
+  // silently turn "no score" into a legitimate-looking score of zero — the
+  // exact misleading red "0" this function exists to prevent. Only a string
+  // with non-whitespace content is a candidate for coercion.
+  // Read as unknown: ResumeShape declares ats_score as a number, but this is
+  // the trust boundary — the value came from a language model and can be any
+  // JSON type, including a blank string.
+  const rawScore: unknown = resume.ats_score;
+  let score: number | null = null;
+  if (typeof rawScore === "number") {
+    score = rawScore;
+  } else if (typeof rawScore === "string" && rawScore.trim() !== "") {
+    score = Number(rawScore.trim());
+  }
+
+  if (score === null || !Number.isFinite(score)) {
+    // Covers: missing, null, booleans, objects, arrays, "", "   ", "abc",
+    // "NaN", "Infinity", and the NaN / ±Infinity numbers themselves.
     fatal.push("ats_score");
   } else {
     resume.ats_score = Math.max(0, Math.min(100, Math.round(score)));

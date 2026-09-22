@@ -223,6 +223,20 @@ describe("generation pipeline — model omits fields", () => {
     expect(mockConsumeCredit).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['empty string', '""'],
+    ['whitespace only', '"   "'],
+  ])("refuses to save, and charges nothing, when ats_score is %s", async (_label, literal) => {
+    // Number("") and Number("   ") are both a finite 0, so without an explicit
+    // blank check these would be stored as a genuine score of zero.
+    mockMessagesCreate.mockResolvedValue(
+      completion(`"summary": "A summary.", "tailored_role": "Backend Engineer", "ats_score": ${literal}}`)
+    );
+    const res = await POST(request());
+    expect(res.status).toBe(500);
+    expect(mockConsumeCredit).not.toHaveBeenCalled();
+  });
+
   it("repairs the fields that CAN be defaulted honestly and still succeeds", async () => {
     // Labels and lists assert nothing about the candidate, so an empty value
     // is safe. Only the score is fatal.
