@@ -20,6 +20,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  isValidEmail,
+  isValidPhone,
+  isValidGradYear,
+  isBasicsComplete,
+  initialBasics,
+  buildProfileWrite,
+  saveProfile,
+  type BasicInfo,
+} from "@/lib/profile-basics";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type ExpEntry = {
@@ -43,13 +53,6 @@ type ProjEntry = {
   name: string;
   description: string;
   tech: string[];
-};
-type BasicInfo = {
-  full_name: string;
-  email: string;
-  phone: string;
-  current_city: string;
-  graduation_year: string;
 };
 type Resume = { id: string; tailored_role: string; created_at: string };
 
@@ -133,31 +136,8 @@ function Field({ label, children, error }: { label: string; children: React.Reac
 }
 
 // ── Basics validation ──────────────────────────────────────────────────────
-// Previously unvalidated: "notanemail" passed, the checklist went green, and
-// resumes shipped with unreachable contact details.
-
-/** Pragmatic email check — something@something.tld, no spaces. */
-export function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
-}
-
-/** Optional field: blank is fine. Otherwise needs 7-15 digits, allowing +, -, spaces, brackets. */
-export function isValidPhone(value: string): boolean {
-  const v = value.trim();
-  if (!v) return true;
-  if (!/^\+?[\d\s\-()]+$/.test(v)) return false;
-  const digits = v.replace(/\D/g, "");
-  return digits.length >= 7 && digits.length <= 15;
-}
-
-/** Optional field: blank is fine. Otherwise a 4-digit year within a sane range. */
-export function isValidGradYear(value: string): boolean {
-  const v = value.trim();
-  if (!v) return true;
-  if (!/^\d{4}$/.test(v)) return false;
-  const year = Number(v);
-  return year >= 1950 && year <= new Date().getFullYear() + 10;
-}
+// isValidEmail / isValidPhone / isValidGradYear live in lib/profile-basics so
+// the load → save → reload round-trip can be tested without a browser.
 
 function ProfilePageInner() {
   const router = useRouter();
@@ -193,6 +173,10 @@ function ProfilePageInner() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  // The email error waits for blur. Validating on every keystroke flagged a
+  // perfectly good address as invalid for the whole time it was being typed.
+  const [emailTouched, setEmailTouched] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -223,20 +207,24 @@ function ProfilePageInner() {
       if (!user) { router.push("/login"); return; }
       setUserId(user.id);
       const [profileRes, resumesRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", user.id).single(),
+        // maybeSingle, not single: "no row yet" is a normal state (users who
+        // skipped /onboarding, e.g. via Google sign-in) and must come back as
+        // data: null, not as an error indistinguishable from a real failure.
+        supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
         supabase.from("resumes").select("id,tailored_role,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
       ]);
+      if (profileRes.error) {
+        // A real read failure. Autosave stays off: writing the blank form
+        // back would overwrite whatever the user actually has stored.
+        setLoadError(true);
+        setLoaded(true);
+        return;
+      }
+      const initial = initialBasics(profileRes.data, user);
+      setBasics(initial);
+      if (initial.email) setEmailTouched(true);
       if (profileRes.data) {
         const p = profileRes.data;
-        const cleanPhone = (p.phone ?? "").trim();
-        const cleanGradYear = p.graduation_year ? String(p.graduation_year) : "";
-        setBasics({
-          full_name: p.full_name ?? "",
-          email: p.email ?? "",
-          phone: (cleanPhone === "+91" || cleanPhone === "+91 ") ? "" : cleanPhone,
-          current_city: p.current_city ?? "",
-          graduation_year: cleanGradYear,
-        });
         setTargetRoles(p.target_roles ?? []);
         const pd = p.profile_data ?? {};
         if (pd.summary && !pd.summary.startsWith("e.g.")) setSummary(pd.summary);
@@ -271,30 +259,22 @@ function ProfilePageInner() {
         education: education.map((e) => ({ institution: e.institution, degree: e.degree, year: e.year, location: e.location, cgpa: e.cgpa })),
         projects: projects.map((p) => ({ name: p.name, description: p.description, tech: p.tech })),
       };
-      const { error } = await supabase.from("profiles").update({
-        full_name: basics.full_name, email: basics.email, phone: basics.phone || null,
-        current_city: basics.current_city || null,
-        graduation_year: basics.graduation_year ? parseInt(basics.graduation_year) : null,
-        target_roles: targetRoles, profile_data: profileData,
-      }).eq("user_id", userId);
-      setSaveStatus(error ? "error" : "saved");
-      if (error) toast.error("Auto-save failed: " + error.message);
+      // Upsert, not update: see lib/profile-basics.ts. An update against a
+      // missing row "succeeded" while writing nothing.
+      const result = await saveProfile(supabase, buildProfileWrite(userId, basics, targetRoles, profileData));
+      setSaveStatus(result.ok ? "saved" : "error");
+      if (!result.ok) toast.error("Auto-save failed: " + result.message);
     }, 1000);
   }, [userId, basics, targetRoles, summary, experience, skills, education, projects, isFresher, expSkipped, eduSkipped, projSkipped]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadError) return;
     scheduleSave();
-  }, [loaded, basics, targetRoles, summary, experience, skills, education, projects, isFresher, expSkipped, eduSkipped, projSkipped, scheduleSave]);
+  }, [loaded, loadError, basics, targetRoles, summary, experience, skills, education, projects, isFresher, expSkipped, eduSkipped, projSkipped, scheduleSave]);
 
   // Basics are only "done" when the contact details are actually usable —
   // a malformed email used to pass and ship on the finished resume.
-  const sec1Done = !!(
-    basics.full_name.trim() &&
-    isValidEmail(basics.email) &&
-    isValidPhone(basics.phone) &&
-    isValidGradYear(basics.graduation_year)
-  );
+  const sec1Done = isBasicsComplete(basics);
   const sec2Done = targetRoles.length > 0;
   // Experience: done if skipped, fresher-flagged, or has at least one entry
   const sec3Done = expSkipped || isFresher || experience.some((e) => e.company.trim());
@@ -423,6 +403,18 @@ function ProfilePageInner() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-[#f7f3ea]">
+        <div className="flex flex-col items-center justify-center gap-3 min-h-[60vh] px-6 text-center">
+          <p className="text-[#1a1a1a] font-medium">We couldn&apos;t load your profile.</p>
+          <p className="text-sm text-[#6b6b6b]">Nothing has been changed. Please refresh the page to try again.</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>Refresh</Button>
+        </div>
+      </div>
+    );
+  }
+
   function renderStep() {
     switch (currentStep) {
       case 0:
@@ -432,9 +424,9 @@ function ProfilePageInner() {
               <Field label="Full name *"><Input value={basics.full_name} onChange={(e) => setBasics((b) => ({ ...b, full_name: e.target.value }))} placeholder="Your full name" /></Field>
               <Field
                 label="Email *"
-                error={basics.email.trim() && !isValidEmail(basics.email) ? "Enter a valid email address, e.g. you@example.com" : null}
+                error={emailTouched && basics.email.trim() && !isValidEmail(basics.email) ? "Enter a valid email address, e.g. you@example.com" : null}
               >
-                <Input type="email" value={basics.email} onChange={(e) => setBasics((b) => ({ ...b, email: e.target.value }))} placeholder="you@example.com" />
+                <Input type="email" autoComplete="email" value={basics.email} onChange={(e) => setBasics((b) => ({ ...b, email: e.target.value }))} onBlur={() => setEmailTouched(true)} placeholder="you@example.com" />
               </Field>
               <Field
                 label="Phone (optional)"

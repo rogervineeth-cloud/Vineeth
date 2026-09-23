@@ -1,7 +1,7 @@
 // Basics validation. Before this, "notanemail" passed the profile checklist,
 // "abc" passed as a phone number, and "abcd-9999" passed as a graduation year
 // — so resumes shipped with unreachable contact details.
-import { isValidEmail, isValidPhone, isValidGradYear } from "@/app/(app)/profile/page";
+import { isValidEmail, isValidPhone, isValidGradYear } from "@/lib/profile-basics";
 
 describe("isValidEmail", () => {
   it.each(["a@b.co", "aarav.menon@example.com", "x+tag@sub.domain.in"])(
