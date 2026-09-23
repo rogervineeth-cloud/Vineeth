@@ -49,6 +49,9 @@ jest.mock("@/lib/plans", () => ({
   canGenerateResume: (u: string) => mockCanGenerateResume(u),
   canGenerateFreeRegen: (u: string, r: string) => mockCanGenerateFreeRegen(u, r),
   consumeCredit: (u: string) => mockConsumeCredit(u),
+  // Parent-ownership check used by regen lineage. Stubbed as owned so the
+  // free-window tests exercise credit logic, not the ownership branch.
+  userOwnsResume: async () => true,
 }));
 
 jest.mock("@/lib/analytics", () => ({ track: jest.fn() }));
