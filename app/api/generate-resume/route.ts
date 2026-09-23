@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canGenerateResume, canGenerateFreeRegen, consumeCredit, userOwnsResume } from "@/lib/plans";
 import { track } from "@/lib/analytics";
 import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD, GENERATION_TEMPERATURE } from "@/lib/models";
-import { sanitiseGeneratedResume, type ResumeShape } from "@/lib/sanitise-resume";
+import { sanitiseGeneratedResume, normaliseGeneratedResume, type ResumeShape } from "@/lib/sanitise-resume";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
 const inputSchema = z.object({
@@ -347,6 +347,35 @@ export async function POST(req: NextRequest) {
       track("generate_resume_sanitised", { user_id: userId, warnings: sanitised.warnings.join(","), warning_count: sanitised.warnings.length });
       console.warn("[generate-resume] sanitiser warnings:", sanitised.warnings);
     }
+
+    // The client writes ats_score / tailored_role / matched_keywords /
+    // missing_keywords straight into typed columns. A missing field there
+    // becomes a NULL row that renders as a red "0" on the dashboard and an
+    // empty score dial in the preview — silently, and only after the credit
+    // has been spent. Normalise what can be defaulted honestly and refuse the
+    // rest BEFORE consuming the credit.
+    const normalised = normaliseGeneratedResume(
+      resumeJson as ResumeShape,
+      (parsed.data.user_profile.target_roles?.[0] ?? "").trim()
+    );
+    resumeJson = normalised.resume;
+    if (normalised.repaired.length > 0) {
+      console.warn("[generate-resume] repaired missing fields:", normalised.repaired);
+    }
+    if (normalised.fatal.length > 0) {
+      // No credit consumed — the user retries for free.
+      console.error("[generate-resume] contract violation, refusing to save:", normalised.fatal);
+      track("generate_resume_sanitised", {
+        user_id: userId,
+        warnings: `contract_violation:${normalised.fatal.join("/")}`,
+        warning_count: normalised.fatal.length,
+      });
+      return NextResponse.json(
+        { error: "We hit a glitch drafting your resume. Please try once more." },
+        { status: 500 }
+      );
+    }
+
     // Consume credit only after a successful parse
     if (!isCreator && !isFreeRegen) {
       const credited = await consumeCredit(userId);
