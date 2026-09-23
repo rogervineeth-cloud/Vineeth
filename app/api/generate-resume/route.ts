@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
     if (regen_of_resume_id) {
       if (await userOwnsResume(userId, regen_of_resume_id)) {
         validatedParentId = regen_of_resume_id;
-        isFreeRegen = await canGenerateFreeRegen(userId, regen_of_resume_id);
+        isFreeRegen = await canGenerateFreeRegen(userId, regen_of_resume_id, jd_text);
       } else {
         console.warn(
           "[generate-resume] ignoring regen parent not owned by caller:",

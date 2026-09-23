@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent, RESUME_CONTENT_HINT } from "@/lib/profile-completeness";
+import { parseRegenParam } from "@/lib/regen";
 import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -385,6 +386,13 @@ export default function CreatePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [planCheck, setPlanCheck] = useState<PlanCheck | null>(null);
+  // Set when arriving via a resume's "Update profile & regenerate"
+  // (/create?regen=<id>). Sent to the API, which alone decides whether the
+  // regeneration is free (same JD, within 24 h — lib/regen.ts) and records
+  // the lineage. Read once; the step navigation keeps the query string.
+  const [regenParentId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : parseRegenParam(window.location.search)
+  );
   const [loaded, setLoaded] = useState(false);
 
   const [jdText, setJdText] = useState<string>(() =>
@@ -506,7 +514,7 @@ export default function CreatePage() {
       jdRef.current?.focus();
       return;
     }
-    if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed) {
+    if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed && !regenParentId) {
       toast.error(
         planCheck.reason === "NO_PLAN"
           ? "You need a paid plan to generate a resume."
@@ -562,6 +570,7 @@ export default function CreatePage() {
             education: pd.education,
             projects: pd.projects,
           },
+          ...(regenParentId ? { regen_of_resume_id: regenParentId } : {}),
         }),
       });
 
@@ -609,6 +618,7 @@ export default function CreatePage() {
       }
 
       setGenStageIdx(GEN_STAGES.length - 1);
+      if (data.is_free_regen) toast.success("Free regeneration — no credit used.");
       setGenProgress(100);
 
       const supabase = createClient();
@@ -691,7 +701,7 @@ export default function CreatePage() {
       setShowMissingPopup(true);
       return;
     }
-    if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed) {
+    if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed && !regenParentId) {
       toast.error(
         planCheck.reason === "NO_PLAN"
           ? "You need a paid plan to generate a resume."
@@ -715,7 +725,8 @@ export default function CreatePage() {
   const canGenerate =
     jdReady &&
     completeness.complete &&
-    (isCreator || !planCheck || planCheck.allowed) &&
+    // A regeneration may be free even with no credits left; the server decides.
+    (isCreator || !planCheck || planCheck.allowed || !!regenParentId) &&
     !generating;
 
   const revealStage = Math.min(genStageIdx + 1, 4) as 1 | 2 | 3 | 4;
@@ -1068,7 +1079,7 @@ export default function CreatePage() {
 
             {/* Mobile-only generate button */}
             <div className="lg:hidden mt-auto pt-6">
-              {planCheck && !planCheck.allowed && !isCreator && (
+              {planCheck && !planCheck.allowed && !isCreator && !regenParentId && (
                 <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800 flex items-center justify-between gap-2">
                   <span>{planCheck.reason === "NO_PLAN" ? "You need a paid plan." : `All ${planCheck.allotted} credits used.`}</span>
                   <Link href="/pricing" className="font-semibold underline whitespace-nowrap">{planCheck.reason === "NO_PLAN" ? "View plans →" : "Buy more →"}</Link>
@@ -1121,7 +1132,7 @@ export default function CreatePage() {
 
             <div className="flex-1" />
 
-            {planCheck && !planCheck.allowed && !isCreator && (
+            {planCheck && !planCheck.allowed && !isCreator && !regenParentId && (
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
                 <span>{planCheck.reason === "NO_PLAN" ? "You need a paid plan to generate." : `All ${planCheck.allotted} credits used.`}</span>
                 {" "}
