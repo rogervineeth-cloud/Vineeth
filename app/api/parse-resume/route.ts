@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractProfile } from "@/lib/resume-parser";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -192,6 +193,38 @@ export async function POST(req: NextRequest) {
   // underlying error name/message — handy for live debugging without dumping
   // stack traces to every user. Pass `?debug=1` on the request URL.
   const debug = new URL(req.url).searchParams.get("debug") === "1";
+
+  // ── Authentication ──────────────────────────────────────────────────────
+  // FIRST, before req.formData(). Reading the form buffers the whole upload
+  // into the function, so an anonymous caller must be turned away before we
+  // accept their bytes — let alone load pdfjs and walk every page of a 5 MB
+  // document. This route was previously wide open: anyone who could reach the
+  // origin could POST a PDF and have it parsed, on a 30-second function.
+  //
+  // getUser() revalidates the JWT with the auth server; getSession() merely
+  // decodes a cookie that can be forged server-side.
+  //
+  // NOTE the response shape. Both callers — app/(app)/onboarding/page.tsx and
+  // app/(app)/profile/page.tsx — do:
+  //     if (data.error && !data.extracted) toast.error(data.error)
+  // ignoring res.status entirely. So `error` has to be the human-readable
+  // message or the user would see a toast reading "auth_required". The
+  // machine-readable code goes in `reason`. That is deliberately different
+  // from /api/score-free, whose caller branches on res.status === 401.
+  const supabase = await createClient();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (!authUser) {
+    return NextResponse.json(
+      {
+        error: "Please sign in to upload your resume.",
+        reason: "auth_required",
+        loginUrl: "/login",
+        extracted: null,
+      },
+      { status: 401 }
+    );
+  }
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
