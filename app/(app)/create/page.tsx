@@ -630,6 +630,12 @@ export default function CreatePage() {
           // Persist the template so the PDF can actually render it. This used
           // to be sent to the generator as a prompt hint and then thrown away.
           template: selectedTemplate,
+          // Regeneration lineage. Deliberately the SERVER-VERIFIED id from the
+          // response, not the local variable we sent up: the server confirms
+          // the caller owns the parent and returns null otherwise, so an id
+          // belonging to someone else can never reach the column. Previously
+          // this was never written at all, leaving the column always NULL.
+          regen_of_resume_id: data.regen_of_resume_id ?? null,
         })
         .select("id")
         .single();

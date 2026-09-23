@@ -49,6 +49,30 @@ export async function canGenerateResume(
  * True when the user is regenerating the SAME resume within 24 hours.
  * In that case no credit is consumed.
  */
+/**
+ * Whether `resumeId` exists AND belongs to `userId`.
+ *
+ * Deliberately distinct from canGenerateFreeRegen(), which conflates three
+ * different answers into one boolean: "not yours", "does not exist", and
+ * "yours but older than 24h" all return false. Lineage needs to know only
+ * whether the caller owns the parent — a regeneration after the free window
+ * is still a regeneration and should still be recorded, it just costs a
+ * credit.
+ *
+ * The `.eq("user_id", userId)` filter is the ownership check, matching how
+ * preview and download-pdf scope their reads.
+ */
+export async function userOwnsResume(userId: string, resumeId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("resumes")
+    .select("id")
+    .eq("id", resumeId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return !!data;
+}
+
 export async function canGenerateFreeRegen(
   userId: string,
   originalResumeId: string

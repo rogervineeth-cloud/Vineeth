@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { canGenerateResume, canGenerateFreeRegen, consumeCredit } from "@/lib/plans";
+import { canGenerateResume, canGenerateFreeRegen, consumeCredit, userOwnsResume } from "@/lib/plans";
 import { track } from "@/lib/analytics";
 import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD, GENERATION_TEMPERATURE } from "@/lib/models";
 import { sanitiseGeneratedResume, normaliseGeneratedResume, type ResumeShape } from "@/lib/sanitise-resume";
@@ -189,10 +189,38 @@ export async function POST(req: NextRequest) {
     }
     const userId = authUser.id;
     const isCreator = authUser.email === CREATOR_EMAIL;
-    // Credit gating
+    // Regeneration lineage.
+    //
+    // The client performs the INSERT, so it cannot be trusted to decide what
+    // the parent is — it could name any resume id, including another user's.
+    // Ownership is therefore resolved HERE and only a server-verified id is
+    // echoed back for the client to store.
+    //
+    // An unowned, deleted or unknown parent is safely IGNORED rather than
+    // rejected: it is treated as an ordinary generation with no lineage. That
+    // is exactly the behaviour today (canGenerateFreeRegen already returns
+    // false for all three cases, so the request was charged and succeeded),
+    // so ignoring changes nothing for users while preventing a cross-user id
+    // from ever being written. Rejecting instead would newly break a real
+    // case now that users can delete resumes: regenerating from a stale tab
+    // whose parent has since been deleted would start failing.
+    let validatedParentId: string | null = null;
     let isFreeRegen = false;
     if (regen_of_resume_id) {
-      isFreeRegen = await canGenerateFreeRegen(userId, regen_of_resume_id);
+      if (await userOwnsResume(userId, regen_of_resume_id)) {
+        validatedParentId = regen_of_resume_id;
+        isFreeRegen = await canGenerateFreeRegen(userId, regen_of_resume_id);
+      } else {
+        console.warn(
+          "[generate-resume] ignoring regen parent not owned by caller:",
+          { user_id: userId, regen_of_resume_id }
+        );
+        track("generate_resume_sanitised", {
+          user_id: userId,
+          warnings: "ignored_unowned_regen_parent",
+          warning_count: 1,
+        });
+      }
     }
     if (!isCreator && !isFreeRegen) {
       const { allowed, reason } = await canGenerateResume(userId);
@@ -362,6 +390,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       resume_json: resumeJson,
       is_free_regen: isFreeRegen,
+      // Server-verified parent id, or null. The client writes THIS value to
+      // resumes.regen_of_resume_id — never its own local copy — so an id the
+      // caller does not own can never reach the column.
+      regen_of_resume_id: validatedParentId,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
