@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { hasResumeContent, RESUME_CONTENT_HINT } from "@/lib/profile-completeness";
 import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -233,10 +234,12 @@ function analyzeJd(text: string): JdAnalysis {
 function checkCompleteness(profile: Profile | null): { complete: boolean; missing: string } {
   if (!profile) return { complete: false, missing: "your profile" };
   if (!profile.full_name?.trim()) return { complete: false, missing: "your name" };
-  if (!profile.target_roles?.length) return { complete: false, missing: "target roles" };
-  const pd = profile.profile_data;
-  if (!(pd?.experience?.length ?? 0) && !(pd?.education?.length ?? 0))
-    return { complete: false, missing: "experience or education" };
+  if (!profile.email?.trim()) return { complete: false, missing: "your email" };
+  if (!profile.target_roles?.length) return { complete: false, missing: "your target roles" };
+  // Same rule the server enforces (lib/profile-completeness.ts). Checking
+  // array length here let a skipped section's blank placeholder row count as
+  // content, so the page said "ready" and the server then refused.
+  if (!hasResumeContent(profile.profile_data)) return { complete: false, missing: RESUME_CONTENT_HINT };
   return { complete: true, missing: "" };
 }
 
@@ -573,6 +576,18 @@ export default function CreatePage() {
         setGenError(msg);
         toast.error(msg, {
           action: { label: "View plans", onClick: () => router.push("/pricing") },
+        });
+        setGenerating(false);
+        setGenProgress(0);
+        return;
+      }
+
+      if (res.status === 422 && data.error === "PROFILE_INCOMPLETE") {
+        // Refused before the AI call and before any credit was used.
+        const msg = `Your profile needs ${RESUME_CONTENT_HINT} before we can build a resume. No credit was used.`;
+        setGenError(msg);
+        toast.error(msg, {
+          action: { label: "Edit profile", onClick: () => router.push("/profile?step=experience") },
         });
         setGenerating(false);
         setGenProgress(0);
@@ -1450,7 +1465,7 @@ export default function CreatePage() {
             </div>
             <h3 className="font-semibold text-[#1a1a1a] text-lg mb-1">Profile needs attention</h3>
             <p className="text-sm text-[#6b6b6b] mb-5">
-              The AI needs your{" "}
+              The AI needs{" "}
               <span className="font-medium text-[#1a1a1a]">{completeness.missing}</span>{" "}
               to create a tailored resume.
             </p>

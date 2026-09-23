@@ -15,6 +15,7 @@ import {
   SkipForward,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { hasResumeContent } from "@/lib/profile-completeness";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -683,6 +684,11 @@ function ProfilePageInner() {
     { label: "Roles",      required: true,  done: sec2Done, skipped: false },
   ];
   const mandatoryPending = profileSteps.filter((s) => s.required && !s.done).map((s) => s.label);
+  // Each of Experience / Education / Projects is optional, but a resume needs
+  // at least one real entry among them — same rule the server enforces.
+  if (!hasResumeContent({ experience, education, projects })) {
+    mandatoryPending.push("one Experience, Education or Project entry");
+  }
   const canGenerate = mandatoryPending.length === 0;
 
   // Skip handler for current step

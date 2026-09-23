@@ -6,6 +6,7 @@ import { canGenerateResume, canGenerateFreeRegen, consumeCredit, userOwnsResume 
 import { track } from "@/lib/analytics";
 import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD, GENERATION_TEMPERATURE } from "@/lib/models";
 import { sanitiseGeneratedResume, normaliseGeneratedResume, type ResumeShape } from "@/lib/sanitise-resume";
+import { usableSections, hasResumeContent, MISSING_RESUME_CONTENT } from "@/lib/profile-completeness";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
 const inputSchema = z.object({
@@ -233,37 +234,16 @@ export async function POST(req: NextRequest) {
       }
     }
     // Server-side defense: never call Anthropic for incomplete profiles.
-    // We tighten this beyond "has at least one row": each experience entry must
-    // have a real company, role, duration, and at least one non-empty bullet.
-    // Without this guard, the LLM happily fabricates a career when the user
-    // saved a single empty placeholder row in the wizard.
+    // Experience, Education and Projects are each optional, but at least one
+    // must hold a real entry — see lib/profile-completeness.ts. Blank rows (the
+    // profile page saves one for a skipped section) and placeholder employers
+    // do not count. This runs before any credit is consumed.
     const p = parsed.data.user_profile;
     const incomplete: string[] = [];
     if (!p.full_name?.trim()) incomplete.push("full_name");
     if (!p.email?.trim()) incomplete.push("email");
-    if (!p.education || p.education.length === 0) incomplete.push("education");
-
-    const expRows = Array.isArray(p.experience) ? p.experience : [];
-    const validExp = expRows.filter((e) => {
-      const hasCompany = !!e.company && e.company.trim().length > 0
-        && !/previous organi[sz]ation/i.test(e.company)
-        && !/^(company|employer|n\/a|none|tbd)$/i.test(e.company.trim());
-      const hasRole = !!e.role && e.role.trim().length > 0;
-      const hasDuration = !!e.duration && e.duration.trim().length > 0;
-      const bullets = Array.isArray(e.bullets) ? e.bullets.filter((b) => !!b && b.trim().length > 0) : [];
-      return hasCompany && hasRole && hasDuration && bullets.length > 0;
-    });
-
-    const hasProjects = Array.isArray(p.projects) && p.projects.some((pr) =>
-      !!pr?.name?.trim() && !!pr?.description?.trim()
-    );
-
-    // A user qualifies for generation if they have at least one fully-filled
-    // experience entry OR (for freshers) at least one real project. Otherwise
-    // we refuse rather than letting the LLM hallucinate a career.
-    if (validExp.length === 0 && !hasProjects) {
-      incomplete.push("experience_or_projects");
-    }
+    const usable = usableSections(p);
+    if (!hasResumeContent(usable)) incomplete.push(MISSING_RESUME_CONTENT);
 
     if (incomplete.length > 0) {
       return NextResponse.json(
@@ -272,9 +252,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Replace the raw experience array with only validated entries so the
-    // LLM never sees placeholder rows like { company: "Previous Organization" }.
-    parsed.data.user_profile.experience = validExp;
+    // Hand the model only real entries, so it never sees placeholder rows like
+    // { company: "Previous Organization" } or a skipped section's blank row.
+    parsed.data.user_profile.experience = usable.experience;
+    parsed.data.user_profile.education = usable.education;
+    parsed.data.user_profile.projects = usable.projects;
     // Determine model based on creator status (tiering placeholder)
     // Pro users get sonnet, free/basic get haiku. IDs live in lib/models.ts —
     // an inlined, non-existent ID here broke generation entirely once already.
