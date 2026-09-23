@@ -131,7 +131,14 @@ describe("/api/generate-resume guard", () => {
     expect(res.status).toBe(200);
 
     const body = await res.json();
-    expect(body.resume_json).toEqual({ ats_score: 72, summary: "x" });
+    // The model's own fields survive untouched...
+    expect(body.resume_json).toMatchObject({ ats_score: 72, summary: "x" });
+    // ...and normaliseGeneratedResume backfills the columns the client writes
+    // into typed DB fields, so they can never land as NULL.
+    expect(body.resume_json.matched_keywords).toEqual([]);
+    expect(body.resume_json.missing_keywords).toEqual([]);
+    expect(typeof body.resume_json.tailored_role).toBe("string");
+    expect(body.resume_json.tailored_role.length).toBeGreaterThan(0);
     expect(mockMessagesCreate).toHaveBeenCalledTimes(1);
     expect(mockConsumeCredit).toHaveBeenCalledWith("user-1");
     expect(mockTrack).not.toHaveBeenCalledWith(

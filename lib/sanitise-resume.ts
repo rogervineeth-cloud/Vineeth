@@ -126,6 +126,100 @@ export function unverifiableNumbers(text: string, allowed: Set<string>): string[
   return [...extractNumbers(text)].filter((n) => !allowed.has(n));
 }
 
+/**
+ * The four fields app/(app)/create/page.tsx writes straight into typed columns
+ * on public.resumes:
+ *
+ *   ats_score, tailored_role, matched_keywords, missing_keywords
+ *
+ * If the model omits any of them the client passes `undefined`, JSON.stringify
+ * drops the key, and the row lands with NULLs. The damage is silent and
+ * downstream: the dashboard renders `ats_score ?? 0` as a red "0", and the
+ * preview's score ring divides null by 100 and draws an empty dial. The user
+ * sees a resume that looks like it scored nothing.
+ *
+ * `repaired` lists fields we could safely default — labels and lists, where an
+ * empty value asserts nothing about the candidate.
+ *
+ * `fatal` lists fields we cannot default honestly. Only ats_score qualifies:
+ * there is no truthful number to substitute, and inventing one is exactly the
+ * behaviour the rest of this module exists to prevent. The caller treats a
+ * fatal problem as a failed generation — which costs the user a retry and no
+ * credit, rather than persisting a resume that appears to have scored zero.
+ *
+ * ats_score is fatal when it is missing, non-numeric, blank/whitespace, NaN,
+ * infinite, OR outside 0..100. Out-of-range values are NOT clamped: clamping
+ * -5 to 0 produces the same misleading zero as a blank score, and clamping
+ * 142 to 100 manufactures a perfect result the model never claimed. In-range
+ * decimals are rounded normally.
+ */
+export function normaliseGeneratedResume(
+  resume: ResumeShape,
+  fallbackRole: string
+): { resume: ResumeShape; repaired: string[]; fatal: string[] } {
+  const repaired: string[] = [];
+  const fatal: string[] = [];
+
+  const asStringArray = (v: unknown): string[] | null =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null;
+
+  for (const key of ["matched_keywords", "missing_keywords"] as const) {
+    const arr = asStringArray(resume[key]);
+    if (arr === null) {
+      resume[key] = [];
+      repaired.push(key);
+    } else {
+      resume[key] = arr;
+    }
+  }
+
+  if (typeof resume.tailored_role !== "string" || !resume.tailored_role.trim()) {
+    resume.tailored_role = fallbackRole.trim() || "Resume";
+    repaired.push("tailored_role");
+  }
+
+  // Accept a numeric string ("78") — models emit them — but nothing else.
+  //
+  // The blank-string case has to be rejected explicitly. Number("") and
+  // Number("   ") are both 0, and 0 is finite, so a naive coercion would
+  // silently turn "no score" into a legitimate-looking score of zero — the
+  // exact misleading red "0" this function exists to prevent. Only a string
+  // with non-whitespace content is a candidate for coercion.
+  // Read as unknown: ResumeShape declares ats_score as a number, but this is
+  // the trust boundary — the value came from a language model and can be any
+  // JSON type, including a blank string.
+  const rawScore: unknown = resume.ats_score;
+  let score: number | null = null;
+  if (typeof rawScore === "number") {
+    score = rawScore;
+  } else if (typeof rawScore === "string" && rawScore.trim() !== "") {
+    score = Number(rawScore.trim());
+  }
+
+  if (score === null || !Number.isFinite(score)) {
+    // Covers: missing, null, booleans, objects, arrays, "", "   ", "abc",
+    // "NaN", "Infinity", and the NaN / ±Infinity numbers themselves.
+    fatal.push("ats_score");
+  } else if (score < 0 || score > 100) {
+    // Out of contract. Previously these were clamped, but clamping -5 to 0
+    // produces the same misleading red "0" as a blank score, and clamping 142
+    // to 100 silently manufactures a perfect result the model never claimed.
+    // A score outside 0..100 means the model ignored the output contract, so
+    // the whole response is suspect — fail before the credit is spent rather
+    // than repair a number we have no basis to trust.
+    //
+    // The range is checked on the RAW value, before rounding, so the boundary
+    // is consistent: 100.4 and 100.6 are both violations rather than one
+    // rounding quietly back into range and the other failing.
+    fatal.push("ats_score");
+  } else {
+    // In range: round normally. 78.6 -> 79, 78.4 -> 78.
+    resume.ats_score = Math.round(score);
+  }
+
+  return { resume, repaired, fatal };
+}
+
 export function sanitiseGeneratedResume(
   resume: ResumeShape,
   profile: SanitiseProfile
