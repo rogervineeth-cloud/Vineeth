@@ -1,0 +1,15 @@
+{
+  "id": "GOOG-SWE2",
+  "company": "Google",
+  "title": "Software Engineer II, Google Cloud",
+  "location": "Bengaluru, Karnataka, India",
+  "url": "https://www.google.com/about/careers/applications/jobs/results/122221994455245510-software-engineer-ii-google-cloud",
+  "source_status": "RECONSTRUCTED_PLACEHOLDER",
+  "source_note": "The official page could not be fetched from the eval environment (network egress to www.google.com is blocked). This text reconstructs the standard structure of Google Software Engineer II postings and is NOT verbatim. Replace `text` with the official posting and set source_status to OFFICIAL before treating results as final.",
+  "expected": {
+    "level": "early-career (L3 equivalent)",
+    "min_years": 1,
+    "ground_truth_skills": ["Java", "C++", "Python", "Go", "Data Structures", "Algorithms", "Distributed Systems", "Google Cloud", "Code Review", "Debugging", "Accessibility"]
+  },
+  "text": "Software Engineer II, Google Cloud\nBengaluru, Karnataka, India\n\nMinimum qualifications:\n- Bachelor's degree or equivalent practical experience.\n- 1 year of experience with software development in one or more programming languages (e.g., Java, C++, Python, or Go), or 1 year of experience with an advanced degree.\n- 1 year of experience with data structures or algorithms.\n\nPreferred qualifications:\n- Master's degree or PhD in Computer Science or related technical field.\n- Experience with distributed systems and cloud computing.\n- Experience developing accessible technologies.\n\nAbout the job:\nGoogle's software engineers develop the next-generation technologies that change how billions of users connect, explore, and interact with information and one another. Our products need to handle information at massive scale. We're looking for engineers who bring fresh ideas from areas including information retrieval, distributed computing, large-scale system design, networking and data storage, security, and reliability. As a software engineer on Google Cloud, you will work on critical projects that help customers run their workloads on Google Cloud.\n\nResponsibilities:\n- Write product or system development code.\n- Participate in, or lead design reviews with peers and stakeholders to decide amongst available technologies.\n- Review code developed by other developers and provide feedback to ensure best practices (e.g., style guidelines, checking code in, accuracy, testability, and efficiency).\n- Contribute to existing documentation or educational content and adapt content based on product updates and user feedback.\n- Triage product or system issues and debug, track and resolve them by analyzing the sources of issues and the impact on service operations and quality."
+}

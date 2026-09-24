@@ -1,0 +1,39 @@
+{
+  "id": "D",
+  "label": "Career returner: 2 years embedded/BLE QA, then an 8-month break",
+  "composite_note": "Fictional composite. The career break (Jan 2026 - Aug 2026) is explicit and must be treated honestly: not hidden, not filled with invented work.",
+  "facts": { "professional_years": 2.2, "has_employment": true, "internship_only": false, "career_gap": { "from": "Jan 2026", "to": "Aug 2026", "months": 8 } },
+  "user_profile": {
+    "full_name": "Deepa Candidate",
+    "email": "deepa.candidate@example.com",
+    "phone": "+91 90000 00004",
+    "current_city": "Chennai",
+    "graduation_year": 2023,
+    "target_roles": ["Embedded Software Engineer", "QA Engineer"],
+    "summary": "QA engineer with 2 years testing BLE and embedded devices, returning after an 8-month career break for family reasons and targeting embedded development or QA roles.",
+    "experience": [
+      {
+        "company": "Luminar Devices Pvt Ltd",
+        "role": "QA Engineer",
+        "duration": "Nov 2023 - Dec 2025",
+        "location": "Chennai",
+        "bullets": [
+          "Tested BLE pairing and GATT services across 12 Android and iOS devices for a wearable product line.",
+          "Automated 150 firmware regression cases with Python and pytest, cutting a regression cycle from 3 days to 1 day.",
+          "Logged and triaged defects in JIRA with firmware developers during 2-week sprints."
+        ]
+      }
+    ],
+    "skills": ["C", "C++", "Python", "pytest", "BLE", "Embedded C", "FreeRTOS", "JIRA", "Git", "Linux", "Test Automation"],
+    "education": [
+      { "institution": "Coromandel Institute of Engineering", "degree": "B.E. Electronics and Communication", "year": "2019 - 2023", "location": "Chennai", "cgpa": "8.0" }
+    ],
+    "projects": [
+      {
+        "name": "ESP32 BLE Sensor Logger",
+        "description": "Personal project during the career break: C firmware on ESP32 with FreeRTOS that advertises temperature readings over BLE and logs them to flash.",
+        "tech": ["C", "FreeRTOS", "BLE", "ESP32"]
+      }
+    ]
+  }
+}

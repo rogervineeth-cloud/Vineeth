@@ -1,0 +1,39 @@
+{
+  "id": "B",
+  "label": "Recent graduate with one backend internship",
+  "composite_note": "Fictional composite built from common public profile patterns. No real person, name, contact or verbatim text.",
+  "facts": { "professional_years": 0, "has_employment": true, "internship_only": true, "career_gap": null },
+  "user_profile": {
+    "full_name": "Bhavya Candidate",
+    "email": "bhavya.candidate@example.com",
+    "phone": "+91 90000 00002",
+    "current_city": "Hyderabad",
+    "graduation_year": 2023,
+    "target_roles": ["Backend Developer", "Software Engineer"],
+    "summary": "B.Tech graduate with a backend internship building Java and Spring Boot REST services, with strong data structures and algorithms practice.",
+    "experience": [
+      {
+        "company": "Kestrel Commerce Pvt Ltd",
+        "role": "Backend Developer Intern",
+        "duration": "Jan 2023 - Jun 2023",
+        "location": "Hyderabad",
+        "bullets": [
+          "Built 6 REST endpoints in Spring Boot for the order-returns module backed by MySQL.",
+          "Wrote JUnit tests for the returns service, raising module coverage from 45% to 70%.",
+          "Fixed 12 production bugs reported by the support team during the internship."
+        ]
+      }
+    ],
+    "skills": ["Java", "Spring Boot", "MySQL", "RESTful APIs", "ReactJS", "AWS", "Data Structures and Algorithms", "Git", "JUnit"],
+    "education": [
+      { "institution": "Deccan College of Engineering", "degree": "B.Tech Information Technology", "year": "2019 - 2023", "location": "Hyderabad", "cgpa": "7.8" }
+    ],
+    "projects": [
+      {
+        "name": "ShopEase - E-commerce Store",
+        "description": "Spring Boot and MySQL e-commerce backend with a React storefront, deployed on AWS EC2 with product images on S3; supports cart, checkout and order history.",
+        "tech": ["Java", "Spring Boot", "MySQL", "React", "AWS"]
+      }
+    ]
+  }
+}

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# resume-quality eval run outputs (generated resumes, raw model replies)
+/evals/resume-quality/out/

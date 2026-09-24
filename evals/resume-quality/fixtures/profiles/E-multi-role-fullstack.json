@@ -1,0 +1,50 @@
+{
+  "id": "E",
+  "label": "Multi-role Java/full-stack candidate (backend, frontend and QA history)",
+  "composite_note": "Fictional composite with deliberately broad skills so role targeting must select relevant evidence rather than stuff keywords.",
+  "facts": { "professional_years": 4.3, "has_employment": true, "internship_only": false, "career_gap": null },
+  "user_profile": {
+    "full_name": "Esha Candidate",
+    "email": "esha.candidate@example.com",
+    "phone": "+91 90000 00005",
+    "current_city": "Bengaluru",
+    "graduation_year": 2021,
+    "target_roles": ["Software Engineer", "Full Stack Developer", "QA Engineer"],
+    "summary": "Full-stack engineer with Java/Spring Boot backend and React frontend experience, and an earlier QA role.",
+    "experience": [
+      {
+        "company": "Orbit Logistics Pvt Ltd",
+        "role": "Software Engineer (Full Stack)",
+        "duration": "Jun 2022 - Present",
+        "location": "Bengaluru",
+        "bullets": [
+          "Built Spring Boot services for shipment tracking that process 2 million events a day from Kafka.",
+          "Developed React and TypeScript screens for the dispatcher console used by 300 operators.",
+          "Containerised 5 services with Docker and deployed them to Kubernetes on AWS.",
+          "Added contract tests between the tracking API and the console, catching 9 breaking changes before release."
+        ]
+      },
+      {
+        "company": "Brightline Retail Tech",
+        "role": "QA Analyst",
+        "duration": "Jun 2021 - May 2022",
+        "location": "Bengaluru",
+        "bullets": [
+          "Automated 80 checkout regression tests with Selenium and Java.",
+          "Ran JMeter load tests for the festive-sale release."
+        ]
+      }
+    ],
+    "skills": ["Java", "Spring Boot", "React", "TypeScript", "JavaScript", "Node.js", "Kafka", "Docker", "Kubernetes", "AWS", "MySQL", "MongoDB", "Selenium", "JMeter", "HTML", "CSS", "Git", "Agile", "Manual Testing"],
+    "education": [
+      { "institution": "Karnataka Institute of Engineering", "degree": "B.E. Information Science", "year": "2017 - 2021", "location": "Mysuru", "cgpa": "7.9" }
+    ],
+    "projects": [
+      {
+        "name": "A11y Audit Helper",
+        "description": "React and TypeScript browser extension that flags missing alt text and low-contrast elements on a page.",
+        "tech": ["React", "TypeScript"]
+      }
+    ]
+  }
+}
