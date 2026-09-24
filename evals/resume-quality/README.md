@@ -78,11 +78,29 @@ Skill detection uses `lib/score-free`'s lexicon, which is independent of the
 create page's extractor, plus a small eval-only vocabulary (`EXTRA_TERMS`).
 The evaluator's own tests are in `__tests__/resume-quality-eval.test.ts`.
 
-## Results (verified JDs)
+## Results
 
-- `results/before-offline.md`: the pre-fix payload matrix. **5 of 11 fail.**
-  - The extractor proposed **no keywords at all** for either Amazon posting.
-  - Truthful DSA, code-review, JavaScript and C evidence was never marked "include".
-- `results/after-offline.md`: after the fixes, **10 of 11 pass**.
-  - The remaining failure is S09. `C` is a language Google names and profile D evidences, but it is not in the extractor. A one-letter skill risks false matches ("Grade C", "Section C"), so it is left out deliberately. C still reaches the model as one of the candidate's own skills.
-- The generated-resume gates are **BLOCKED** until the harness runs with `ANTHROPIC_API_KEY`.
+**Live model runs** (`claude-haiku-4-5-20251001`, the production standard model). They ran on a Vercel preview through a temporary, token-gated route using the shared generation path; that route has since been removed. Every capture in `captured/` is checked against the SHA-256 the preview computed.
+
+| Matrix | Code | Fidelity | KW precision | Unsupported rate | Interview chance |
+|---|---|---|---|---|---|
+| `results/before-live` | main's prompt and sanitiser | **0/11** | 0–0.5 | 0.07–0.31 | weak ×11 |
+| `results/before-live-guard-only` | before-output, re-post-processed with the new guard | 11/11 | 1.0 | 0 | — |
+| `results/after-live` | new prompt and guard, old metric grounding | 10/11 | 1.0 | 0–0.03 | S10 weak |
+| `results/final-live` | **this PR** | **11/11** | **1.0** | **0** | strong ×5, adequate ×6 |
+
+What changed between them:
+- **Prompt:** rules H (skills are evidence-only) and I (own title, honest level).
+- **Evidence guard:** unsupported skills, project tech and matched keywords are removed. A bullet or description that claims an unevidenced skill, or adds a practice its source never named, reverts to the candidate's own wording.
+- **Metric grounding:** numbers are checked against their own role or project, and an offending bullet reverts rather than being deleted.
+- **Normaliser:** no empty sections.
+
+`final-live` flags S01 and S10 as "undersells a matching profile". This is the evaluator's `match ≥ 50` heuristic firing on candidates who lack most of the JD's named skills; the scores are honest.
+
+A manual audit found these residuals, not gated:
+- S07 states "1+ year" for a 3.2-year engineer.
+- S02 and S09 summaries lose their role framing after the guard drops a sentence.
+- Small invented details ("batch jobs") remain in otherwise truthful bullets.
+- Advice text (`growth_note`, tips) is unscored.
+
+**Offline payload matrices** (pre-model): `results/before-offline.md` → `results/after-offline.md`, **6/11 → 10/11**.
