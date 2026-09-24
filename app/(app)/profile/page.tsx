@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent } from "@/lib/profile-completeness";
+import { createHref } from "@/lib/regen";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,6 +146,9 @@ function ProfilePageInner() {
   const searchParams = useSearchParams();
   const fromPreview = searchParams.get("from") === "preview";
   const fromResumeId = searchParams.get("resumeId") ?? "";
+  // Arrived from a resume preview's "Update profile & regenerate": every way
+  // out to /create carries the parent so the regeneration can be free.
+  const generateHref = createHref(fromPreview ? fromResumeId : null);
 
   const STEP_KEYS = useMemo(() => ["basics", "experience", "education", "projects", "roles"], []);
 
@@ -301,7 +305,7 @@ function ProfilePageInner() {
     if (currentStep === 1 && !isFresher && !experience.some((e) => e.company.trim())) setExpSkipped(true); if (currentStep === 2 && !education.some((e) => e.institution.trim())) setEduSkipped(true); if (currentStep === 3 && !projects.some((p) => p.name.trim())) setProjSkipped(true); if (currentStep < STEPS.length - 1) {
       setCurrentStep((s) => s + 1);
     } else {
-      router.push("/create");
+      router.push(generateHref);
     }
   }
 
@@ -716,7 +720,7 @@ function ProfilePageInner() {
           {fromPreview && (
             <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
               <strong>Updating your profile?</strong> Make your changes here, then{" "}
-              <Link href="/create" className="underline underline-offset-2 font-semibold">generate a new resume</Link>.
+              <Link href={generateHref} className="underline underline-offset-2 font-semibold">generate a new resume</Link>.
               {fromResumeId && <span className="ml-1">Regenerating uses 1 credit (free within 24 h of the same JD).</span>}
             </div>
           )}
@@ -796,7 +800,7 @@ function ProfilePageInner() {
                 className="w-full text-sm font-semibold py-5 rounded-xl"
               >
                 {canGenerate ? (
-                  <Link href="/create">Generate my resume →</Link>
+                  <Link href={generateHref}>Generate my resume →</Link>
                 ) : (
                   <span>Generate my resume →</span>
                 )}

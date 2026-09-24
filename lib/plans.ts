@@ -2,6 +2,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { PlanType } from "@/lib/plan-config";
 import { PLAN_ALLOTMENTS } from "@/lib/plan-config";
+import { isFreeRegen, normaliseJd, MAX_LINEAGE_HOPS, type LineageNode } from "@/lib/regen";
 
 export type ActivePlan = {
   id: string;
@@ -46,10 +47,6 @@ export async function canGenerateResume(
 }
 
 /**
- * True when the user is regenerating the SAME resume within 24 hours.
- * In that case no credit is consumed.
- */
-/**
  * Whether `resumeId` exists AND belongs to `userId`.
  *
  * Deliberately distinct from canGenerateFreeRegen(), which conflates three
@@ -73,21 +70,45 @@ export async function userOwnsResume(userId: string, resumeId: string): Promise<
   return !!data;
 }
 
+/**
+ * True when regenerating from `parentResumeId` should not consume a credit:
+ * the parent is the user's, the JD is the same, and it is within 24 h of the
+ * paid original in that same-JD lineage (lib/regen.ts#isFreeRegen).
+ *
+ * Previously this checked only the parent's age. Any generation within 24 h
+ * of any resume would have been free once the client sent a parent id, and
+ * regenerating a regeneration would have restarted the window forever.
+ */
 export async function canGenerateFreeRegen(
   userId: string,
-  originalResumeId: string
+  parentResumeId: string,
+  jdText: string
 ): Promise<boolean> {
   const supabase = await createClient();
-  const { data: resume } = await supabase
-    .from("resumes")
-    .select("created_at")
-    .eq("id", originalResumeId)
-    .eq("user_id", userId)
-    .single();
+  const chain: LineageNode[] = [];
+  let nextId: string | null = parentResumeId;
 
-  if (!resume) return false;
-  const ageMs = Date.now() - new Date(resume.created_at).getTime();
-  return ageMs < 24 * 60 * 60 * 1000;
+  // Walk parent → ancestors (all scoped to this user) until the JD changes,
+  // the lineage ends, or the hop limit. See lib/regen.ts#isFreeRegen.
+  for (let hop = 0; nextId; hop++) {
+    if (hop > MAX_LINEAGE_HOPS) {
+      // More same-JD lineage above than we will walk: the paid original was
+      // not found, so the window cannot be anchored. Charge rather than guess.
+      return false;
+    }
+    const { data }: { data: (LineageNode & { id: string }) | null } = await supabase
+      .from("resumes")
+      .select("id, jd_text, created_at, regen_of_resume_id")
+      .eq("id", nextId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!data) break;
+    chain.push(data);
+    if (normaliseJd(data.jd_text) !== normaliseJd(jdText)) break;
+    nextId = data.regen_of_resume_id ?? null;
+  }
+
+  return isFreeRegen(chain, jdText);
 }
 
 /**
