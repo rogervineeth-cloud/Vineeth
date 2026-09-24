@@ -297,7 +297,7 @@ export function addedWords(text: string, scope: Set<string>, neutral: Set<string
 }
 
 const IDENTITY =
-  /\b(?:engineers?|developers?|graduates?|analysts?|testers?|students?|professionals?|candidates?|specialists?|freshers?|interns?|leads?|architects?|scientists?|managers?|designers?|consultants?|programmers?)\b/i;
+  /\b(?:engineers?|developers?|graduates?|analysts?|testers?|students?|professionals?|candidates?|specialists?|freshers?|interns?|leads?|architects?|scientists?|managers?|designers?|consultants?|programmers?|executives?|accountants?|auditors?|recruiters?|teachers?|educators?|lecturers?|trainers?|instructors?|nurses?|pharmacists?|doctors?|physicians?|technicians?|officers?|associates?|coordinators?|supervisors?|representatives?|trainees?|marketers?|writers?|lawyers?|advocates?|planners?|advisors?|advisers?|researchers?|operators?|clerks?|directors?|controllers?)\b/i;
 const CREDIT =
   /^\s*(?:strong|solid|excellent|good|proven|deep|extensive|robust)\b|\byou(?:'ve|'re)\b|\byou\s+(?!should|could|can|may|might|will|would|need|must|want|to\b|consider|try)[a-z]+\b|\byour\b[^.;:]*?\b(?:demonstrates|shows|reflects|includes|highlights|proves)\b/i;
 const LACK = /\b(?:not|no|never|lacks?|lacking|without|missing|yet to|gaps?|limited|absent)\b/i;
@@ -384,7 +384,13 @@ export function evaluateResume(
     const supported = c ? have.has(c) : haveLiteral.includes(n(s));
     if (!supported) fid.push(`unsupported skill "${s}"`);
   }
-  for (const s of skillsIn(proseText(r))) {
+  // "seeking the UI/UX Designer role" names the target, it does not claim UI/UX.
+  let prose = proseText(r);
+  for (const title of [jd.title, r.tailored_role ?? ""].filter(Boolean)) {
+    const esc = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    prose = prose.replace(new RegExp(`(seeking|targeting|pursuing|applying for|for|toward|towards)(\\s+(?:the|a|an))?\\s+${esc}`, "gi"), "$1$2");
+  }
+  for (const s of skillsIn(prose)) {
     claims += 1;
     if (!have.has(s)) fid.push(`unsupported skill in prose "${s}"`);
   }

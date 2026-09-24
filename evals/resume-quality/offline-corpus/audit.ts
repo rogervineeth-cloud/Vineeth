@@ -165,11 +165,13 @@ export function auditCase(c: CorpusCase, now: Date = CORPUS_NOW): CaseResult {
       final = one.projects?.[0]?.description ?? "";
     }
     const clean = final === "" || addedWords(final, wordSet(scopeText), NEUTRAL).length === 0;
-    const outcome = final === l.text ? "kept" : final === source ? "reverted" : final === "" ? "dropped" : "trimmed";
+    // Any of the candidate's own texts (a restored bullet included) is a revert.
+    const own = l.where === "bullet" ? exp[l.role!].bullets : [source];
+    const outcome = final === l.text ? "kept" : own.includes(final) ? "reverted" : final === "" ? "dropped" : "trimmed";
     items.push({
       case: c.id, where: l.where, kind: l.kind, input: l.text, final, outcome, clean,
       achievements_kept: final !== "" && subset(numbers(source), numbers(final)),
-      tailoring_retained: final !== "" && final !== source && clean,
+      tailoring_retained: final !== "" && !own.includes(final) && clean,
     });
   }
 

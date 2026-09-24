@@ -114,3 +114,157 @@ export function novelDetail(rewrite: string, evidence: Evidence, opts: { summary
   }
   return out;
 }
+
+// ── Trim instead of revert ─────────────────────────────────────────────────
+//
+// Offline corpus audit (evals/resume-quality/offline-corpus, baseline): a
+// rewrite with ONE unsupported word or clause — "..., improving overall
+// ROAS", "through data-driven creative testing", "customer-facing macros" —
+// was reverted whole, so the truthful tailoring around it was lost (0 of 22
+// such items kept any). Here only the unsupported part goes, and only when
+// what is left passes the same evidence check, keeps every number of the
+// candidate's source text and still mostly says what the source said.
+// Otherwise the caller reverts exactly as before.
+
+/** Where a removable clause may start: ", improving ...", " and optimising ...", " by/using/through/via/with/as ...", "; ...". */
+const CLAUSE_STARTS = [
+  /,\s+(?:and\s+|while\s+|thereby\s+)?[a-z]+ing\b/gi,
+  /\s+(?:and|while)\s+[a-z]+ing\b/gi,
+  /,?\s+(?:by|using|through|via|with|as)\s+/gi,
+  /;\s+/g,
+];
+
+export type TrimOptions = {
+  /** Unsupported words (or skills) still in `t`; empty means supported. */
+  novel: (t: string) => string[];
+  /** Any further check the result must pass. */
+  ok?: (t: string) => boolean;
+  /** The candidate's own text this was rewritten from, if known. */
+  source?: string;
+  /** Only remove clauses (for checks that report skills, not words). */
+  clausesOnly?: boolean;
+};
+
+const numbersIn = (t: string) => new Set((t.replace(/(\d),(?=\d{3}\b)/g, "$1").match(/\d+(?:\.\d+)?/g) ?? []));
+
+/** Share of the source's content words the result still carries. */
+function coverage(result: string, source: string): number {
+  const have = new Evidence(result);
+  const src = [...new Set(contentTokens(source))];
+  return src.length ? src.filter((w) => have.has(w)).length / src.length : 1;
+}
+
+/** Ends in a clause that lost its object ("... and partnering") or on a function word. */
+function dangling(t: string): boolean {
+  const words = t.replace(/[.!?]$/, "").trim().split(/\s+/);
+  const last = (words[words.length - 1] ?? "").toLowerCase().replace(/[^a-z-]/g, "");
+  const prev = (words[words.length - 2] ?? "").toLowerCase();
+  return STOP.has(last) || (/ing$/.test(last) && (prev === "and" || prev.endsWith(",")));
+}
+
+function tidy(t: string): string {
+  const s = t.replace(/\s+([,;.])/g, "$1").replace(/([,;])\s*([,;])/g, "$1").replace(/[,;]\s*$/, "").replace(/\s{2,}/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function clauseRemovals(body: string): string[] {
+  const out: string[] = [];
+  for (const re of CLAUSE_STARTS) {
+    for (const m of body.matchAll(re)) {
+      const s = m.index ?? 0;
+      if (s === 0) continue;
+      const rest = body.slice(s + 1);
+      const next = rest.search(/[,;]/);
+      const ends = [body.length];
+      if (next >= 0) ends.push(s + 1 + next);
+      for (const e of ends) out.push(body.slice(0, s) + body.slice(e));
+    }
+  }
+  return out;
+}
+
+function modifierRemovals(body: string, novelWords: Set<string>): string[] {
+  const toks = body.split(/\s+/);
+  const out: string[] = [];
+  toks.forEach((tok, i) => {
+    if (/[,;:]$/.test(tok)) return;
+    const word = tok.toLowerCase().replace(/[^a-z0-9+#-]/g, "");
+    const hyphenated = word.includes("-");
+    if (!contentTokens(word).some((w) => novelWords.has(w))) return;
+    // Plain -ed/-ing words may be verbs ("optimised queries"); only
+    // hyphenated compounds may go from the front of the sentence.
+    if (!hyphenated && (/(?:ed|ing)$/.test(word) || i === 0)) return;
+    const next = toks[i + 1];
+    if (!next) return;
+    // "PPAP and APQP files": deleting one of a coordination leaves "PPAP and files".
+    const prev = (toks[i - 1] ?? "").toLowerCase();
+    if (!/ly$/.test(word) && (prev === "and" || prev === "or" || prev === "&" || prev.endsWith(","))) return;
+    const nextWords = contentTokens(next);
+    if (nextWords.length === 0 || nextWords.some((w) => novelWords.has(w))) return;
+    out.push(toks.filter((_, j) => j !== i).join(" "));
+  });
+  return out;
+}
+
+/** Past-tense opening verb ("Prepared", "Built", "Ran"). */
+const PAST_VERB = /^(?:[a-z]+ed|built|ran|led|wrote|made|cut|sold|taught|won|grew|drove|set|began|brought|kept|held|met|put|sent|spent|took|gave|found|saw|told|thought|understood|oversaw|rebuilt|rewrote)$/i;
+
+function verbRestore(body: string, source: string, novelWords: Set<string>): string[] {
+  const first = body.split(/\s+/)[0] ?? "";
+  const srcFirst = source.trim().split(/\s+/)[0] ?? "";
+  // Only a verb for a verb: "Prepared weekly reports" -> "Built weekly reports".
+  if (!PAST_VERB.test(first) || !PAST_VERB.test(srcFirst)) return [];
+  if (!contentTokens(first).some((w) => novelWords.has(w))) return [];
+  return [srcFirst + body.slice(first.length)];
+}
+
+/**
+ * The rewrite with its unsupported word(s)/clause(s) removed, or null when no
+ * removal of at most three steps yields supported, well-formed text that
+ * keeps the source's numbers and at least 75% of its content words.
+ */
+export function trimToEvidence(text: string, o: TrimOptions): string | null {
+  const trimmed = text.trim();
+  const end = /[.!?]$/.test(trimmed) ? trimmed.slice(-1) : "";
+  const finish = (b: string) => tidy(b) + end;
+  const srcNumbers = o.source ? numbersIn(o.source) : new Set<string>();
+  const accept = (b: string) => {
+    const t = finish(b);
+    if (contentTokens(t).length < 2 || dangling(t)) return false;
+    if (o.novel(t).length) return false;
+    if (o.ok && !o.ok(t)) return false;
+    if (o.source) {
+      const have = numbersIn(t);
+      if (![...srcNumbers].every((n) => have.has(n))) return false;
+      // Trimming must not say less of the candidate's own bullet than a
+      // revert would: "Reduced dispatch errors from 3.2% to 0.9%" drops their
+      // "by introducing barcode scanning at packing", so revert instead.
+      if (coverage(t, o.source) < 0.75) return false;
+    }
+    return true;
+  };
+
+  let frontier = [trimmed.replace(/[.!?]$/, "")];
+  const seen = new Set(frontier);
+  for (let depth = 0; depth < 3; depth++) {
+    const next: string[] = [];
+    for (const b of frontier) {
+      const novelWords = new Set(o.clausesOnly ? [] : o.novel(finish(b)).map((w) => w.toLowerCase()));
+      const children = [
+        ...clauseRemovals(b),
+        ...(o.clausesOnly ? [] : modifierRemovals(b, novelWords)),
+        ...(o.clausesOnly || !o.source ? [] : verbRestore(b, o.source, novelWords)),
+      ];
+      for (const c of children) {
+        const k = tidy(c);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        next.push(c);
+      }
+    }
+    const ok = next.filter(accept).sort((a, b) => tidy(b).length - tidy(a).length);
+    if (ok.length) return finish(ok[0]);
+    frontier = next.slice(0, 200);
+  }
+  return null;
+}

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "run_id": "results/final-live-2",
-    "mode": "live model (captured from preview: live-final-2)",
+    "run_id": "results/final-live-2-reprocessed",
+    "mode": "live model (captured from preview: live-final-2, re-post-processed with current code)",
     "model": "claude-haiku-4-5-20251001",
     "jd_sources": "OFFICIAL_PARAPHRASE"
   },
@@ -216,16 +216,15 @@
           "projects_vs_employment": true,
           "detail_fidelity": true,
           "summary_framing": true,
-          "advice_fidelity": false,
+          "advice_fidelity": true,
           "structural_validity": true
         },
-        "defects": [
-          "[advice_fidelity] growth_note says \"8 of the 10 curated keywords\" but lists 9"
-        ],
+        "defects": [],
         "interview_chance": "adequate",
         "sanitiser_warnings": [
           "dropped_summary_sentence_unsupported_skill:GCP",
-          "reverted_project_description_unsupported_detail:designed|integrating|features"
+          "reverted_project_description_unsupported_detail:designed|integrating|features",
+          "corrected_advice_count"
         ]
       }
     },

@@ -164,3 +164,72 @@ Still open (found by reading, not scored):
 - The evaluator's new gates share the guards' idea (evidence by word overlap),
   implemented separately; agreement between them is not independent proof.
 
+## Offline corpus: generalisation and tailoring audit (synthetic)
+
+`offline-corpus/cases/` holds 12 **fictional composite** cases, most of them
+non-engineering: marketing, finance (CA), HR, sales, warehouse operations,
+data analysis, teacher to instructional designer, support to customer success,
+nurse to clinical research, accounting fresher, graphic to UI/UX design and
+manufacturing quality. Each has invented people (`example.com`), employers and
+colleges, a synthetic JD, and a hand-written model-style rewrite. Its 67 items
+are labelled `faithful`, `tailored`, `verb_swap`, `truthful_unscoped`,
+`one_unsupported` or `fabricated`.
+
+`npx tsx evals/resume-quality/offline-corpus/audit.ts --save <label>` runs the
+production `postProcessResume` over them. It judges each item with the
+evaluator's separately implemented checks: kept, trimmed, reverted or dropped;
+any unsupported content left; tailoring retained; source numbers kept. Per case
+it records the gates, whether the summary names the target role, and whether
+every source bullet's numbers survive in the full resume.
+
+| | `offline-corpus-before` (baseline guards) | `offline-corpus-after` (this change) |
+|---|---|---|
+| Unsupported content left (all 67 items) | 0 | 0 |
+| faithful + tailored kept unchanged | 22 / 24 | **24 / 24** |
+| one-unsupported items keeping their tailoring | **0 / 22** | **16 / 22** (6 revert) |
+| verb swaps keeping the rewrite | 0 / 2 | 1 / 2 |
+| truthful synonyms / other-field evidence kept | 0 / 4 | 0 / 4 (known cost) |
+| fabricated items keeping anything unsupported | 0 / 15 | 0 / 15 |
+| summaries naming the target role | 10 / 12 | **12 / 12** |
+| every source bullet's numbers preserved | 11 / 12 | **12 / 12** |
+| advice_fidelity (count check) | 8 / 12 | **12 / 12** |
+
+What changed, and why:
+- **Trim instead of revert** (`trimToEvidence`, used by the skill, detail and
+  summary guards). Only an unsupported clause (", improving…",
+  " and partnering…", " by/using/through/via/with/as …", "; …") or modifier
+  ("data-driven", "customer-facing") is removed, or an unsupported opening verb
+  becomes the source's own verb. The result must:
+  - pass the same evidence check;
+  - keep every number of the source;
+  - keep at least 75% of the source's content words;
+  - not end on a dangling clause, and not delete one noun of a coordination.
+
+  Otherwise the guard reverts exactly as before.
+- **Naming the role sought is not claiming its skills.** "seeking the UI/UX
+  Designer role" and "…the Performance Marketing Manager role" were dropped as
+  UI/UX / Performance Marketing claims. The same title claimed as the
+  candidate's own is still removed.
+- **Identity nouns beyond engineering.** "Chartered Accountant", "HR
+  recruiter", "science teacher" and "staff nurse" did not count as saying who
+  the candidate is.
+- **Displaced achievements restored.** When an unmatchable fabricated bullet is
+  dropped, the source bullet it displaced is restored (N09 had lost "Trained 5
+  new nurses").
+- **Advice counts.** "8 of the 10 curated keywords (…9 items…)" is corrected to
+  the list.
+
+**Limits of this evidence:**
+- The corpus, its labels and the guards were written by the same author.
+  One-unsupported items are shaped like the patterns the fix targets, though
+  three are deliberately not (an -ed modifier and two coordinated nouns), and
+  those revert.
+- It shows the mechanism works and fails safe. It does **not** measure how
+  often real model output looks like this, or how the rules behave on real
+  profiles in other languages, formats or domains.
+- Truthful synonyms ("outbound prospecting calls" for "cold calls") are still
+  reverted.
+- The live captures store post-processed output, so re-processing them
+  (`results/final-live-2-reprocessed`) shows only the advice-count fix. The
+  tailoring gain on real model output is unmeasured until a new live run.
+

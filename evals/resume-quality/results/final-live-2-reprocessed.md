@@ -1,6 +1,6 @@
-# Resume-quality eval — results/final-live-2
+# Resume-quality eval — results/final-live-2-reprocessed
 
-- Mode: **live model (captured from preview: live-final-2)**  |  Model: `claude-haiku-4-5-20251001`  |  JD sources: OFFICIAL_PARAPHRASE
+- Mode: **live model (captured from preview: live-final-2, re-post-processed with current code)**  |  Model: `claude-haiku-4-5-20251001`  |  JD sources: OFFICIAL_PARAPHRASE
 
 ## Pre-model payload (what production would send)
 
@@ -26,7 +26,7 @@
 | S02 | 42 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | strong |
 | S03 | 28 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | strong |
 | S04 | 58 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | adequate |
-| S05 | 42 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | FAIL | adequate |
+| S05 | 42 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | adequate |
 | S06 | 62 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | strong |
 | S07 | 58 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | strong |
 | S08 | 38 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | adequate |
@@ -37,5 +37,4 @@
 ### Defects
 
 - **S01** [seniority_calibration] ats_score 42 undersells a matching profile
-- **S05** [advice_fidelity] growth_note says "8 of the 10 curated keywords" but lists 9
 - **S10** [seniority_calibration] ats_score 48 undersells a matching profile

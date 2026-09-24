@@ -89,7 +89,9 @@ describe("specific live defects", () => {
     const { profile, after, warnings } = load("S04");
     const src = profile.user_profile.experience![0].bullets[0];
     expect(after.experience![0].bullets).toContain(src);
-    expect(warnings.join()).toMatch(/reverted_bullet_unsupported_skill/);
+    expect(after.experience![0].bullets!.join(" ")).not.toMatch(/object-oriented/i);
+    // The skill clause is trimmed first; the detail guard then restores the source.
+    expect(warnings.join()).toMatch(/(?:reverted|trimmed)_bullet_unsupported_skill:Object-Oriented Design/);
   });
 
   it("S04: evidenced DSA stays (B lists Data Structures and Algorithms)", () => {
@@ -168,8 +170,13 @@ describe("practice terms are checked against the bullet's own source", () => {
         "Built 6 REST endpoints in Spring Boot for the order-returns module backed by MySQL, handling concurrent requests with efficient Data Structures.",
       ] }],
     };
+    // The skill guard removes only the clause naming the skill ...
     const r = enforceSkillEvidence(resume as never, B);
-    expect((r.resume as unknown as { experience: { bullets: string[] }[] }).experience[0].bullets).toEqual([src]);
+    expect((r.resume as unknown as { experience: { bullets: string[] }[] }).experience[0].bullets.join(" ")).not.toMatch(/Data Structures/);
+    // ... and the full pipeline, whose detail guard also rejects the invented
+    // "handling concurrent requests", returns the candidate's own bullet.
+    const full = postProcessResume(structuredClone(resume), B, { now: NOW });
+    expect((full.resume as unknown as { experience: { bullets: string[] }[] }).experience[0].bullets).toEqual([src]);
   });
 
   it("a practice the source bullet already names is kept (C: code reviews)", () => {

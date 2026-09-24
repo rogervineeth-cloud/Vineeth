@@ -10,7 +10,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { GENERATION_TEMPERATURE } from "@/lib/models";
 import { detectTechSkills, TECH_SKILLS } from "@/lib/jd-keywords";
 import { computeFacts, yearsProblems, type CandidateFacts } from "@/lib/profile-facts";
-import { Evidence, novelDetail } from "@/lib/detail-evidence";
+import { Evidence, novelDetail, trimToEvidence } from "@/lib/detail-evidence";
 
 const KNOWN_SKILLS = new Set(TECH_SKILLS.map((s) => s.name));
 import {
@@ -376,6 +376,25 @@ function skillsMentioned(text: string): string[] {
   return [...new Set([...detectTechSkills(text), ...detectTechSkills(text.replace(/-/g, " "))])];
 }
 
+/** The target role, where the text frames it as sought ("seeking the X role"), removed. */
+export function maskSoughtRole(text: string, role: string): string {
+  if (!role) return text;
+  const esc = role.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`((?:seeking|targeting|pursuing|applying for|for|toward|towards)\\s+(?:the|a|an)?\\s*)${esc}`, "gi"), "$1");
+}
+
+/**
+ * A rewrite that could not be matched to any source bullet is dropped; the
+ * source bullet it displaced must not vanish with it (offline corpus N09: a
+ * fabricated trial-enrolment bullet took "Trained 5 new nurses" with it).
+ * Restore the role's unrepresented source bullets, one per drop.
+ */
+function restoreDropped(bullets: string[], source: string[], dropped: number): string[] {
+  if (!dropped) return bullets;
+  const missing = source.filter((sb) => !bullets.some((b) => b === sb || sourceSimilarity(b, sb) >= 0.3));
+  return [...bullets, ...missing.slice(0, dropped)];
+}
+
 export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationProfile) {
   const warnings: string[] = [];
   const evidenceText = profileEvidence(profile);
@@ -423,6 +442,7 @@ export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationPro
       const src = (profile.experience ?? []).find(
         (p) => norm(p.company) === norm(exp.company ?? "") && norm(p.role) === norm(exp.role ?? "")
       ) ?? (profile.experience ?? []).find((p) => norm(p.company) === norm(exp.company ?? ""));
+      let dropped = 0;
       const bullets = (exp.bullets ?? []).flatMap((b) => {
         const best = (src?.bullets ?? [])
           .map((sb) => ({ sb, score: sourceSimilarity(b, sb) }))
@@ -435,13 +455,27 @@ export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationPro
         ];
         if (bad.length === 0) return [b];
         if (best && best.score >= 0.3) {
+          // Only the clause naming the skill goes, if the rest stands on its own.
+          const trimmed = trimToEvidence(b, {
+            clausesOnly: true,
+            source: best.sb,
+            novel: (t) => [
+              ...unsupportedIn(t),
+              ...skillsMentioned(t).filter((k) => PRACTICE_SKILLS.has(k) && evidenced.has(k) && !sourcePractices.has(k)),
+            ],
+          });
+          if (trimmed) {
+            warnings.push(`trimmed_bullet_unsupported_skill:${bad.join("|")}`);
+            return [trimmed];
+          }
           warnings.push(`reverted_bullet_unsupported_skill:${bad.join("|")}`);
           return [best.sb];
         }
         warnings.push(`dropped_bullet_unsupported_skill:${bad.join("|")}`);
+        dropped++;
         return [];
       });
-      return { ...exp, bullets: [...new Set(bullets)] };
+      return { ...exp, bullets: restoreDropped([...new Set(bullets)], src?.bullets ?? [], dropped) };
     });
   }
 
@@ -458,8 +492,18 @@ export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationPro
         ...skillsMentioned(description).filter((k) => PRACTICE_SKILLS.has(k) && evidenced.has(k) && !srcPractices.has(k)),
       ];
       if (bad.length > 0) {
-        warnings.push(`reverted_project_description_unsupported_skill:${bad.join("|")}`);
-        description = src?.description ?? "";
+        const trimmed = src
+          ? trimToEvidence(description, {
+              clausesOnly: true,
+              source: src.description,
+              novel: (t) => [
+                ...unsupportedIn(t),
+                ...skillsMentioned(t).filter((k) => PRACTICE_SKILLS.has(k) && evidenced.has(k) && !srcPractices.has(k)),
+              ],
+            })
+          : null;
+        warnings.push(`${trimmed ? "trimmed" : "reverted"}_project_description_unsupported_skill:${bad.join("|")}`);
+        description = trimmed ?? src?.description ?? "";
       }
       const tech = (pr.tech ?? []).filter((t) => {
         const ok = typeof t === "string" && listEntryOk(t);
@@ -475,10 +519,17 @@ export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationPro
   if (typeof out.summary === "string" && out.summary.trim()) {
     // Split only at ". X" — so "B.Tech", "Node.js" and "e.g." stay intact.
     const sentences = out.summary.split(/(?<=[.!?])\s+(?=[A-Z])/);
-    const kept = sentences.filter((sn) => {
-      const bad = unsupportedIn(sn);
-      if (bad.length) warnings.push(`dropped_summary_sentence_unsupported_skill:${bad.join("|")}`);
-      return bad.length === 0;
+    // Naming the role being sought is not claiming its skills: "seeking the
+    // UI/UX Designer role" or "...the Performance Marketing Manager role" was
+    // dropped as an unevidenced UI/UX / Performance Marketing claim.
+    const target = typeof out.tailored_role === "string" ? out.tailored_role.trim() : "";
+    const unsupportedClaims = (t: string) => unsupportedIn(maskSoughtRole(t, target));
+    const kept = sentences.flatMap((sn) => {
+      const bad = unsupportedClaims(sn);
+      if (!bad.length) return [sn];
+      const trimmed = trimToEvidence(sn, { clausesOnly: true, novel: unsupportedClaims });
+      warnings.push(`${trimmed ? "trimmed" : "dropped"}_summary_sentence_unsupported_skill:${bad.join("|")}`);
+      return trimmed ? [trimmed] : [];
     });
     out.summary = kept.join(" ").trim() || (profile.summary ?? "").trim();
   }
@@ -523,6 +574,7 @@ export function enforceDetailEvidence(resume: ResumeShape, profile: GenerationPr
       ) ?? (profile.experience ?? []).find((p) => norm(p.company) === norm(exp.company ?? ""));
       if (!src) return exp;
       const evidence = new Evidence(src.role, src.company, ...src.bullets);
+      let dropped = 0;
       const bullets = (exp.bullets ?? []).flatMap((b) => {
         const added = novelDetail(b, evidence);
         if (added.length === 0) return [b];
@@ -530,13 +582,22 @@ export function enforceDetailEvidence(resume: ResumeShape, profile: GenerationPr
           .map((sb) => ({ sb, score: sourceSimilarity(b, sb) }))
           .sort((x, y) => y.score - x.score)[0];
         if (best && best.score >= 0.3) {
+          // Lose only the unsupported word or clause when the rest is
+          // evidenced, keeps the source's numbers and still says what the
+          // source said; otherwise restore the candidate's own bullet.
+          const trimmed = trimToEvidence(b, { source: best.sb, novel: (t) => novelDetail(t, evidence) });
+          if (trimmed) {
+            warnings.push(`trimmed_bullet_unsupported_detail:${added.join("|")}`);
+            return [trimmed];
+          }
           warnings.push(`reverted_bullet_unsupported_detail:${added.join("|")}`);
           return [best.sb];
         }
         warnings.push(`dropped_bullet_unsupported_detail:${added.join("|")}`);
+        dropped++;
         return [];
       });
-      return { ...exp, bullets: [...new Set(bullets)] };
+      return { ...exp, bullets: restoreDropped([...new Set(bullets)], src.bullets, dropped) };
     });
   }
 
@@ -547,10 +608,12 @@ export function enforceDetailEvidence(resume: ResumeShape, profile: GenerationPr
         return a === b || a.startsWith(b) || b.startsWith(a);
       });
       if (!src || typeof pr.description !== "string") return pr;
-      const added = novelDetail(pr.description, new Evidence(src.name, src.description, ...src.tech));
+      const evidence = new Evidence(src.name, src.description, ...src.tech);
+      const added = novelDetail(pr.description, evidence);
       if (added.length === 0) return pr;
-      warnings.push(`reverted_project_description_unsupported_detail:${added.join("|")}`);
-      return { ...pr, description: src.description };
+      const trimmed = trimToEvidence(pr.description, { source: src.description, novel: (t) => novelDetail(t, evidence) });
+      warnings.push(`${trimmed ? "trimmed" : "reverted"}_project_description_unsupported_detail:${added.join("|")}`);
+      return { ...pr, description: trimmed ?? src.description };
     });
   }
 
@@ -569,7 +632,7 @@ export function enforceDetailEvidence(resume: ResumeShape, profile: GenerationPr
 
 const SENTENCE_SPLIT = /(?<=[.!?])\s+(?=[A-Z])/;
 const IDENTITY_NOUN =
-  /\b(engineers?|developers?|graduates?|analysts?|testers?|students?|professionals?|candidates?|specialists?|freshers?|interns?|leads?|architects?|scientists?|managers?|designers?|consultants?|administrators?|programmers?)\b/i;
+  /\b(engineers?|developers?|graduates?|analysts?|testers?|students?|professionals?|candidates?|specialists?|freshers?|interns?|leads?|architects?|scientists?|managers?|designers?|consultants?|administrators?|programmers?|executives?|accountants?|auditors?|recruiters?|teachers?|educators?|lecturers?|trainers?|instructors?|nurses?|pharmacists?|doctors?|physicians?|therapists?|technicians?|officers?|associates?|coordinators?|supervisors?|representatives?|agents?|trainees?|marketers?|writers?|editors?|lawyers?|advocates?|planners?|buyers?|strategists?|advisors?|advisers?|counsellors?|researchers?|economists?|operators?|clerks?|chefs?|founders?|directors?|heads?|controllers?)\b/i;
 
 export function opensWithIdentity(summary: string): boolean {
   const first = (summary ?? "").trim().split(SENTENCE_SPLIT)[0] ?? "";
@@ -589,19 +652,24 @@ export function enforceSummaryFacts(resume: ResumeShape, profile: GenerationProf
     typeof out.tailored_role === "string" ? out.tailored_role : "",
     facts.identity
   );
-  const kept = out.summary.trim().split(SENTENCE_SPLIT).filter((sn) => {
-    if (!sn.trim()) return false;
+  const kept = out.summary.trim().split(SENTENCE_SPLIT).flatMap((sn) => {
+    if (!sn.trim()) return [];
     const years = yearsProblems(sn, facts);
     if (years.length) {
       warnings.push(`dropped_summary_sentence_years:${years.map((y) => `${y.kind}:${y.claim}`).join("|")}`);
-      return false;
+      return [];
     }
     const added = novelDetail(sn, evidence, { summary: true });
     if (added.length) {
-      warnings.push(`dropped_summary_sentence_unsupported_detail:${added.join("|")}`);
-      return false;
+      // "...through data-driven creative testing": lose the word, keep the sentence.
+      const trimmed = trimToEvidence(sn, {
+        novel: (t) => novelDetail(t, evidence, { summary: true }),
+        ok: (t) => yearsProblems(t, facts).length === 0,
+      });
+      warnings.push(`${trimmed ? "trimmed" : "dropped"}_summary_sentence_unsupported_detail:${added.join("|")}`);
+      return trimmed ? [trimmed] : [];
     }
-    return true;
+    return [sn];
   });
   let summary = kept.join(" ").trim();
   if (!summary) {
@@ -680,9 +748,31 @@ function adviceProblems(text: string, unevidenced: (t: string) => string[], fact
   return [...new Set(problems)];
 }
 
+/**
+ * "8 of the 10 curated keywords (JavaScript, Python, ..., UI/UX)" listing 9
+ * (live S05, final-live-2): the count is corrected to what the list shows.
+ * If the list is longer than the stated total, the total is dropped.
+ */
+export function fixAdviceCounts(text: string): string {
+  return text.replace(/\b(\d+)(\s+of\s+(?:the\s+)?)(\d+)\b([^().]{0,60}?)\(([^)]*)\)/g, (m, n, of, total, mid, list) => {
+    const listed = String(list).split(/,|\band\b/).map((x: string) => x.trim()).filter(Boolean).length;
+    if (listed < 2 || listed === Number(n)) return m;
+    return listed <= Number(total) ? `${listed}${of}${total}${mid}(${list})` : `${listed}${mid}(${list})`;
+  });
+}
+
 export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationProfile, facts: CandidateFacts) {
   const warnings: string[] = [];
   const out = { ...resume } as ResumeShape & Record<string, unknown>;
+  const counted = (t: string) => {
+    const fixed = fixAdviceCounts(t);
+    if (fixed !== t) warnings.push("corrected_advice_count");
+    return fixed;
+  };
+  if (typeof out.growth_note === "string") out.growth_note = counted(out.growth_note);
+  if (Array.isArray(out.profile_improvement_tips)) {
+    out.profile_improvement_tips = out.profile_improvement_tips.map((t) => (typeof t === "string" ? counted(t) : t));
+  }
   const evidenced = new Set(skillsMentioned(profileEvidence(profile)));
   const unevidenced = (t: string) => skillsMentioned(t).filter((k) => !evidenced.has(k));
 
