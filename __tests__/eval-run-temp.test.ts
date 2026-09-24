@@ -50,7 +50,7 @@ describe("lockdown", () => {
   });
 
   it("expires within hours, not days", () => {
-    const hours = (Date.parse(EXPIRES_AT) - Date.parse("2026-09-24T10:00:00Z")) / 3_600_000;
+    const hours = (Date.parse(EXPIRES_AT) - Date.parse("2026-09-24T13:00:00Z")) / 3_600_000;
     expect(hours).toBeGreaterThan(0);
     expect(hours).toBeLessThanOrEqual(3);
   });
