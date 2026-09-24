@@ -5,12 +5,20 @@
   "location": "India",
   "job_id": "2968029",
   "url": "https://www.amazon.jobs/en/jobs/2968029",
-  "source_status": "RECONSTRUCTED_PLACEHOLDER",
-  "source_note": "The official page could not be fetched from the eval environment (network egress to www.amazon.jobs is blocked). This text reconstructs the standard shape of Amazon entry-level SDE postings in India and is NOT verbatim; the exact experience requirement must be confirmed against the official page. Replace `text` and set source_status to OFFICIAL before treating results as final.",
+  "source_status": "OFFICIAL_PARAPHRASE",
+  "source_note": "Paraphrase of the official posting supplied by the project owner after independent verification. Not verbatim: wording is condensed, but every requirement comes from the official source and nothing has been added. Replaces the earlier reconstructed placeholder (the eval environment cannot reach the careers site). The verified posting states no minimum years of experience.",
   "expected": {
-    "level": "entry (SDE I)",
-    "min_years": 1,
-    "ground_truth_skills": ["Java", "C++", "C#", "Object-Oriented Design", "Data Structures", "Algorithms", "System Design", "Testing", "Code Review"]
+    "level": "entry (SDE)",
+    "min_years": null,
+    "ground_truth_skills": [
+      "Distributed Systems",
+      "Data Structures",
+      "Algorithms",
+      "Object-Oriented Design",
+      "Real-Time Systems"
+    ]
   },
-  "text": "Software Development Engineer\nJob ID: 2968029\n\nDescription:\nAs a Software Development Engineer you will design, develop, test and deploy software for customer-facing and internal systems. You will write high-quality, maintainable code, participate in code reviews, and work with senior engineers on the design of scalable services.\n\nBasic qualifications:\n- 1+ years of non-internship professional software development experience\n- Experience programming with at least one modern language such as Java, C++, or C# including object-oriented design\n- Knowledge of computer science fundamentals such as data structures, algorithms and object-oriented design\n\nPreferred qualifications:\n- Experience contributing to the system design or architecture (architecture, design patterns, reliability and scaling) of new and current systems\n- Knowledge of professional software engineering and best practices for the full software development life cycle, including coding standards, code reviews, source control management, build processes, testing, and operations\n- Bachelor's degree in computer science or equivalent"
+  "text": "Software Development Engineer\nJob ID: 2968029\n\nAbout the role:\nThe role emphasizes scalable distributed systems, data structures and algorithms, object-oriented design and programming, real-time systems, and end-to-end ownership.",
+  "source_verified_by": "Project owner, independently verified against the official posting",
+  "source_verified_date": "2026-09-24"
 }

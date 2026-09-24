@@ -167,9 +167,13 @@ export type GenerationInput = {
 /**
  * Every place in the profile a skill can be evidenced: the skills list, but
  * also role titles, experience bullets, project names, descriptions and tech.
+ *
+ * NOT the summary: summaries carry aspiration ("eager to learn Kubernetes",
+ * "targeting distributed systems roles"), and reading those as evidence would
+ * tell the model to claim a skill the candidate does not have.
  */
 function profileEvidence(p: GenerationProfile): string {
-  const parts: string[] = [p.summary ?? "", ...(p.skills ?? [])];
+  const parts: string[] = [...(p.skills ?? [])];
   for (const e of p.experience ?? []) parts.push(e.role, ...e.bullets);
   for (const pr of p.projects ?? []) parts.push(pr.name, pr.description, ...pr.tech);
   return parts.join("\n");

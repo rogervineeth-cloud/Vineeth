@@ -1,22 +1,22 @@
 # Resume-quality eval — results/before-offline
 
-- Mode: **offline (no model)**  |  Model: `claude-haiku-4-5-20251001`  |  JD sources: RECONSTRUCTED_PLACEHOLDER
+- Mode: **offline (no model)**  |  Model: `claude-haiku-4-5-20251001`  |  JD sources: OFFICIAL_PARAPHRASE
 
 ## Pre-model payload (what production would send)
 
 | Scenario | Profile × JD | Fit | Curated | Truthful skill marked 'never claim' | Absent skill marked 'inject' | Curated not in JD | Must-inject coverage | Truthful requirements not licensed | Gate |
 |---|---|---|---|---|---|---|---|---|---|
-| S01 | A × AMZ-SDE | under | 3 | - | - | - | 1 | - | PASS |
-| S02 | A × GOOG-SWE2 | under | 5 | - | - | - | 1 | - | PASS |
-| S03 | A × AMZ-SDE2 | mismatch | 2 | - | - | - | 1 | - | PASS |
-| S04 | B × AMZ-SDE | under | 3 | - | - | - | 0.333 | Algorithms, Data Structures | FAIL |
-| S05 | B × GOOG-SWE2 | under | 5 | - | - | - | 0.333 | Algorithms, Data Structures | FAIL |
-| S06 | C × AMZ-SDE2 | match | 2 | - | - | - | 0.5 | Code Review | FAIL |
-| S07 | C × GOOG-SWE2 | match | 5 | - | - | - | 0.5 | Code Review | FAIL |
-| S08 | D × AMZ-SDE | mismatch | 3 | - | - | - | 1 | - | PASS |
-| S09 | D × GOOG-SWE2 | mismatch | 5 | - | - | - | 1 | - | PASS |
-| S10 | E × AMZ-SDE2 | match | 2 | - | - | - | 1 | - | PASS |
-| S11 | E × GOOG-SWE2 | match | 5 | - | - | - | 0.5 | Accessibility | FAIL |
+| S01 | A × AMZ-SDE | match | 0 | - | - | - | 1 | - | PASS |
+| S02 | A × GOOG-SWE2 | under | 6 | - | - | - | 1 | - | PASS |
+| S03 | A × AMZ-SDE2 | mismatch | 0 | - | - | - | 1 | - | PASS |
+| S04 | B × AMZ-SDE | match | 0 | - | - | - | 0 | Algorithms, Data Structures | FAIL |
+| S05 | B × GOOG-SWE2 | under | 6 | - | - | - | 1 | - | PASS |
+| S06 | C × AMZ-SDE2 | match | 0 | - | - | - | 0 | Code Review | FAIL |
+| S07 | C × GOOG-SWE2 | match | 6 | - | - | - | 0.5 | Code Review | FAIL |
+| S08 | D × AMZ-SDE | mismatch | 0 | - | - | - | 1 | - | PASS |
+| S09 | D × GOOG-SWE2 | mismatch | 6 | - | - | - | 0.667 | C | FAIL |
+| S10 | E × AMZ-SDE2 | match | 0 | - | - | - | 1 | - | PASS |
+| S11 | E × GOOG-SWE2 | match | 6 | - | - | - | 0.5 | JavaScript | FAIL |
 
 ## Generated resume
 

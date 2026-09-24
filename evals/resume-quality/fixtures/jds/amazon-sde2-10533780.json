@@ -5,12 +5,23 @@
   "location": "Bengaluru, Karnataka, India",
   "job_id": "10533780",
   "url": "https://www.amazon.jobs/en/jobs/10533780/software-development-engineer-ii",
-  "source_status": "RECONSTRUCTED_PLACEHOLDER",
-  "source_note": "The official page could not be fetched from the eval environment (network egress to www.amazon.jobs is blocked). This text reconstructs the standard basic/preferred qualifications of Amazon SDE II postings; the team description is generic and NOT verbatim. Replace `text` with the official posting and set source_status to OFFICIAL before treating results as final.",
+  "source_status": "OFFICIAL_PARAPHRASE",
+  "source_note": "Paraphrase of the official posting supplied by the project owner after independent verification. Not verbatim: wording is condensed, but every requirement comes from the official source and nothing has been added. Replaces the earlier reconstructed placeholder (the eval environment cannot reach the careers site).",
   "expected": {
     "level": "mid (SDE II)",
     "min_years": 3,
-    "ground_truth_skills": ["Distributed Systems", "System Design", "Design Patterns", "Scalability", "Code Review", "Source Control", "Testing", "Operations", "Java"]
+    "ground_truth_skills": [
+      "Distributed Systems",
+      "Algorithms",
+      "Design Patterns",
+      "System Design",
+      "Code Review",
+      "Source Control",
+      "Testing",
+      "Operations"
+    ]
   },
-  "text": "Software Development Engineer II\nJob ID: 10533780 | Bengaluru, Karnataka, India\n\nDescription:\nAs a Software Development Engineer II, you will design, build and operate highly available, scalable distributed systems. You will own features end to end: from design and architecture through coding, testing, deployment and operations. You will work with product managers and other engineers to deliver customer-facing capabilities, mentor junior engineers, and raise the bar on engineering best practices through design and code reviews.\n\nBasic qualifications:\n- 3+ years of non-internship professional software development experience\n- 2+ years of non-internship design or architecture (design patterns, reliability and scaling) of new and existing systems experience\n- Experience programming with at least one software programming language\n\nPreferred qualifications:\n- 3+ years of full software development life cycle, including coding standards, code reviews, source control management, build processes, testing, and operations experience\n- Bachelor's degree in computer science or equivalent\n- Experience building services in Java on AWS"
+  "text": "Software Development Engineer II\nJob ID: 10533780 | Bengaluru, Karnataka, India\n\nAbout the role:\nThe role emphasizes distributed systems, algorithms, scalable transactional backends and APIs, ownership, and operational excellence.\n\nBasic qualifications:\n- 3+ years of non-internship professional software development experience.\n- 2+ years of non-internship design or architecture of new and existing systems, including design patterns, reliability and scaling.\n- Experience programming with at least one software programming language.\n\nPreferred qualifications:\n- Experience across the full software development life cycle, including coding standards, code reviews, source control, build, testing and operations.\n- Bachelor's degree in computer science or equivalent.",
+  "source_verified_by": "Project owner, independently verified against the official posting",
+  "source_verified_date": "2026-09-24"
 }

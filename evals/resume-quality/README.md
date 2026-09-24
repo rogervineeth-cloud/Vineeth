@@ -34,16 +34,15 @@ Each run writes to `out/<run-id>/` (gitignored):
 
 | JD | Status |
 |---|---|
-| `GOOG-SWE2`: Google Software Engineer II, Google Cloud, Bengaluru | **RECONSTRUCTED_PLACEHOLDER** |
-| `AMZ-SDE2`: Amazon SDE II, Job ID 10533780 | **RECONSTRUCTED_PLACEHOLDER** |
-| `AMZ-SDE`: Amazon SDE, Job ID 2968029 | **RECONSTRUCTED_PLACEHOLDER** |
+| `GOOG-SWE2`: Google Software Engineer II, Google Cloud, Bengaluru | **OFFICIAL_PARAPHRASE** (verified 2026-09-24) |
+| `AMZ-SDE2`: Amazon SDE II, Job ID 10533780, Bengaluru | **OFFICIAL_PARAPHRASE** (verified 2026-09-24) |
+| `AMZ-SDE`: Amazon SDE, Job ID 2968029 | **OFFICIAL_PARAPHRASE** (verified 2026-09-24) |
 
-The official pages could not be fetched from the environment these fixtures
-were built in, because network egress to `www.google.com` and
-`www.amazon.jobs` was blocked. The JD texts reconstruct the standard shape of
-these postings and are **not verbatim**. To make results final, paste each
-official posting into the fixture's `text` and set `"source_status":
-"OFFICIAL"`. Every result row records the source status.
+The project owner independently verified the JD requirements against the
+official postings; the URLs are in each fixture. The wording is condensed, not
+verbatim, and no requirement has been added. The eval environment itself cannot
+reach the careers sites. The Amazon SDE posting states no minimum years, so
+level fit for S01 and S04 is judged as entry-level.
 
 `scenarios.json` holds 11 profile × JD pairs, including deliberate seniority
 mismatches (S03 fresher vs SDE II; S08/S09 off-domain returner).
@@ -79,8 +78,11 @@ Skill detection uses `lib/score-free`'s lexicon, which is independent of the
 create page's extractor, plus a small eval-only vocabulary (`EXTRA_TERMS`).
 The evaluator's own tests are in `__tests__/resume-quality-eval.test.ts`.
 
-## Results
+## Results (verified JDs)
 
-- `results/before-offline.md`: the pre-fix payload matrix. **5 of 11 fail**: truthful DSA, code review and accessibility evidence was never marked "include".
-- `results/after-offline.md`: after the fixes, **11 of 11 pass**.
-- Generated-resume gates are **BLOCKED** in both until the harness runs with `ANTHROPIC_API_KEY`.
+- `results/before-offline.md`: the pre-fix payload matrix. **5 of 11 fail.**
+  - The extractor proposed **no keywords at all** for either Amazon posting.
+  - Truthful DSA, code-review, JavaScript and C evidence was never marked "include".
+- `results/after-offline.md`: after the fixes, **10 of 11 pass**.
+  - The remaining failure is S09. `C` is a language Google names and profile D evidences, but it is not in the extractor. A one-letter skill risks false matches ("Grade C", "Section C"), so it is left out deliberately. C still reaches the model as one of the candidate's own skills.
+- The generated-resume gates are **BLOCKED** until the harness runs with `ANTHROPIC_API_KEY`.

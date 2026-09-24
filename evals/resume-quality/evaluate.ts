@@ -38,8 +38,16 @@ export type JdFixture = {
   company: string;
   title: string;
   url: string;
-  source_status: "OFFICIAL" | "RECONSTRUCTED_PLACEHOLDER";
-  expected: { level: string; min_years: number; ground_truth_skills: string[] };
+  /**
+   * OFFICIAL: verbatim posting. OFFICIAL_PARAPHRASE: requirements verified
+   * against the official posting, condensed wording. RECONSTRUCTED_PLACEHOLDER:
+   * not verified.
+   */
+  source_status: "OFFICIAL" | "OFFICIAL_PARAPHRASE" | "RECONSTRUCTED_PLACEHOLDER";
+  source_verified_by?: string;
+  source_verified_date?: string;
+  /** min_years is null when the posting states no minimum. */
+  expected: { level: string; min_years: number | null; ground_truth_skills: string[] };
   text: string;
 };
 

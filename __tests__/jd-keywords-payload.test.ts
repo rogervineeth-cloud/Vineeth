@@ -50,6 +50,10 @@ describe("detectTechSkills", () => {
     ["We communicate on slack daily.", "Slack"],
     ["I excel at testing.", "Excel"],
     ["Excel at stakeholder communication.", "Excel"],
+    ["Review code of conduct and HR policies.", "Code Review"],
+    ["Reviewed code of conduct training materials.", "Code Review"],
+    ["Oops, the build failed.", "Object-Oriented Design"],
+    ["oop and dsa are lower-case prose here", "Data Structures"],
   ])("does not read English prose as a skill: %s", (text, skill) => {
     expect(detectTechSkills(text)).not.toContain(skill);
   });
@@ -72,18 +76,23 @@ describe("detectTechSkills", () => {
   });
 });
 
-describe("analyzeJd on the eval JD fixtures", () => {
-  it("proposes the fundamentals a Google SWE II posting is built on", () => {
+describe("analyzeJd on the eval JD fixtures (verified official paraphrases)", () => {
+  it("Google SWE II: languages, review, design and distributed-systems requirements", () => {
     const { keywords } = analyzeJd(fixture("jds/google-swe2-cloud-bengaluru.json").text);
     expect(keywords).toEqual(expect.arrayContaining([
-      "Java", "C++", "Python", "Go", "GCP", "Data Structures", "Algorithms", "Distributed Systems", "System Design", "Code Review", "Accessibility",
+      "Python", "Java", "C++", "JavaScript", "Code Review", "System Design", "Distributed Systems",
     ]));
     expect(keywords.length).toBeLessThanOrEqual(12);
   });
 
-  it("proposes the design/architecture requirements of an Amazon SDE II posting", () => {
+  it("Amazon SDE II: design/architecture and algorithms requirements", () => {
     const { keywords } = analyzeJd(fixture("jds/amazon-sde2-10533780.json").text);
-    expect(keywords).toEqual(expect.arrayContaining(["Java", "AWS", "Distributed Systems", "Design Patterns", "Code Review"]));
+    expect(keywords).toEqual(expect.arrayContaining(["Algorithms", "Distributed Systems", "Design Patterns", "Code Review"]));
+  });
+
+  it("Amazon SDE: fundamentals the entry role emphasises", () => {
+    const { keywords } = analyzeJd(fixture("jds/amazon-sde-2968029.json").text);
+    expect(keywords).toEqual(expect.arrayContaining(["Data Structures", "Algorithms", "Distributed Systems", "Object-Oriented Design"]));
   });
 });
 
@@ -135,6 +144,17 @@ describe("buildGenerationPayload — evidence-based INTERSECTION / JD_ONLY", () 
     const r = split(profile, ["Java", "Go", "Express", "Excel"]);
     expect(r.inter).toEqual(["Java"]);
     expect(r.only).toEqual(["Go", "Express", "Excel"]);
+  });
+
+  it("an aspiration in the summary is not evidence", () => {
+    const profile: GenerationProfile = {
+      summary: "Backend developer eager to learn Kubernetes and targeting distributed systems roles.",
+      skills: ["Java"],
+      experience: [], projects: [],
+    };
+    const r = split(profile, ["Java", "Kubernetes", "Distributed Systems"]);
+    expect(r.inter).toEqual(["Java"]);
+    expect(r.only).toEqual(["Kubernetes", "Distributed Systems"]);
   });
 
   it("no skill is both included and forbidden, and every curated keyword lands somewhere", () => {

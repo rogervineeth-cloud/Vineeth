@@ -167,9 +167,18 @@ function escapeRegex(s: string): string {
 // into skills — on a JD that is noise; on a candidate's bullet (see
 // buildGenerationPayload) it would tell the model to claim a skill the
 // candidate does not have.
-const ENGLISH_WORD_SKILLS = new Set(["Go", "Swift", "Rust", "Excel", "Slack", "Notion", "Sketch", "Express", "Looker", "Amplitude"]);
-// "Excel at/in ..." is still prose even when capitalised at a sentence start.
-const EXCEL_AS_VERB = /^\s+(at|in)\b/i;
+// Upper-case acronyms are case-sensitive for the same reason: "Oops, the
+// build failed" is not object-oriented programming.
+const CASE_SENSITIVE_SURFACES = new Set([
+  "Go", "Swift", "Rust", "Excel", "Slack", "Notion", "Sketch", "Express", "Looker", "Amplitude",
+  "OOP", "OOPS", "DSA",
+]);
+// Surfaces that are prose when followed by these words, even when matched.
+const FOLLOWED_BY_PROSE: Record<string, RegExp> = {
+  Excel: /^\s+(at|in)\b/i, // "Excel at stakeholder communication"
+  "Review code": /^\s+of\s+conduct\b/i, // "Review code of conduct"
+  "Reviewed code": /^\s+of\s+conduct\b/i,
+};
 
 /**
  * Canonical TECH_SKILLS names mentioned in `text`, in list order. Aliases
@@ -180,7 +189,8 @@ export function detectTechSkills(text: string): string[] {
     const found: string[] = [];
     for (const p of TECH_SKILL_PATTERNS) {
           if (seen.has(p.canonical)) continue;
-          const caseSensitive = ENGLISH_WORD_SKILLS.has(p.pattern);
+          const caseSensitive = CASE_SENSITIVE_SURFACES.has(p.pattern);
+          const prose = FOLLOWED_BY_PROSE[p.pattern];
           // Trailing boundary: "." belongs to the token only when a letter or
           // digit follows ("Node.js", "React.js"). At the end of a sentence it
           // is punctuation — otherwise "...data structures or algorithms." and
@@ -192,7 +202,7 @@ export function detectTechSkills(text: string): string[] {
           let hit = false;
           let m: RegExpExecArray | null;
           while ((m = re.exec(text)) !== null) {
-                  if (p.pattern === "Excel" && EXCEL_AS_VERB.test(text.slice(m.index + m[0].length))) continue;
+                  if (prose && prose.test(text.slice(m.index + m[0].length))) continue;
                   hit = true;
                   break;
           }

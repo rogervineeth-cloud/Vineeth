@@ -212,9 +212,14 @@ describe("skill vocabulary", () => {
 
 describe("payload report", () => {
   it("measures must-inject coverage over every truthful JD requirement", () => {
-    const r = evaluatePayload(B, GOOG);
-    expect(r.attainable_skills).toEqual(expect.arrayContaining(["Java", "Data Structures", "Algorithms"]));
-    expect(r.must_inject_coverage).toBeGreaterThan(0);
+    const r = evaluatePayload(B, AMZ);
+    expect(r.attainable_skills).toEqual(["Algorithms", "Data Structures"]);
+    expect(r.must_inject_coverage).toBe(1);
+  });
+
+  it("a language the posting names is attainable only if the candidate evidences it", () => {
+    expect(evaluatePayload(B, GOOG).attainable_skills).toContain("Java");
+    expect(evaluatePayload(B, GOOG).attainable_skills).not.toContain("Python");
   });
 });
 
