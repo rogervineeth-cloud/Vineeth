@@ -1,0 +1,67 @@
+{
+  "id": "N10",
+  "domain": "accounting fresher",
+  "expected_fit": "match",
+  "facts": { "professional_years": 0, "has_employment": true, "internship_only": true, "career_gap": null },
+  "profile": {
+    "full_name": "Vikram Joshi (fictional)",
+    "email": "vikram.joshi@example.com",
+    "graduation_year": 2025,
+    "summary": "B.Com graduate with an accounts internship and Tally practice.",
+    "skills": ["Tally Prime", "Excel", "GST Basics", "Bank Reconciliation", "Accounts Payable"],
+    "target_roles": ["Accounts Executive"],
+    "experience": [
+      {
+        "company": "Ashoka Traders",
+        "role": "Accounts Intern",
+        "duration": "Jan 2025 - Jun 2025",
+        "location": "Indore",
+        "bullets": [
+          "Entered 600 purchase and sales vouchers in Tally Prime.",
+          "Prepared 3 monthly bank reconciliation statements for the proprietor."
+        ]
+      }
+    ],
+    "education": [{ "institution": "Riverside College of Commerce", "degree": "B.Com", "year": "2022 - 2025", "location": "Indore" }],
+    "projects": [
+      { "name": "GST Invoice Tracker", "description": "Excel workbook that tracks GST on 150 sample invoices and flags mismatches.", "tech": ["Excel"] }
+    ]
+  },
+  "jd": {
+    "title": "Accounts Executive",
+    "text": "Maintain books in Tally, process vendor invoices, bank reconciliation, GST filing support and petty cash. 0-2 years of experience; freshers welcome."
+  },
+  "output": {
+    "section_order": ["summary", "education", "projects", "skills", "experience"],
+    "summary": "B.Com graduate (2025) with an accounts internship in Tally Prime, seeking the Accounts Executive role. Detail-oriented and proficient in GST filing.",
+    "experience": [
+      {
+        "company": "Ashoka Traders",
+        "role": "Accounts Intern",
+        "duration": "Jan 2025 - Jun 2025",
+        "bullets": [
+          "Entered 600 purchase and sales vouchers in Tally Prime.",
+          "Prepared 3 bank reconciliation statements monthly for the proprietor, ensuring timely closing."
+        ]
+      }
+    ],
+    "skills": ["Tally Prime", "Excel", "Bank Reconciliation", "GST Basics"],
+    "education": [{ "institution": "Riverside College of Commerce", "degree": "B.Com", "year": "2022 - 2025" }],
+    "projects": [
+      { "name": "GST Invoice Tracker", "description": "Excel workbook that flags mismatches and automatically tracks GST on 150 sample invoices.", "tech": ["Excel"] }
+    ],
+    "ats_score": 60,
+    "matched_keywords": ["Bank Reconciliation"],
+    "missing_keywords": ["GST Filing"],
+    "tailored_role": "Accounts Executive",
+    "profile_improvement_tips": ["Practise GST return filing on the government's offline utility with sample data."],
+    "growth_note": null
+  },
+  "labels": [
+    { "where": "summary", "text": "B.Com graduate (2025) with an accounts internship in Tally Prime, seeking the Accounts Executive role.", "kind": "tailored" },
+    { "where": "summary", "text": "Detail-oriented and proficient in GST filing.", "kind": "fabricated" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Entered 600 purchase and sales vouchers in Tally Prime.", "kind": "faithful" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Prepared 3 bank reconciliation statements monthly for the proprietor, ensuring timely closing.", "kind": "one_unsupported" },
+    { "where": "project", "project": 0, "text": "Excel workbook that flags mismatches and automatically tracks GST on 150 sample invoices.", "kind": "one_unsupported" }
+  ]
+}

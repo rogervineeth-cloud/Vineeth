@@ -45,7 +45,7 @@ export type JdFixture = {
    * against the official posting, condensed wording. RECONSTRUCTED_PLACEHOLDER:
    * not verified.
    */
-  source_status: "OFFICIAL" | "OFFICIAL_PARAPHRASE" | "RECONSTRUCTED_PLACEHOLDER";
+  source_status: "OFFICIAL" | "OFFICIAL_PARAPHRASE" | "RECONSTRUCTED_PLACEHOLDER" | "SYNTHETIC";
   source_verified_by?: string;
   source_verified_date?: string;
   /** min_years is null when the posting states no minimum. */
@@ -277,7 +277,7 @@ export const NEUTRAL = new Set(
     "performed ran run fixed resolved added reduced reducing cut lowered collaborated partnered worked " +
     "ms hours hour days day daily weeks week weekly months month monthly years year million thousand").split(" ")
 );
-const SUMMARY_NEUTRAL = new Set([
+export const SUMMARY_NEUTRAL = new Set([
   ...NEUTRAL,
   ..."experience experienced professional seeking targeting pursuing applying role position opportunity graduate fresher student candidate background career focus focused development engineering software currently hands".split(" "),
 ]);
@@ -287,7 +287,7 @@ const stem5 = (w: string) =>
 function words(text: string): string[] {
   return (text ?? "").toLowerCase().split(/[^a-z0-9+#]+/).filter((w) => w.length >= 2 && /[a-z]/.test(w) && !FUNCTION_WORDS.has(w));
 }
-function wordSet(text: string): Set<string> {
+export function wordSet(text: string): Set<string> {
   return new Set(words(text).map(stem5));
 }
 /** Content words of `text` absent from `scope` and not neutral. */
@@ -578,6 +578,11 @@ export function evaluateResume(
       adv.push(`growth_note tells the candidate to put ${prevLacking.join(", ")} on the resume`);
     }
     prevLacking = where === "growth_note" ? lacking(text) : [];
+    // "8 of the 10 curated keywords (JavaScript, ..., UI/UX)" listing 9.
+    for (const m of text.matchAll(/\b(\d+)\s+of\s+(?:the\s+)?\d+\b[^().]{0,60}\(([^)]*)\)/g)) {
+      const listed = m[2].split(/,|\band\b/).map((x) => x.trim()).filter(Boolean).length;
+      if (listed >= 2 && listed !== Number(m[1])) adv.push(`${where} says "${m[0].split("(")[0].trim()}" but lists ${listed}`);
+    }
   }
   gates.push({ gate: "advice_fidelity", pass: adv.length === 0, defects: [...new Set(adv)] });
 
