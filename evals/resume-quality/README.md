@@ -105,6 +105,7 @@ The evaluator's own tests are in `__tests__/resume-quality-eval.test.ts`.
 | `results/final-live` | prompt H/I, evidence guard, per-entry metric grounding | 11/11 | 1.0 | 0 | strong ×5, adequate ×6 |
 | `results/final-live-rescored` | the same captures, scored with the new gates | 11/11 (detail **0/11**, framing 9/11, advice 9/11, seniority 8/11) | 1.0 | 0 | weak ×11 |
 | `results/final-live-reprocessed` | the same captures, re-post-processed with the detail/summary/advice guards | 11/11 (detail 11/11, framing 11/11, advice 11/11) | 1.0 | 0 | strong ×5, adequate ×6 |
+| `results/final-live-2` | **fresh live run** with prompt J/K, CANDIDATE_FACTS and the detail/summary/advice guards (`captured/live-final-2`, 2026-09-24) | **11/11** (detail 11/11, framing 11/11, advice 11/11, no years defect) | 1.0 | 0 | strong ×5, adequate ×6 |
 
 What changed between them:
 - **Prompt:** rules H (skills are evidence-only) and I (own title, honest level).
@@ -133,3 +134,33 @@ output. What changed:
   an emptied note is rebuilt from `missing_keywords`.
 
 **Offline payload matrices** (pre-model): `results/before-offline.md` → `results/after-offline.md`, **6/11 → 10/11**.
+
+### Manual audit of `final-live-2` (not a product-quality sign-off)
+
+Closed on this run: no invented method/component/outcome survives in any
+bullet or project description (the guard reverted 6 of E's 6 bullets in S10
+and 3 of D's in S09 — the model still elaborates despite rule J); S07 and S06
+state 3 years, S11 "5+ years" (5.3); every summary opens with who the
+candidate is; no advice credits an unevidenced skill.
+
+Still open (found by reading, not scored):
+- **Tailoring cost.** Five summaries (S06–S10) fell back to the candidate's
+  own summary because every model sentence added something unevidenced
+  ("scalable", "systems"), so they no longer name the target role, and D's
+  own summary says it targets "embedded development or QA roles" on an SDE
+  application. Reverted bullets are truthful but untailored.
+- **Advice over-dropping.** S07's growth note lost its explanatory sentence
+  (flagged as crediting JavaScript/Python/C++/GCP) and is now a single vague
+  line; S10 lost two tips. The route returns only post-processed output, so
+  whether each drop was a true or false positive cannot be checked from the
+  capture.
+- **Numbers in advice are unchecked.** S05's note says "8 of the 10 curated
+  keywords" and then lists 9.
+- **Mild wording inflation passes.** S06's note: "demonstrates code review and
+  microservices architecture" (the profile shows microservices, not
+  architecture ownership).
+- **ATS score heuristic.** S01 (42) and S10 (48) still trip "undersells a
+  matching profile".
+- The evaluator's new gates share the guards' idea (evidence by word overlap),
+  implemented separately; agreement between them is not independent proof.
+
