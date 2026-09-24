@@ -60,12 +60,14 @@ D. If USER_PROFILE indicates a fresher (graduation_year within the last 1 year, 
 E. Bullets must paraphrase ONLY the bullets supplied in USER_PROFILE.experience[i].bullets. You may sharpen the verb, inject TARGET_KEYWORDS that the user truthfully has, and add a metric ONLY if a number is already present in the user-supplied bullet. You may NOT invent new metrics, team sizes, percentages, currency amounts, or outcomes.
 F. Durations must match USER_PROFILE.experience[i].duration character-for-character (after normalising to "MMM YYYY - MMM YYYY"). Do not extend, shorten, or back-date employment.
 G. If you are tempted to fabricate anything to make the resume look stronger, instead reduce ats_score and write an honest growth_note.
+H. SKILLS ARE EVIDENCE-ONLY. The "skills" array, "matched_keywords", the summary, every bullet and every project description may name a skill, tool or practice ONLY if USER_PROFILE shows it (its skills list, a role, a bullet, or a project). JD_ONLY_SKILLS must never appear in any of them \u2014 only in missing_keywords. Never add a skill, technology or practice (e.g. "distributed systems", "design patterns", "algorithms", "code reviews", "object-oriented design") to a bullet or project that the source does not already describe.
+I. TITLE AND LEVEL. Refer to the candidate by their own most recent role title from USER_PROFILE.experience (or as a graduate/fresher if they have none). Name the JD job title only as the role being sought ("seeking the <title> role"). Never write the JD title or level as the candidate's current title, and never state more years of experience than USER_PROFILE supports; internships are not years of professional experience.
 
 ## CORE PRINCIPLES
 1. NEVER FABRICATE. Rephrase, reorganise, emphasise \u2014 never invent a skill, job, project, or achievement.
 2. TRUTH-PRESERVING TAILORING. Reword only when the underlying meaning stays true.
 3. INDIAN MARKET FIT. Indian English spelling; \u20B9 for salaries; recognise Indian companies (Reliance, Infosys, TCS, Flipkart, Wipro, HCL, Zomato) and qualifications (B.Tech, B.E., MBA, CA, M.Com, BCA, MCA, B.Sc) as-is.
-4. JD-DRIVEN INJECTION. Exact JD job title verbatim in summary sentence 1. Top 3 hard skills appear in skills AND in at least one bullet each. Top 2 soft skills woven into summary prose (not listed).
+4. JD-DRIVEN INJECTION. Name the exact JD job title in summary sentence 1 as the role being sought (rule I). Of the top 3 hard skills, those the candidate truthfully has (INTERSECTION_SKILLS) appear in skills AND in at least one bullet each; the rest go only to missing_keywords (rule H). Top 2 soft skills woven into summary prose (not listed).
 
 ## SECTION ORDER
 - FRESHER (0-1 yr or no experience): section_order = ["summary", "education", "projects", "skills", "experience"]
@@ -78,7 +80,7 @@ Reject any bullet that:
 - Starts with "Responsible for", "Worked on", "Helped", "Assisted", "Supported"
 - Is longer than 2 lines
 - Has zero quantified outcome AND the profile had a number available
-- Contains zero TARGET_KEYWORDS
+- Adds a skill, tool or claim that the source bullet does not contain (rule H)
 Strong verbs: Led, Built, Designed, Implemented, Delivered, Scaled, Reduced, Grew, Launched, Optimised, Automated, Architected, Negotiated, Managed, Developed, Deployed, Analysed, Streamlined.
 
 ## ATS SCORING (0-100, integer)
@@ -91,6 +93,8 @@ Most resumes 55-80. >85 should be rare. Inflate nothing.
 ## EDGE CASES
 - Fresher with 1 project: lead with education, then projects. Skills section grows in importance.
 - Profile mismatch: be honest, low ats_score (30-50), populate growth_note.
+- Seniority or domain gap: if the JD's stated minimum professional experience exceeds the candidate's non-internship experience, or the role is outside the candidate's domain, ats_score must not exceed 55 and growth_note must explain the gap.
+- Advice: growth_note and profile_improvement_tips recommend GAINING missing skills; never recommend adding a skill to the resume that the candidate does not have.
 - Missing sections: omit from JSON; never emit empty arrays.
 - Career gap: list duration accurately; never fabricate freelance.
 
@@ -102,7 +106,7 @@ No preamble. No closing remarks. No markdown fences. If you cannot produce valid
 
 {
   "section_order": ["summary", "experience", "skills", "education", "projects"],
-  "summary": "2-3 sentences. Sentence 1 contains the exact JD job title verbatim. Mention experience length, top 2 soft skills woven in, career intent.",
+  "summary": "2-3 sentences. Sentence 1 names the exact JD job title as the role being sought, never as the candidate's current title. Mention experience length (professional, non-internship), top 2 soft skills woven in, career intent.",
   "experience": [
     {
       "company": "string",
@@ -112,7 +116,7 @@ No preamble. No closing remarks. No markdown fences. If you cannot produce valid
       "bullets": ["3-5 bullets following the BULLET FORMULA"]
     }
   ],
-  "skills": ["ordered: USER_CURATED_KEYWORDS the user truthfully has first, then PROFILE_EXTRA_SKILLS, max 15"],
+  "skills": ["only skills evidenced in USER_PROFILE: INTERSECTION_SKILLS first, then PROFILE_EXTRA_SKILLS, max 15"],
   "education": [
     { "institution": "string", "degree": "string", "year": "string", "location": "string (optional)", "gpa": "string (optional)" }
   ],
@@ -286,14 +290,170 @@ export function postProcessResume(resumeJson: unknown, profile: GenerationProfil
     projects: profile.projects ?? [],
     skills: profile.skills ?? [],
   });
+  const evidenced = enforceSkillEvidence(sanitised.resume, profile);
   const normalised = normaliseGeneratedResume(
-    sanitised.resume,
+    evidenced.resume,
     (profile.target_roles?.[0] ?? "").trim()
   );
   return {
     resume: normalised.resume,
-    warnings: sanitised.warnings,
+    warnings: [...sanitised.warnings, ...evidenced.warnings],
     repaired: normalised.repaired,
     fatal: normalised.fatal,
   };
+}
+
+// ── Skill-evidence guard ───────────────────────────────────────────────────
+//
+// Resume-quality eval, live run on 11 scenarios (evals/resume-quality,
+// results/before-live.md): EVERY generated resume claimed skills the profile
+// never evidences — a fresher listed "Distributed Systems" and
+// "Object-Oriented Design", a QA engineer was "proficient in" algorithms and
+// distributed systems, a full-stack engineer's skills gained Python, C++ and
+// GCP while the same resume listed them as missing. The prompt forbids this;
+// the model does it anyway, because other prompt rules push JD keywords into
+// every bullet. A recruiter who asks about any one of those claims ends the
+// interview, so it is enforced here rather than requested.
+//
+// Scope: skills known to lib/jd-keywords (the same vocabulary that decides
+// INTERSECTION vs JD_ONLY), plus literal checks for list entries. A known
+// skill may appear in the output only if the profile evidences it — in its
+// skills list, a role, a bullet, or a project. The candidate's own summary is
+// not evidence (it carries aspiration), but reverting TO it is allowed: it is
+// their own words.
+
+const WEAK_EVIDENCE_KEY = (s: string) => norm(s).replace(/\s+/g, " ").trim();
+
+function sourceSimilarity(a: string, b: string): number {
+  const ta = new Set(WEAK_EVIDENCE_KEY(a).split(" ").filter((w) => w.length > 2));
+  const tb = new Set(WEAK_EVIDENCE_KEY(b).split(" ").filter((w) => w.length > 2));
+  let shared = 0;
+  for (const w of ta) if (tb.has(w)) shared++;
+  return shared / Math.max(1, Math.min(ta.size, tb.size));
+}
+
+/**
+ * detectTechSkills treats "-" as part of a word (so "go-to-market" is not Go),
+ * which also hides "algorithm-optimised" or "microservice-based". For the
+ * guard, read both the text and a hyphen-split copy; case rules still keep
+ * "go to market" from reading as Go.
+ */
+function skillsMentioned(text: string): string[] {
+  return [...new Set([...detectTechSkills(text), ...detectTechSkills(text.replace(/-/g, " "))])];
+}
+
+export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationProfile) {
+  const warnings: string[] = [];
+  const evidenceText = profileEvidence(profile);
+  const evidenced = new Set(skillsMentioned(evidenceText));
+  const evidenceKey = ` ${WEAK_EVIDENCE_KEY(evidenceText)} `;
+  const out = { ...resume } as ResumeShape & Record<string, unknown>;
+
+  /** Known skills mentioned in `text` that the profile does not evidence. */
+  const unsupportedIn = (text: string) => skillsMentioned(text).filter((k) => !evidenced.has(k));
+
+  /** A list entry ("Distributed Systems", "Razorpay") is kept only if evidenced. */
+  const listEntryOk = (entry: string) => {
+    const known = skillsMentioned(entry);
+    if (known.length > 0) return known.every((k) => evidenced.has(k));
+    const key = WEAK_EVIDENCE_KEY(entry);
+    return key.length > 0 && evidenceKey.includes(` ${key} `);
+  };
+
+  if (Array.isArray(out.skills)) {
+    out.skills = out.skills.filter((s) => {
+      const ok = typeof s === "string" && listEntryOk(s);
+      if (!ok) warnings.push(`dropped_unsupported_skill:${s}`);
+      return ok;
+    });
+  }
+
+  for (const key of ["matched_keywords"] as const) {
+    const list = out[key];
+    if (Array.isArray(list)) out[key] = list.filter((k) => typeof k === "string" && listEntryOk(k));
+  }
+  // A candidate must never be told to add a skill they already have.
+  if (Array.isArray(out.missing_keywords)) {
+    out.missing_keywords = out.missing_keywords.filter((k) => {
+      if (typeof k !== "string") return false;
+      const known = detectTechSkills(k);
+      return !(known.length > 0 && known.every((x) => evidenced.has(x)));
+    });
+  }
+
+  // Bullets: a rewrite that introduces an unevidenced skill is reverted to the
+  // candidate's own bullet it came from (best word overlap within the same
+  // role), or dropped if no source bullet can be identified.
+  if (Array.isArray(out.experience)) {
+    out.experience = out.experience.map((exp) => {
+      const src = (profile.experience ?? []).find(
+        (p) => norm(p.company) === norm(exp.company ?? "") && norm(p.role) === norm(exp.role ?? "")
+      ) ?? (profile.experience ?? []).find((p) => norm(p.company) === norm(exp.company ?? ""));
+      const bullets = (exp.bullets ?? []).flatMap((b) => {
+        const bad = unsupportedIn(b);
+        if (bad.length === 0) return [b];
+        const best = (src?.bullets ?? [])
+          .map((sb) => ({ sb, score: sourceSimilarity(b, sb) }))
+          .sort((x, y) => y.score - x.score)[0];
+        if (best && best.score >= 0.3) {
+          warnings.push(`reverted_bullet_unsupported_skill:${bad.join("|")}`);
+          return [best.sb];
+        }
+        warnings.push(`dropped_bullet_unsupported_skill:${bad.join("|")}`);
+        return [];
+      });
+      return { ...exp, bullets: [...new Set(bullets)] };
+    });
+  }
+
+  if (Array.isArray(out.projects)) {
+    out.projects = out.projects.map((pr) => {
+      const src = (profile.projects ?? []).find((p) => {
+        const a = norm(p.name), b = norm(pr.name ?? "");
+        return a === b || a.startsWith(b) || b.startsWith(a);
+      });
+      let description = pr.description ?? "";
+      const bad = unsupportedIn(description);
+      if (bad.length > 0) {
+        warnings.push(`reverted_project_description_unsupported_skill:${bad.join("|")}`);
+        description = src?.description ?? "";
+      }
+      const tech = (pr.tech ?? []).filter((t) => {
+        const ok = typeof t === "string" && listEntryOk(t);
+        if (!ok) warnings.push(`dropped_unsupported_project_tech:${t}`);
+        return ok;
+      });
+      return { ...pr, description, tech };
+    });
+  }
+
+  // Summary: drop sentences that claim an unevidenced skill; if nothing is
+  // left, fall back to the candidate's own summary.
+  if (typeof out.summary === "string" && out.summary.trim()) {
+    // Split only at ". X" — so "B.Tech", "Node.js" and "e.g." stay intact.
+    const sentences = out.summary.split(/(?<=[.!?])\s+(?=[A-Z])/);
+    const kept = sentences.filter((sn) => {
+      const bad = unsupportedIn(sn);
+      if (bad.length) warnings.push(`dropped_summary_sentence_unsupported_skill:${bad.join("|")}`);
+      return bad.length === 0;
+    });
+    out.summary = kept.join(" ").trim() || (profile.summary ?? "").trim();
+  }
+
+  // Structure: never emit empty sections, and never order a section that is
+  // not there.
+  for (const key of ["experience", "education", "projects", "skills"] as const) {
+    const v = out[key];
+    if (Array.isArray(v) && v.length === 0) {
+      delete out[key];
+      warnings.push(`removed_empty_section:${key}`);
+    }
+  }
+  if (Array.isArray(out.section_order)) {
+    out.section_order = out.section_order.filter(
+      (sec: string) => sec === "summary" || (Array.isArray(out[sec]) && (out[sec] as unknown[]).length > 0)
+    );
+  }
+
+  return { resume: out as ResumeShape, warnings };
 }

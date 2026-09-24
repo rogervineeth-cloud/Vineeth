@@ -6,6 +6,9 @@
 //   ... -- --save results/after-offline # also write a committed summary
 //   ... -- --captured live-before       # score responses captured from the
 //                                       # preview runner (captured/<label>/)
+//   ... -- --captured live-before --reprocess
+//                                       # re-run CURRENT post-processing over
+//                                       # the captured model output first
 //
 // Runs the PRODUCTION generation path — lib/resume-generation.ts: the same
 // SYSTEM_PROMPT, payload builder, Messages request (model, temperature,
@@ -180,7 +183,14 @@ async function main() {
         } else if (!cap.parse_ok || !cap.final_resume) {
           row.model = { status: "error", reason: "model reply was not valid JSON" };
         } else {
-          const ev = evaluateResume(profile, jd, s, cap.final_resume as GeneratedResume);
+          let resumeForEval = cap.final_resume as GeneratedResume;
+          let reprocessWarnings: string[] = [];
+          if (process.argv.includes("--reprocess")) {
+            const re = postProcessResume(cap.final_resume, profile.user_profile);
+            resumeForEval = re.resume as GeneratedResume;
+            reprocessWarnings = re.warnings;
+          }
+          const ev = evaluateResume(profile, jd, s, resumeForEval);
           row.model = {
             status: "ok",
             ats_score: ev.metrics.ats_score,
@@ -190,7 +200,7 @@ async function main() {
             gates: Object.fromEntries(ev.gates.map((x) => [x.gate, x.pass])),
             defects: ev.gates.flatMap((x) => x.defects.map((d) => `[${x.gate}] ${d}`)),
             interview_chance: ev.interview_chance,
-            sanitiser_warnings: cap.sanitiser_warnings,
+            sanitiser_warnings: [...cap.sanitiser_warnings, ...reprocessWarnings],
           };
           // Structural validity: parsed, not truncated, nothing refused or repaired.
           const structural: string[] = [];
@@ -199,7 +209,7 @@ async function main() {
           if (cap.repaired?.length) structural.push(`fields repaired by the normaliser: ${cap.repaired.join(", ")}`);
           row.model.gates.structural_validity = structural.length === 0;
           row.model.defects.push(...structural.map((d) => `[structural_validity] ${d}`));
-          detail = { ...detail, capture: cap, evaluation: ev };
+          detail = { ...detail, capture: cap, evaluated_resume: resumeForEval, evaluation: ev };
         }
       }
     } else if (client) {
@@ -237,7 +247,9 @@ async function main() {
 
   const meta = {
     run_id: runId,
-    mode: captured ? `live model (captured from preview: ${captured})` : offline ? "offline (no model)" : "live model",
+    mode: captured
+      ? `live model (captured from preview: ${captured}${process.argv.includes("--reprocess") ? ", re-post-processed with current code" : ""})`
+      : offline ? "offline (no model)" : "live model",
     model: MODEL_RESUME_STANDARD,
     jd_sources: [...new Set(rows.map((r) => r.jd_source))].join(", "),
   };

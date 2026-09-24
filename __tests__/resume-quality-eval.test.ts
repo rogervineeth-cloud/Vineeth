@@ -129,6 +129,28 @@ describe("seniority calibration", () => {
   });
 });
 
+describe("evaluator corrections found by reading live output", () => {
+  it("'Mentored 2 engineers' evidences Mentoring", () => {
+    const res = cleanC();
+    res.summary += " Mentoring-minded engineer.";
+    expect(gate(evaluateResume(C, AMZ2, sc("match"), res, NOW), "factual_fidelity").defects.join()).not.toMatch(/Mentoring/);
+  });
+
+  it("a derived years claim in the summary is not an unverifiable metric", () => {
+    const res = cleanC();
+    res.summary = "Backend engineer with 3+ years building Java services.";
+    expect(gate(evaluateResume(C, AMZ2, sc("match"), res, NOW), "factual_fidelity").defects.join()).not.toMatch(/unverifiable number "3"/);
+  });
+
+  it("'<title> candidate' frames the target, but '<title> with N years' claims the level", () => {
+    const base = { skills: ["Java"], education: [{ institution: A.user_profile.education![0].institution }], projects: [{ name: "PaySplit", description: "Java.", tech: ["Java"] }], ats_score: 40, growth_note: "x" };
+    const ok = evaluateResume(A, AMZ2, sc("mismatch"), { ...base, summary: "Software Development Engineer II candidate with Java projects." }, NOW);
+    const bad = evaluateResume(A, AMZ2, sc("mismatch"), { ...base, summary: "Software Development Engineer II with Java projects." }, NOW);
+    expect(gate(ok, "seniority_calibration").defects.join()).not.toMatch(/target title/);
+    expect(gate(bad, "seniority_calibration").defects.join()).toMatch(/target title/);
+  });
+});
+
 describe("sections, readability", () => {
   it("flags dropped sections and empty arrays", () => {
     const res = cleanC();

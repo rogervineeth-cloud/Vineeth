@@ -88,6 +88,8 @@ const EXTRA_TERMS: [string, string, string][] = [
   ["JMeter", "\\bJMeter\\b", "i"],
   ["Embedded C", "\\bEmbedded C\\b", "i"],
   ["C", "(?<![A-Za-z0-9+#/.-])C(?![A-Za-z0-9+#])(?!\\s*[-/]\\s*level)", ""],
+  // The lexicon knows "mentoring"; profiles say "mentored 2 engineers".
+  ["Mentoring", "\\bmentor(?:ed|ing|s)?\\b", "i"],
   // Case-sensitive: "go" is ordinary English, "Go" in a language list is not.
   ["Golang", "(?<![A-Za-z0-9])Go(?![A-Za-z0-9-])", ""],
 ];
@@ -250,6 +252,10 @@ export type ResumeReport = {
 const WEAK_OPENERS = /^(responsible for|worked on|helped|assisted|supported)\b/i;
 const FIRST_PERSON = /\b(I|my|me|I'm|I've)\b/;
 const RELATIVE_TITLE = /(for|targeting|seeking|toward|towards|to|pursue|pursuing|a|an|the)\s+(the\s+)?$/i;
+/** "<title> candidate/role/position" frames the role sought, not a claimed level. */
+const TITLE_AS_TARGET = /^\s*(candidate|role|position|opening|opportunity|aspirant)\b/i;
+/** "3+ years" in a summary is a derived claim; seniority_calibration checks it. */
+const YEARS_CLAIM = /\d+(?:\.\d+)?\+?\s*(?:years?|yrs?)\b/gi;
 
 export function evaluateResume(
   profile: ProfileFixture,
@@ -302,7 +308,7 @@ export function evaluateResume(
   const allowedNums = profileNumbers({
     summary: up.summary, experience: up.experience ?? [], education: up.education ?? [], projects: up.projects ?? [], skills: up.skills ?? [],
   });
-  const badNums = unverifiableNumbers(proseText(r), allowedNums);
+  const badNums = unverifiableNumbers(proseText(r).replace(YEARS_CLAIM, ""), allowedNums);
   claims += badNums.length;
   for (const x of badNums) fid.push(`unverifiable number "${x}"`);
   gates.push({ gate: "factual_fidelity", pass: fid.length === 0, defects: fid });
@@ -341,7 +347,9 @@ export function evaluateResume(
     const title = jd.title.split(",")[0].trim();
     let idx = summary.toLowerCase().indexOf(title.toLowerCase());
     while (idx >= 0) {
-      if (!RELATIVE_TITLE.test(summary.slice(Math.max(0, idx - 40), idx))) {
+      const before = summary.slice(Math.max(0, idx - 40), idx);
+      const after = summary.slice(idx + title.length);
+      if (!RELATIVE_TITLE.test(before) && !TITLE_AS_TARGET.test(after)) {
         sen.push(`summary presents the target title "${title}" as the candidate's own level`);
         break;
       }
