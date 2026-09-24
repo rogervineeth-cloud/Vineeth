@@ -16,7 +16,7 @@ jest.mock("@anthropic-ai/sdk", () => ({
 }));
 
 import * as route from "@/app/api/eval-run-temp/route";
-import { EXPIRES_AT } from "@/app/api/eval-run-temp/expiry";
+import { EXPIRES_AT, ARMED_AT } from "@/app/api/eval-run-temp/expiry";
 import { SYSTEM_PROMPT } from "@/lib/resume-generation";
 import { MODEL_RESUME_STANDARD } from "@/lib/models";
 
@@ -49,10 +49,10 @@ describe("lockdown", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it("expires within hours, not days", () => {
-    const hours = (Date.parse(EXPIRES_AT) - Date.parse("2026-09-24T08:00:00Z")) / 3_600_000;
+  it("expires within two hours of being armed", () => {
+    const hours = (Date.parse(EXPIRES_AT) - Date.parse(ARMED_AT)) / 3_600_000;
     expect(hours).toBeGreaterThan(0);
-    expect(hours).toBeLessThanOrEqual(6);
+    expect(hours).toBeLessThanOrEqual(2);
   });
 
   it("404 when no token is configured, or it is too short", async () => {
@@ -114,6 +114,12 @@ describe("generation", () => {
     expect(createHash("sha256").update(JSON.stringify(rest)).digest("hex")).toBe(sha256);
     expect(body.parse_ok).toBe(true);
     expect(body.final_resume.ats_score).toBe(70);
+    // Raw reply captured before post-processing, not the processed object.
+    expect(body.raw_text).toContain('"summary": "Backend engineer."');
+    expect(body.raw_resume).toMatchObject({ summary: "Backend engineer.", skills: ["Java"], tailored_role: "SDE II" });
+    expect(body.raw_resume).not.toBe(body.final_resume);
+    // The payload's facts are read on the fixture's facts_as_of date (C: 3.2 years).
+    expect(JSON.parse(req.messages[0].content).CANDIDATE_FACTS.professional_years).toBe(3.2);
     expect(JSON.stringify(body)).not.toMatch(/test-key-not-real|authorization|x-api-key/i);
   });
 });

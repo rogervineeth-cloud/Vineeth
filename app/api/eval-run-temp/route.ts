@@ -17,8 +17,14 @@
 //     scenario id — arbitrary profiles or JDs cannot be submitted
 //   - no Supabase, no plans/credits, no auth, no writes (a test enforces the
 //     import graph)
-//   - the response carries only the generated resume for fictional
-//     fixtures, the sanitiser's notes and token usage — no headers, no env
+//   - the response carries only the model's raw reply and the post-processed
+//     resume for fictional fixtures, the sanitiser's notes and token usage —
+//     no headers, no env
+//
+// Rerun 3 (tailoring code): also returns the RAW reply (text and parsed JSON,
+// cloned before post-processing) so the audit can see what the guards kept,
+// trimmed or reverted. "Present" is read on the fixtures' facts_as_of date so
+// computed years match the committed fixture facts.
 //
 // Also behind Vercel Authentication (ssoProtection: all_except_custom_domains);
 // reached during the eval with a temporary Protection Bypass for Automation.
@@ -50,7 +56,7 @@ import { EXPIRES_AT } from "./expiry";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const PROFILES: Record<string, { user_profile: unknown }> = { A, B, C, D, E };
+const PROFILES: Record<string, { user_profile: unknown; facts_as_of?: string }> = { A, B, C, D, E };
 const JDS: Record<string, { text: string }> = { "GOOG-SWE2": GOOG, "AMZ-SDE2": AMZ2, "AMZ-SDE": AMZ };
 const SCENARIOS = new Map(
   (scenariosFile as { scenarios: { id: string; profile: string; jd: string }[] }).scenarios.map((s) => [s.id, s])
@@ -86,20 +92,27 @@ export async function GET(req: NextRequest) {
   if (!s) return NextResponse.json({ error: "unknown scenario" }, { status: 400 });
   if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ error: "no model key" }, { status: 503 });
 
-  const profile = structuredClone(PROFILES[s.profile].user_profile) as GenerationProfile;
+  const fixture = PROFILES[s.profile];
+  const profile = structuredClone(fixture.user_profile) as GenerationProfile;
   Object.assign(profile, usableSections(profile));
+  const now = fixture.facts_as_of ? new Date(`${fixture.facts_as_of}T12:00:00Z`) : new Date();
   const jdText = JDS[s.jd].text;
   const payload = buildGenerationPayload({
     jd_text: jdText,
     jd_keywords: analyzeJd(jdText).keywords,
     template: "classic",
     user_profile: profile,
+    now,
   });
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const message = await client.messages.create(buildModelRequest(MODEL_RESUME_STANDARD, payload));
   const parsed = parseModelReply(message);
-  const post = parsed ? postProcessResume(parsed.json, profile) : null;
+  // Cloned first: post-processing edits the object it is given.
+  const rawJson = parsed ? structuredClone(parsed.json) : null;
+  const first = message.content[0];
+  const rawText = parsed?.rawText ?? (first && first.type === "text" ? first.text : "");
+  const post = parsed ? postProcessResume(parsed.json, profile, { now }) : null;
 
   const body = {
     scenario: s.id,
@@ -107,6 +120,8 @@ export async function GET(req: NextRequest) {
     stop_reason: message.stop_reason,
     usage: { input_tokens: message.usage.input_tokens, output_tokens: message.usage.output_tokens },
     parse_ok: !!parsed,
+    raw_text: rawText,
+    raw_resume: rawJson,
     final_resume: post?.resume ?? null,
     sanitiser_warnings: post?.warnings ?? [],
     repaired: post?.repaired ?? [],
