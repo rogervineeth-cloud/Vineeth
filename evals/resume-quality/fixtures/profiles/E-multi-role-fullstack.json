@@ -2,7 +2,8 @@
   "id": "E",
   "label": "Multi-role Java/full-stack candidate (backend, frontend and QA history)",
   "composite_note": "Fictional composite with deliberately broad skills so role targeting must select relevant evidence rather than stuff keywords.",
-  "facts": { "professional_years": 4.3, "has_employment": true, "internship_only": false, "career_gap": null },
+  "facts_as_of": "2026-09-24",
+  "facts": { "professional_years": 5.3, "has_employment": true, "internship_only": false, "career_gap": null },
   "user_profile": {
     "full_name": "Esha Candidate",
     "email": "esha.candidate@example.com",

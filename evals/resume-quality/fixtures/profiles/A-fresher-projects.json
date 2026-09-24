@@ -2,6 +2,7 @@
   "id": "A",
   "label": "Project-heavy fresher (no employment)",
   "composite_note": "Fictional composite built from common public profile patterns for Indian CS freshers. No real person, name, contact or verbatim text.",
+  "facts_as_of": "2026-09-24",
   "facts": { "professional_years": 0, "has_employment": false, "internship_only": false, "career_gap": null },
   "user_profile": {
     "full_name": "Aarav Candidate",

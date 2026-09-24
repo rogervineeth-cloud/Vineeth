@@ -92,12 +92,12 @@ function payloadPass(p: PayloadReport) {
   );
 }
 
-async function generate(client: Anthropic, profile: ProfileFixture, report: PayloadReport) {
+async function generate(client: Anthropic, profile: ProfileFixture, report: PayloadReport, now: Date) {
   const request = buildModelRequest(MODEL_RESUME_STANDARD, report.payload);
   const message = await client.messages.create(request);
   const parsed = parseModelReply(message);
   if (!parsed) return { error: "reply was not valid JSON", raw: message };
-  const post = postProcessResume(parsed.json, profile.user_profile);
+  const post = postProcessResume(parsed.json, profile.user_profile, { now });
   return { raw: parsed.rawText, post };
 }
 
@@ -113,7 +113,7 @@ function toMarkdown(rows: Row[], meta: Record<string, unknown>): string {
     L.push(`| ${r.scenario} | ${r.profile} × ${r.jd} | ${r.expected_fit} | ${p.curated} | ${p.truthful_but_marked_jd_only.join(", ") || "-"} | ${p.absent_but_marked_intersection.join(", ") || "-"} | ${p.curated_not_in_jd.join(", ") || "-"} | ${p.must_inject_coverage} | ${p.attainable_not_licensed.join(", ") || "-"} | ${p.pass ? "PASS" : "FAIL"} |`);
   }
   L.push("", "## Generated resume", "");
-  const gateNames = ["structural_validity", "factual_fidelity", "ats_keywords", "seniority_calibration", "section_completeness", "readability", "career_gap", "projects_vs_employment"];
+  const gateNames = ["structural_validity", "factual_fidelity", "detail_fidelity", "ats_keywords", "seniority_calibration", "summary_framing", "section_completeness", "readability", "career_gap", "projects_vs_employment", "advice_fidelity"];
   L.push(`| Scenario | ATS | Unsupported rate | KW precision | KW recall | ${gateNames.join(" | ")} | Interview chance |`);
   L.push(`|---|---|---|---|---|${gateNames.map(() => "---").join("|")}|---|`);
   for (const r of rows) {
@@ -153,7 +153,10 @@ async function main() {
     // Same filtering the route applies before the model sees the profile.
     Object.assign(profile.user_profile, usableSections(profile.user_profile));
 
-    const pr = evaluatePayload(profile, jd);
+    // Fixture facts ("3.2 professional years") are relative to facts_as_of;
+    // "Present" durations are read on that date so the numbers agree.
+    const now = profile.facts_as_of ? new Date(`${profile.facts_as_of}T12:00:00Z`) : new Date();
+    const pr = evaluatePayload(profile, jd, now);
     const row: Row = {
       scenario: s.id, profile: s.profile, jd: s.jd, expected_fit: s.expected_fit, jd_source: jd.source_status,
       payload: {
@@ -186,11 +189,11 @@ async function main() {
           let resumeForEval = cap.final_resume as GeneratedResume;
           let reprocessWarnings: string[] = [];
           if (process.argv.includes("--reprocess")) {
-            const re = postProcessResume(cap.final_resume, profile.user_profile);
+            const re = postProcessResume(cap.final_resume, profile.user_profile, { now });
             resumeForEval = re.resume as GeneratedResume;
             reprocessWarnings = re.warnings;
           }
-          const ev = evaluateResume(profile, jd, s, resumeForEval);
+          const ev = evaluateResume(profile, jd, s, resumeForEval, now);
           row.model = {
             status: "ok",
             ats_score: ev.metrics.ats_score,
@@ -214,12 +217,12 @@ async function main() {
       }
     } else if (client) {
       try {
-        const g = await generate(client, profile, pr);
+        const g = await generate(client, profile, pr, now);
         if ("error" in g) {
           row.model = { status: "error", reason: g.error ?? "unknown" };
           detail = { ...detail, raw: g.raw };
         } else {
-          const ev: ResumeReport = evaluateResume(profile, jd, s, g.post.resume as GeneratedResume);
+          const ev: ResumeReport = evaluateResume(profile, jd, s, g.post.resume as GeneratedResume, now);
           row.model = {
             status: "ok",
             ats_score: ev.metrics.ats_score,

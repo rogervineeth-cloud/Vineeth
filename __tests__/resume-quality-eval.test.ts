@@ -39,7 +39,7 @@ function cleanC(): GeneratedResume {
   return {
     section_order: ["summary", "experience", "skills", "education"],
     summary:
-      "Backend engineer with 3 years building Java and Spring Boot microservices for payments, applying for the Software Development Engineer II role. Collaborative reviewer who mentors junior engineers.",
+      "Backend engineer with 3 years building Java and Spring Boot microservices for payments, applying for the Software Development Engineer II role. Mentors junior engineers and runs code reviews.",
     experience: up.experience!.map((e) => ({ ...e })),
     skills: ["Java", "Spring Boot", "Microservices", "MySQL", "JPA", "Hibernate", "REST APIs", "Agile", "Git", "Jenkins"],
     education: up.education!.map((e) => ({ institution: e.institution, degree: e.degree, year: e.year })),
@@ -114,7 +114,7 @@ describe("seniority calibration", () => {
     const d = gate(evaluateResume(A, AMZ2, sc("mismatch"), res, NOW), "seniority_calibration").defects.join("\n");
     expect(d).toMatch(/ats_score 82 too high/);
     expect(d).toMatch(/no growth_note/);
-    expect(d).toMatch(/claims 3 years vs 0/);
+    expect(d).toMatch(/overstates experience: "3 years" vs 0 professional years/);
     expect(d).toMatch(/presents the target title/);
   });
 

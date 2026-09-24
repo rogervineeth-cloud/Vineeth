@@ -20,6 +20,8 @@ import { profileNumbers, unverifiableNumbers, extractNumbers } from "@/lib/sanit
 export type ProfileFixture = {
   id: string;
   label: string;
+  /** Date the "Present"-relative facts below were computed for (YYYY-MM-DD). */
+  facts_as_of?: string;
   facts: {
     professional_years: number;
     has_employment: boolean;
@@ -66,6 +68,7 @@ export type GeneratedResume = {
   missing_keywords?: string[];
   tailored_role?: string;
   growth_note?: string | null;
+  profile_improvement_tips?: string[];
   [k: string]: unknown;
 };
 
@@ -187,10 +190,10 @@ export type PayloadReport = {
   payload: GenerationPayload;
 };
 
-export function evaluatePayload(profile: ProfileFixture, jd: JdFixture): PayloadReport {
+export function evaluatePayload(profile: ProfileFixture, jd: JdFixture, now: Date = new Date()): PayloadReport {
   // What the create page proposes and the candidate accepts by default.
   const curated = analyzeJd(jd.text).keywords;
-  const payload = buildGenerationPayload({ jd_text: jd.text, jd_keywords: curated, template: "classic", user_profile: profile.user_profile });
+  const payload = buildGenerationPayload({ jd_text: jd.text, jd_keywords: curated, template: "classic", user_profile: profile.user_profile, now });
 
   const jdSkills = skillsIn(jd.text);
   const have = skillsIn(profileText(profile.user_profile));
@@ -256,6 +259,86 @@ const RELATIVE_TITLE = /(for|targeting|seeking|toward|towards|to|pursue|pursuing
 const TITLE_AS_TARGET = /^\s*(candidate|role|position|opening|opportunity|aspirant)\b/i;
 /** "3+ years" in a summary is a derived claim; seniority_calibration checks it. */
 const YEARS_CLAIM = /\d+(?:\.\d+)?\+?\s*(?:years?|yrs?)\b/gi;
+
+// ── Detail, framing and advice helpers ───────────────────────────────────
+//
+// Independent of lib/detail-evidence (the production guard): a different
+// tokeniser (5-letter prefix matching) and its own, smaller neutral vocabulary.
+
+const FUNCTION_WORDS = new Set(
+  ("a an the and or but nor of to for with in on at by from into over under across via per as that which who " +
+    "this these those it its their them they is are was were be been has have had can will also then than " +
+    "so such both each all more most other while during through within between after before up out about " +
+    "using used use including").split(" ")
+);
+/** Plain execution verbs and units a rephrase may introduce. */
+export const NEUTRAL = new Set(
+  ("built build developed implemented created wrote written authored delivered completed executed conducted " +
+    "performed ran run fixed resolved added reduced reducing cut lowered collaborated partnered worked " +
+    "ms hours hour days day daily weeks week weekly months month monthly years year million thousand").split(" ")
+);
+const SUMMARY_NEUTRAL = new Set([
+  ...NEUTRAL,
+  ..."experience experienced professional seeking targeting pursuing applying role position opportunity graduate fresher student candidate background career focus focused development engineering software currently hands".split(" "),
+]);
+
+const stem5 = (w: string) =>
+  w.replace(/iz/g, "is").replace(/ies$/, "y").replace(/(?:ing|ed|es|s)$/, "").replace(/([b-df-hj-np-tv-z])\1$/, "$1").slice(0, 5);
+function words(text: string): string[] {
+  return (text ?? "").toLowerCase().split(/[^a-z0-9+#]+/).filter((w) => w.length >= 2 && /[a-z]/.test(w) && !FUNCTION_WORDS.has(w));
+}
+function wordSet(text: string): Set<string> {
+  return new Set(words(text).map(stem5));
+}
+/** Content words of `text` absent from `scope` and not neutral. */
+export function addedWords(text: string, scope: Set<string>, neutral: Set<string>): string[] {
+  const neutralStems = new Set([...neutral].map(stem5));
+  return [...new Set(words(text).filter((w) => !scope.has(stem5(w)) && !neutralStems.has(stem5(w))))];
+}
+
+const IDENTITY =
+  /\b(?:engineers?|developers?|graduates?|analysts?|testers?|students?|professionals?|candidates?|specialists?|freshers?|interns?|leads?|architects?|scientists?|managers?|designers?|consultants?|programmers?)\b/i;
+const CREDIT =
+  /^\s*(?:strong|solid|excellent|good|proven|deep|extensive|robust)\b|\byou(?:'ve|'re)\b|\byou\s+(?!should|could|can|may|might|will|would|need|must|want|to\b|consider|try)[a-z]+\b|\byour\b[^.;:]*?\b(?:demonstrates|shows|reflects|includes|highlights|proves)\b/i;
+const LACK = /\b(?:not|no|never|lacks?|lacking|without|missing|yet to|gaps?|limited|absent)\b/i;
+const GAIN =
+  /\b(?:gain|gaining|learn|learning|build|building|study|studying|practi[sc]e|practi[sc]ing|complete|earn|contribute|contributing|take|explore|exploring|pursue|participate|obtain|acquire|solve|solving|refactor|apply|applying|develop|developing)\b/i;
+const EDIT = /\b(?:add|adding|highlight|highlighting|mention|mentioning|include|list|emphasi[sz]e|showcase|feature|call out|inject|insert|incorporate|weave|name)\b/i;
+const EDIT_TARGET = /\b(?:resume|cv|bullets?|summary|skills (?:section|list)|profile|role descriptions?)\b/i;
+
+/** Months at each non-internship employer, in years. */
+function employerYears(up: ProfileFixture["user_profile"], present: number): number[] {
+  const by = new Map<string, Set<number>>();
+  for (const e of up.experience ?? []) {
+    if (/\bintern(?:ship)?s?\b|\btrainee\b|\bapprentice\b/i.test(e.role)) continue;
+    const r = durationRange(e.duration, present);
+    if (!r) continue;
+    const k = n(e.company);
+    const set = by.get(k) ?? new Set<number>();
+    for (let m = r[0]; m <= r[1]; m++) set.add(m);
+    by.set(k, set);
+  }
+  return [...by.values()].map((s) => s.size / 12);
+}
+
+/**
+ * Years claims that neither total professional years nor one employer's
+ * tenure supports. "of (professional) experience" claims are about the whole
+ * career, so only the total counts for them.
+ */
+function yearsDefects(text: string, total: number, tenures: number[]): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(/(\d+(?:\.\d+)?)(\+)?(?:\s*|-)(?:years?|yrs?)\b/gi)) {
+    const x = Number(m[1]);
+    const after = text.slice((m.index ?? 0) + m[0].length);
+    const overall = /^\s*(?:of\s+)?(?:(?:professional|industry|total|overall|work|working)\b|experience\b)/i.test(after);
+    const measures = (overall ? [total] : [total, ...tenures]).filter((v) => v > 0);
+    if (measures.some((v) => x >= Math.floor(v) && x <= v + (m[2] ? 0 : 0.5))) continue;
+    const max = Math.max(0, ...measures);
+    out.push(x > max ? `overstates experience: "${m[0]}" vs ${total} professional years` : `understates experience: "${m[0]}" vs ${total} professional years`);
+  }
+  return out;
+}
 
 export function evaluateResume(
   profile: ProfileFixture,
@@ -356,10 +439,8 @@ export function evaluateResume(
     sen.push(`ats_score ${score} undersells a matching profile`);
   }
   const summary = r.summary ?? "";
-  for (const m of summary.matchAll(/(\d+(?:\.\d+)?)\+?\s*(?:years?|yrs?)/gi)) {
-    const claimed = Number(m[1]);
-    if (claimed > Math.ceil(profile.facts.professional_years)) sen.push(`summary claims ${m[0]} vs ${profile.facts.professional_years} professional years`);
-  }
+  const tenures = employerYears(up, present);
+  for (const d of yearsDefects(summary, profile.facts.professional_years, tenures)) sen.push(`summary ${d}`);
   if (scenario.expected_fit !== "match") {
     const title = jd.title.split(",")[0].trim();
     let idx = summary.toLowerCase().indexOf(title.toLowerCase());
@@ -430,23 +511,94 @@ export function evaluateResume(
   }
   gates.push({ gate: "projects_vs_employment", pass: pe.length === 0, defects: pe });
 
-  // 8. Strongest truthful interview chance (derived) ---------------------
+  // 8. Detail fidelity ---------------------------------------------------
+  // A rewrite may rephrase, not elaborate: every content word a bullet adds
+  // must appear in its own role (title, company, bullets); a project
+  // description's in that project; a summary's anywhere in the profile or the
+  // target title. The final live run passed factual_fidelity 11/11 with
+  // "using Spring Boot batch jobs" and "optimising query patterns" invented.
+  const det: string[] = [];
+  for (const e of r.experience ?? []) {
+    const src = profExp.find((p) => n(p.company) === n(e.company) && n(p.role) === n(e.role)) ?? profExp.find((p) => n(p.company) === n(e.company));
+    if (!src) continue;
+    const scope = wordSet([src.role, src.company, ...src.bullets].join(" "));
+    for (const b of e.bullets ?? []) {
+      const added = addedWords(b, scope, NEUTRAL);
+      if (added.length) det.push(`${e.company} bullet adds "${added.join(", ")}": "${b.slice(0, 60)}..."`);
+    }
+  }
+  for (const pr of r.projects ?? []) {
+    const src = (up.projects ?? []).find((p) => { const a = n(p.name), b = n(pr.name); return a === b || a.startsWith(b) || b.startsWith(a); });
+    if (!src) continue;
+    const added = addedWords(pr.description ?? "", wordSet([src.name, src.description, ...src.tech].join(" ")), NEUTRAL);
+    if (added.length) det.push(`project ${pr.name} adds "${added.join(", ")}"`);
+  }
+  {
+    const scope = wordSet([profileText(up), jd.title, r.tailored_role ?? ""].join(" "));
+    const added = addedWords(summary, scope, SUMMARY_NEUTRAL);
+    if (added.length) det.push(`summary adds "${added.join(", ")}"`);
+  }
+  gates.push({ gate: "detail_fidelity", pass: det.length === 0, defects: det });
+
+  // 9. Summary framing ---------------------------------------------------
+  // The first sentence says who the candidate is ("Software Engineer with 3+
+  // years", "Computer Science graduate"), not "Proficient in Java...".
+  const fr: string[] = [];
+  const firstSentence = summary.trim().split(/(?<=[.!?])\s+(?=[A-Z])/)[0] ?? "";
+  if (summary.trim() && !IDENTITY.test(firstSentence)) fr.push(`summary opens without the candidate's identity: "${firstSentence.slice(0, 60)}"`);
+  gates.push({ gate: "summary_framing", pass: fr.length === 0, defects: fr });
+
+  // 10. Advice fidelity --------------------------------------------------
+  // growth_note and tips may tell the candidate to GAIN a skill; they may not
+  // credit them with one the profile lacks, state their experience wrongly,
+  // or tell them to put an unevidenced skill on the resume.
+  const adv: string[] = [];
+  const advice = [
+    ...(typeof r.growth_note === "string" && r.growth_note !== "null" ? r.growth_note.split(/(?<=[.!?])\s+(?=[A-Z])/).map((t) => ["growth_note", t] as const) : []),
+    ...(Array.isArray(r.profile_improvement_tips) ? r.profile_improvement_tips.map((t) => ["tip", t] as const) : []),
+  ];
+  let prevLacking: string[] = [];
+  for (const [where, text] of advice) {
+    const lacking = (t: string) => [...skillsIn(t)].filter((k) => !have.has(k));
+    for (const clause of text.split(/[;:]|\b(?:but|however|whereas|while)\b/i)) {
+      const credits = CREDIT.test(clause) && !LACK.test(clause) && !GAIN.test(clause);
+      if (credits && lacking(clause).length) adv.push(`${where} credits the candidate with ${lacking(clause).join(", ")}: "${clause.trim().slice(0, 70)}"`);
+      if ((credits && !/\b(?:requires?|required|asks?|expects?|needs?|minimum|targets?)\b/i.test(clause)) || /\byour\s+(?:[a-z]+\s+){0,2}\d/i.test(clause)) {
+        for (const d of yearsDefects(clause, profile.facts.professional_years, tenures)) adv.push(`${where} ${d}`);
+      }
+    }
+    for (const m of text.matchAll(/\byour\s+(?:(?:current|existing|strong|solid|proven)\s+)?([\w/+#.-]+(?:\s+[\w/+#.-]+){0,2})/gi)) {
+      const rest = m[1].split(/\s+/).slice(1).join(" ");
+      const bad = lacking(m[1]).filter((k) => !lacking(rest).includes(k));
+      if (bad.length) adv.push(`${where} presupposes the candidate's ${bad.join(", ")}: "your ${m[1]}"`);
+    }
+    const editsResume = EDIT.test(text) && EDIT_TARGET.test(text) && !GAIN.test(text);
+    if (editsResume && lacking(text).length) adv.push(`${where} tells the candidate to put ${lacking(text).join(", ")} on the resume`);
+    if (editsResume && where === "growth_note" && prevLacking.length && /\b(?:these|them|those|they)\b/i.test(text)) {
+      adv.push(`growth_note tells the candidate to put ${prevLacking.join(", ")} on the resume`);
+    }
+    prevLacking = where === "growth_note" ? lacking(text) : [];
+  }
+  gates.push({ gate: "advice_fidelity", pass: adv.length === 0, defects: [...new Set(adv)] });
+
+  // 11. Strongest truthful interview chance (derived) --------------------
   const byName = Object.fromEntries(gates.map((g) => [g.gate, g.pass]));
   const reasons: string[] = [];
   const firstExp = (r.experience ?? [])[0];
   const leadsWithEvidence = !firstExp || [...skillsIn((firstExp.bullets ?? []).join("\n"))].some((s) => jdSkills.has(s));
   if (!leadsWithEvidence) reasons.push("first experience entry shows no JD-relevant evidence");
   let chance: ResumeReport["interview_chance"];
-  if (!byName.factual_fidelity || !byName.projects_vs_employment || !byName.career_gap) {
+  if (!byName.factual_fidelity || !byName.detail_fidelity || !byName.projects_vs_employment || !byName.career_gap) {
     chance = "weak";
     reasons.push("contains a claim a recruiter or interviewer could disprove");
-  } else if (byName.ats_keywords && byName.seniority_calibration && byName.section_completeness && leadsWithEvidence) {
+  } else if (byName.ats_keywords && byName.seniority_calibration && byName.section_completeness && byName.summary_framing && leadsWithEvidence) {
     chance = "strong";
   } else {
     chance = "adequate";
     if (!byName.ats_keywords) reasons.push("truthful keyword coverage incomplete");
     if (!byName.seniority_calibration) reasons.push("level signalling miscalibrated");
     if (!byName.section_completeness) reasons.push("sections incomplete");
+    if (!byName.summary_framing) reasons.push("summary does not say who the candidate is");
   }
 
   const unsupported = fid.length;

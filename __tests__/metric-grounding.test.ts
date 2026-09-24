@@ -39,7 +39,7 @@ describe("numbers are grounded in their own role", () => {
 
   it("the live S10 capture, re-processed, carries no borrowed number", () => {
     const cap = read("captured/live-after/S10.json");
-    const out = postProcessResume(cap.final_resume, E).resume as ResumeShape;
+    const out = postProcessResume(cap.final_resume, E, { now: new Date("2026-09-24T08:00:00Z") }).resume as ResumeShape;
     const qaBullets = out.experience!.find((x) => x.company === "Brightline Retail Tech")!.bullets!;
     expect(qaBullets.join(" ")).not.toMatch(/\b5\b/);
     expect(qaBullets).toContain("Ran JMeter load tests for the festive-sale release.");

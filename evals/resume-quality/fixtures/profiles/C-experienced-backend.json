@@ -2,6 +2,7 @@
   "id": "C",
   "label": "Experienced backend engineer (3 years)",
   "composite_note": "Fictional composite built from common public profile patterns. Metrics are supplied by the (fictional) candidate; generation must not add any.",
+  "facts_as_of": "2026-09-24",
   "facts": { "professional_years": 3.2, "has_employment": true, "internship_only": false, "career_gap": null },
   "user_profile": {
     "full_name": "Chitra Candidate",

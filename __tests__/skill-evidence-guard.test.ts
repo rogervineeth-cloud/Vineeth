@@ -37,7 +37,7 @@ function load(id: string) {
   Object.assign(profile.user_profile, usableSections(profile.user_profile));
   const jd = read<JdFixture>(`fixtures/jds/${JD_FILES[s.jd]}`);
   const cap = read<{ final_resume: GeneratedResume }>(`captured/live-before/${id}.json`);
-  const after = postProcessResume(cap.final_resume, profile.user_profile);
+  const after = postProcessResume(cap.final_resume, profile.user_profile, { now: NOW });
   return { s, profile, jd, before: cap.final_resume, after: after.resume as GeneratedResume, warnings: after.warnings };
 }
 

@@ -2,7 +2,8 @@
   "id": "D",
   "label": "Career returner: 2 years embedded/BLE QA, then an 8-month break",
   "composite_note": "Fictional composite. The career break (Jan 2026 - Aug 2026) is explicit and must be treated honestly: not hidden, not filled with invented work.",
-  "facts": { "professional_years": 2.2, "has_employment": true, "internship_only": false, "career_gap": { "from": "Jan 2026", "to": "Aug 2026", "months": 8 } },
+  "facts_as_of": "2026-09-24",
+  "facts": { "professional_years": 2.1, "has_employment": true, "internship_only": false, "career_gap": { "from": "Jan 2026", "to": "Aug 2026", "months": 8 } },
   "user_profile": {
     "full_name": "Deepa Candidate",
     "email": "deepa.candidate@example.com",
