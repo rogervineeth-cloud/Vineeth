@@ -4,6 +4,8 @@
 //   npm run eval:resumes -- --offline   # payload + fixture checks only
 //   ... -- --only S03,S10               # subset
 //   ... -- --save results/after-offline # also write a committed summary
+//   ... -- --captured live-before       # score responses captured from the
+//                                       # preview runner (captured/<label>/)
 //
 // Runs the PRODUCTION generation path — lib/resume-generation.ts: the same
 // SYSTEM_PROMPT, payload builder, Messages request (model, temperature,
@@ -17,7 +19,8 @@
 //   results.json      machine-readable matrix
 //   results.md        human-readable matrix
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODEL_RESUME_STANDARD } from "@/lib/models";
@@ -107,7 +110,7 @@ function toMarkdown(rows: Row[], meta: Record<string, unknown>): string {
     L.push(`| ${r.scenario} | ${r.profile} × ${r.jd} | ${r.expected_fit} | ${p.curated} | ${p.truthful_but_marked_jd_only.join(", ") || "-"} | ${p.absent_but_marked_intersection.join(", ") || "-"} | ${p.curated_not_in_jd.join(", ") || "-"} | ${p.must_inject_coverage} | ${p.attainable_not_licensed.join(", ") || "-"} | ${p.pass ? "PASS" : "FAIL"} |`);
   }
   L.push("", "## Generated resume", "");
-  const gateNames = ["factual_fidelity", "ats_keywords", "seniority_calibration", "section_completeness", "readability", "career_gap", "projects_vs_employment"];
+  const gateNames = ["structural_validity", "factual_fidelity", "ats_keywords", "seniority_calibration", "section_completeness", "readability", "career_gap", "projects_vs_employment"];
   L.push(`| Scenario | ATS | Unsupported rate | KW precision | KW recall | ${gateNames.join(" | ")} | Interview chance |`);
   L.push(`|---|---|---|---|---|${gateNames.map(() => "---").join("|")}|---|`);
   for (const r of rows) {
@@ -130,10 +133,11 @@ async function main() {
   const only = arg("--only")?.split(",");
   const selected = scenarios.filter((s) => !only || only.includes(s.id));
 
+  const captured = arg("--captured");
   const key = process.env.ANTHROPIC_API_KEY;
-  const offline = process.argv.includes("--offline") || !key;
+  const offline = !captured && (process.argv.includes("--offline") || !key);
   const blockedReason = process.argv.includes("--offline") ? "offline run" : "ANTHROPIC_API_KEY not set";
-  const client = offline ? null : new Anthropic({ apiKey: key });
+  const client = offline || captured ? null : new Anthropic({ apiKey: key });
 
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
   const outDir = join(ROOT, "out", runId);
@@ -163,7 +167,42 @@ async function main() {
     };
 
     let detail: Record<string, unknown> = { scenario: s, payload_report: pr };
-    if (client) {
+    if (captured) {
+      const file = join(ROOT, "captured", captured, `${s.id}.json`);
+      if (!existsSync(file)) {
+        row.model = { status: "blocked", reason: `no capture for ${s.id}` };
+      } else {
+        const cap = JSON.parse(readFileSync(file, "utf8"));
+        const { sha256, ...body } = cap;
+        const actual = createHash("sha256").update(JSON.stringify(body)).digest("hex");
+        if (actual !== sha256) {
+          row.model = { status: "error", reason: `capture checksum mismatch for ${s.id}` };
+        } else if (!cap.parse_ok || !cap.final_resume) {
+          row.model = { status: "error", reason: "model reply was not valid JSON" };
+        } else {
+          const ev = evaluateResume(profile, jd, s, cap.final_resume as GeneratedResume);
+          row.model = {
+            status: "ok",
+            ats_score: ev.metrics.ats_score,
+            unsupported_claim_rate: ev.metrics.unsupported_claim_rate,
+            keyword_precision: ev.metrics.keyword_precision,
+            keyword_recall: ev.metrics.keyword_recall,
+            gates: Object.fromEntries(ev.gates.map((x) => [x.gate, x.pass])),
+            defects: ev.gates.flatMap((x) => x.defects.map((d) => `[${x.gate}] ${d}`)),
+            interview_chance: ev.interview_chance,
+            sanitiser_warnings: cap.sanitiser_warnings,
+          };
+          // Structural validity: parsed, not truncated, nothing refused or repaired.
+          const structural: string[] = [];
+          if (cap.stop_reason !== "end_turn") structural.push(`stop_reason ${cap.stop_reason} (truncated?)`);
+          if (cap.fatal?.length) structural.push(`production would refuse to save: ${cap.fatal.join(", ")}`);
+          if (cap.repaired?.length) structural.push(`fields repaired by the normaliser: ${cap.repaired.join(", ")}`);
+          row.model.gates.structural_validity = structural.length === 0;
+          row.model.defects.push(...structural.map((d) => `[structural_validity] ${d}`));
+          detail = { ...detail, capture: cap, evaluation: ev };
+        }
+      }
+    } else if (client) {
       try {
         const g = await generate(client, profile, pr);
         if ("error" in g) {
@@ -182,7 +221,9 @@ async function main() {
             interview_chance: ev.interview_chance,
             sanitiser_warnings: g.post.warnings,
           };
-          if (g.post.fatal.length) row.model.defects.push(`[contract] production would refuse to save: ${g.post.fatal.join(", ")}`);
+          row.model.gates.structural_validity = g.post.fatal.length === 0 && g.post.repaired.length === 0;
+          if (g.post.fatal.length) row.model.defects.push(`[structural_validity] production would refuse to save: ${g.post.fatal.join(", ")}`);
+          if (g.post.repaired.length) row.model.defects.push(`[structural_validity] fields repaired by the normaliser: ${g.post.repaired.join(", ")}`);
           detail = { ...detail, raw_reply: g.raw, final_resume: g.post.resume, sanitiser: g.post, evaluation: ev };
         }
       } catch (e) {
@@ -196,7 +237,7 @@ async function main() {
 
   const meta = {
     run_id: runId,
-    mode: offline ? "offline (no model)" : "live model",
+    mode: captured ? `live model (captured from preview: ${captured})` : offline ? "offline (no model)" : "live model",
     model: MODEL_RESUME_STANDARD,
     jd_sources: [...new Set(rows.map((r) => r.jd_source))].join(", "),
   };
