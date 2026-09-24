@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent, RESUME_CONTENT_HINT } from "@/lib/profile-completeness";
@@ -370,7 +370,7 @@ function pushUrlStep(step: string) {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-export default function CreatePage() {
+function CreatePageInner() {
   const router = useRouter();
   const jdRef = useRef<HTMLTextAreaElement>(null);
 
@@ -389,10 +389,15 @@ export default function CreatePage() {
   // Set when arriving via a resume's "Update profile & regenerate"
   // (/create?regen=<id>). Sent to the API, which alone decides whether the
   // regeneration is free (same JD, within 24 h — lib/regen.ts) and records
-  // the lineage. Read once; the step navigation keeps the query string.
-  const [regenParentId] = useState<string | null>(() =>
-    typeof window === "undefined" ? null : parseRegenParam(window.location.search)
-  );
+  // the lineage.
+  //
+  // Read from the router, NOT window.location. On a client-side <Link>
+  // navigation the App Router renders the new page before it pushes the new
+  // URL (history.pushState runs in a useInsertionEffect), so window.location
+  // still holds the previous page's URL during the first render. Reading it
+  // there returned null in production: ?regen= was in the address bar, never
+  // in the request, and a same-JD regeneration was charged.
+  const regenParentId = parseRegenParam(useSearchParams().toString());
   const [loaded, setLoaded] = useState(false);
 
   const [jdText, setJdText] = useState<string>(() =>
@@ -1495,5 +1500,14 @@ export default function CreatePage() {
         </div>
       )}
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary for static rendering.
+export default function CreatePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f3ea]" />}>
+      <CreatePageInner />
+    </Suspense>
   );
 }

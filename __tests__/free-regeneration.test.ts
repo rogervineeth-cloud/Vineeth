@@ -302,9 +302,24 @@ describe("client wiring carries the parent from preview to the API", () => {
     expect(profile).not.toMatch(/push\("\/create"\)/);
   });
 
-  it("create: reads ?regen= and sends it as regen_of_resume_id", () => {
-    expect(create).toMatch(/parseRegenParam\(window\.location\.search\)/);
+  it("create: reads ?regen= from the router and sends it as regen_of_resume_id", () => {
+    expect(create).toMatch(/const regenParentId = parseRegenParam\(useSearchParams\(\)\.toString\(\)\)/);
     expect(create).toMatch(/\.\.\.\(regenParentId \? \{ regen_of_resume_id: regenParentId \} : \{\}\)/);
+  });
+
+  // Production, 2026-09-24: after a client-side <Link> to /create?regen=…,
+  // window.location still held the profile URL during the first render (the
+  // App Router pushes the URL in a useInsertionEffect, after render), so the
+  // id read there was null and the regeneration was charged. Verified in
+  // Chromium against this Next version: window read → null, useSearchParams
+  // → the id. Never read the parent from window.location.
+  it("create: never reads the regeneration parent from window.location", () => {
+    expect(create).not.toMatch(/parseRegenParam\(window\.location/);
+    expect(create).not.toMatch(/window\.location\.search\)\.get\("regen"\)/);
+  });
+
+  it("create: useSearchParams is wrapped in a Suspense boundary", () => {
+    expect(create).toMatch(/<Suspense fallback=\{.*\}>\s*<CreatePageInner \/>\s*<\/Suspense>/);
   });
 
   it("create: its own plan gate lets a regeneration through to the server", () => {
