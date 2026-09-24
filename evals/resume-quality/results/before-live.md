@@ -32,7 +32,7 @@
 | S08 | 58 | 0.267 | 0 | 1 | PASS | FAIL | FAIL | FAIL | PASS | PASS | PASS | PASS | weak |
 | S09 | 58 | 0.2 | 0.5 | 1 | PASS | FAIL | FAIL | FAIL | PASS | PASS | PASS | PASS | weak |
 | S10 | 78 | 0.237 | 0 | 1 | PASS | FAIL | FAIL | PASS | PASS | PASS | PASS | PASS | weak |
-| S11 | 72 | 0.306 | 0.25 | 1 | PASS | FAIL | FAIL | PASS | PASS | PASS | PASS | PASS | weak |
+| S11 | 72 | 0.324 | 0.25 | 1 | PASS | FAIL | FAIL | PASS | PASS | PASS | PASS | PASS | weak |
 
 ### Defects
 
@@ -116,4 +116,5 @@
 - **S11** [factual_fidelity] unsupported skill in prose "GCP"
 - **S11** [factual_fidelity] unsupported skill in prose "Code Review"
 - **S11** [factual_fidelity] unsupported skill in prose "Distributed Systems"
+- **S11** [factual_fidelity] unverifiable number "5 (in Brightline Retail Tech bullet)"
 - **S11** [ats_keywords] JD keywords claimed without evidence: System Design, GCP, Code Review, Python, C++, Distributed Systems

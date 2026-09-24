@@ -480,7 +480,7 @@
       "model": {
         "status": "ok",
         "ats_score": 72,
-        "unsupported_claim_rate": 0.306,
+        "unsupported_claim_rate": 0.324,
         "keyword_precision": 0.25,
         "keyword_recall": 1,
         "gates": {
@@ -505,6 +505,7 @@
           "[factual_fidelity] unsupported skill in prose \"GCP\"",
           "[factual_fidelity] unsupported skill in prose \"Code Review\"",
           "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[factual_fidelity] unverifiable number \"5 (in Brightline Retail Tech bullet)\"",
           "[ats_keywords] JD keywords claimed without evidence: System Design, GCP, Code Review, Python, C++, Distributed Systems"
         ],
         "interview_chance": "weak",

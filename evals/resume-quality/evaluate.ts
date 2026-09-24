@@ -13,7 +13,7 @@
 import { detectSkills } from "@/lib/score-free";
 import { analyzeJd } from "@/lib/jd-keywords";
 import { buildGenerationPayload, type GenerationProfile, type GenerationPayload } from "@/lib/resume-generation";
-import { profileNumbers, unverifiableNumbers } from "@/lib/sanitise-resume";
+import { profileNumbers, unverifiableNumbers, extractNumbers } from "@/lib/sanitise-resume";
 
 // ── Fixture types ──────────────────────────────────────────────────────────
 
@@ -308,7 +308,24 @@ export function evaluateResume(
   const allowedNums = profileNumbers({
     summary: up.summary, experience: up.experience ?? [], education: up.education ?? [], projects: up.projects ?? [], skills: up.skills ?? [],
   });
-  const badNums = unverifiableNumbers(proseText(r).replace(YEARS_CLAIM, ""), allowedNums);
+  // Numbers are grounded in their OWN entry: a bullet only in its role, a
+  // project description only in that project. Profile-wide grounding let a
+  // QA bullet reuse "5" from another job (live S10) and still pass.
+  const badNums: string[] = [];
+  const summaryBad = unverifiableNumbers((r.summary ?? "").replace(YEARS_CLAIM, ""), allowedNums);
+  badNums.push(...summaryBad);
+  for (const e of r.experience ?? []) {
+    const src = profExp.find((p) => n(p.company) === n(e.company) && n(p.role) === n(e.role)) ?? profExp.find((p) => n(p.company) === n(e.company));
+    const allowed = src ? extractNumbers([src.duration, src.role, ...src.bullets].join(" ")) : allowedNums;
+    for (const b of e.bullets ?? []) {
+      for (const x of unverifiableNumbers(b.replace(YEARS_CLAIM, ""), allowed)) badNums.push(`${x} (in ${e.company} bullet)`);
+    }
+  }
+  for (const pr of r.projects ?? []) {
+    const src = (up.projects ?? []).find((p) => { const a = n(p.name), b = n(pr.name); return a === b || a.startsWith(b) || b.startsWith(a); });
+    const allowed = src ? extractNumbers([src.name, src.description, ...src.tech].join(" ")) : allowedNums;
+    for (const x of unverifiableNumbers((pr.description ?? "").replace(YEARS_CLAIM, ""), allowed)) badNums.push(`${x} (in project ${pr.name})`);
+  }
   claims += badNums.length;
   for (const x of badNums) fid.push(`unverifiable number "${x}"`);
   gates.push({ gate: "factual_fidelity", pass: fid.length === 0, defects: fid });

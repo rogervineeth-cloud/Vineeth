@@ -104,6 +104,19 @@ export function profileNumbers(profile: SanitiseProfile): Set<string> {
   return extractNumbers(parts.join(" "));
 }
 
+/**
+ * Word-overlap similarity used to find the candidate's own bullet a rewritten
+ * bullet came from (shared words / size of the smaller bullet).
+ */
+function bulletSimilarity(a: string, b: string): number {
+  const words = (s: string) =>
+    new Set(s.toLowerCase().replace(/[^a-z0-9+#.]+/g, " ").split(" ").filter((w) => w.length > 2));
+  const wa = words(a), wb = words(b);
+  let shared = 0;
+  for (const w of wa) if (wb.has(w)) shared++;
+  return shared / Math.max(1, Math.min(wa.size, wb.size));
+}
+
 /** Numeric tokens in a blob of text, with thousands separators removed. */
 export function extractNumbers(text: string): Set<string> {
   const out = new Set<string>();
@@ -249,18 +262,39 @@ export function sanitiseGeneratedResume(
       return true;
     });
 
-    // Drop bullets asserting numbers the profile never supplied. The company
-    // and dates are verified by this point; an invented metric is not.
+    // Numbers in a bullet must come from THE SAME ROLE — its own bullets and
+    // dates — not from anywhere in the profile. Profile-wide grounding let a
+    // QA bullet borrow "5" from another job's "Containerised 5 services"
+    // (live eval S10). An offending bullet reverts to the candidate's own
+    // bullet it was rewritten from, so an invented metric costs the flourish,
+    // not the truthful accomplishment; it is dropped only when no source
+    // bullet can be identified.
     for (const exp of cleaned) {
       if (!Array.isArray(exp.bullets)) continue;
-      exp.bullets = exp.bullets.filter((b) => {
-        const bad = unverifiableNumbers(b, allowedNumbers);
-        if (bad.length > 0) {
-          warnings.push(`dropped_bullet_unverifiable_metric:${bad.join("/")}`);
-          return false;
+      const src =
+        (profile.experience ?? []).find((p) => norm(p.company) === norm(exp.company ?? "") && norm(p.role) === norm(exp.role ?? "")) ??
+        (profile.experience ?? []).find((p) => norm(p.company) === norm(exp.company ?? ""));
+      const roleNumbers = src
+        ? extractNumbers([src.duration, src.role, ...src.bullets].join(" "))
+        : allowedNumbers;
+      const out: string[] = [];
+      for (const b of exp.bullets) {
+        const bad = unverifiableNumbers(b, roleNumbers);
+        if (bad.length === 0) {
+          out.push(b);
+          continue;
         }
-        return true;
-      });
+        const best = (src?.bullets ?? [])
+          .map((sb) => ({ sb, score: bulletSimilarity(b, sb) }))
+          .sort((x, y) => y.score - x.score)[0];
+        if (best && best.score >= 0.3) {
+          warnings.push(`reverted_bullet_unverifiable_metric:${bad.join("/")}`);
+          out.push(best.sb);
+        } else {
+          warnings.push(`dropped_bullet_unverifiable_metric:${bad.join("/")}`);
+        }
+      }
+      exp.bullets = [...new Set(out)];
     }
 
     resume.experience = cleaned;
@@ -308,17 +342,22 @@ export function sanitiseGeneratedResume(
 
   // ── Projects ────────────────────────────────────────────────────────────
   // Same metric rule as experience bullets.
+  // Numbers must come from THIS project's own description and tech.
   if (Array.isArray(resume.projects)) {
     for (const p of resume.projects) {
       if (typeof p.description !== "string") continue;
-      const bad = unverifiableNumbers(p.description, allowedNumbers);
+      const source = (profile.projects ?? []).find((sp) => {
+        const a = norm(sp.name), b = norm(p.name ?? "");
+        return a === b || a.startsWith(b) || b.startsWith(a);
+      });
+      const projectNumbers = source
+        ? extractNumbers([source.name, source.description, ...(source.tech ?? [])].join(" "))
+        : allowedNumbers;
+      const bad = unverifiableNumbers(p.description, projectNumbers);
       if (bad.length > 0) {
         warnings.push(`stripped_project_metric:${bad.join("/")}`);
         // A project's description is its only prose — blanking it would leave
         // an empty card, so fall back to the user's own text where we have it.
-        const source = (profile.projects ?? []).find(
-          (sp) => norm(sp.name) === norm(p.name ?? "")
-        );
         p.description = source?.description ?? "";
       }
     }
