@@ -53,6 +53,19 @@ export const TECH_SKILLS: { name: string; aliases?: string[] }[] = [
   { name: "FastAPI" },
   { name: "Flask" },
   { name: "Express", aliases: ["Express.js"] },
+  { name: "Microservices", aliases: ["Microservice"] },
+    // CS fundamentals & engineering practice — the core of most SWE/SDE
+    // postings (Google, Amazon, ...). Without these the candidate's truthful
+    // DSA / code-review / design evidence was never proposed for curation.
+  { name: "Data Structures", aliases: ["Data Structure", "DSA"] },
+  { name: "Algorithms", aliases: ["Algorithm"] },
+  { name: "System Design", aliases: ["Systems Design"] },
+  { name: "Distributed Systems", aliases: ["Distributed System", "Distributed Computing"] },
+  { name: "Object-Oriented Design", aliases: ["Object Oriented Design", "Object-Oriented Programming", "Object Oriented Programming", "OOP", "OOPS"] },
+  { name: "Design Patterns", aliases: ["Design Pattern"] },
+  { name: "Code Review", aliases: ["Code Reviews", "Review code", "Reviewed code"] },
+  { name: "Unit Testing", aliases: ["Unit Tests", "Unit Test"] },
+  { name: "Accessibility", aliases: ["A11y", "WCAG", "Accessible technologies"] },
     // Cloud & infra
   { name: "AWS", aliases: ["Amazon Web Services"] },
   { name: "Azure", aliases: ["Microsoft Azure"] },
@@ -141,27 +154,61 @@ const TECH_SKILL_PATTERNS: { canonical: string; pattern: string }[] = (() => {
 // "Go" from matching inside "go-to-market" while still letting
 // "Node.js", "C++", "A/B Testing", "CI/CD" match correctly.
 const SKILL_BOUNDARY_CHARS = "A-Za-z0-9+#./\\-";
+// As above minus ".", which is handled separately (see detectTechSkills).
+const TRAILING_BOUNDARY_CHARS = "A-Za-z0-9+#/\\-";
 
 function escapeRegex(s: string): string {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Skill names that are also ordinary English words. Matched only in their
+// capitalised form ("Go", "Swift"), never as "go live", "express interest",
+// "a swift response" or "excel at". Case-insensitive matching turned prose
+// into skills — on a JD that is noise; on a candidate's bullet (see
+// buildGenerationPayload) it would tell the model to claim a skill the
+// candidate does not have.
+const ENGLISH_WORD_SKILLS = new Set(["Go", "Swift", "Rust", "Excel", "Slack", "Notion", "Sketch", "Express", "Looker", "Amplitude"]);
+// "Excel at/in ..." is still prose even when capitalised at a sentence start.
+const EXCEL_AS_VERB = /^\s+(at|in)\b/i;
+
+/**
+ * Canonical TECH_SKILLS names mentioned in `text`, in list order. Aliases
+ * collapse to the canonical name ("ReactJS" → "React", "RESTful" → "REST API").
+ */
+export function detectTechSkills(text: string): string[] {
+    const seen = new Set<string>();
+    const found: string[] = [];
+    for (const p of TECH_SKILL_PATTERNS) {
+          if (seen.has(p.canonical)) continue;
+          const caseSensitive = ENGLISH_WORD_SKILLS.has(p.pattern);
+          // Trailing boundary: "." belongs to the token only when a letter or
+          // digit follows ("Node.js", "React.js"). At the end of a sentence it
+          // is punctuation — otherwise "...data structures or algorithms." and
+          // "...experience with Java." never matched.
+          const re = new RegExp(
+                  `(?<![${SKILL_BOUNDARY_CHARS}])${escapeRegex(p.pattern)}(?![${TRAILING_BOUNDARY_CHARS}]|\\.[A-Za-z0-9])`,
+                  caseSensitive ? "g" : "gi"
+                );
+          let hit = false;
+          let m: RegExpExecArray | null;
+          while ((m = re.exec(text)) !== null) {
+                  if (p.pattern === "Excel" && EXCEL_AS_VERB.test(text.slice(m.index + m[0].length))) continue;
+                  hit = true;
+                  break;
+          }
+          if (hit) {
+                  seen.add(p.canonical);
+                  found.push(p.canonical);
+          }
+    }
+    return found;
 }
 
 export function analyzeJd(text: string): JdAnalysis {
     if (text.length < 100) {
           return { detectedRole: null, keywords: [], quality: "weak" };
     }
-    const seen = new Set<string>();
-    const found: string[] = [];
-    for (const p of TECH_SKILL_PATTERNS) {
-          const re = new RegExp(
-                  `(?<![${SKILL_BOUNDARY_CHARS}])${escapeRegex(p.pattern)}(?![${SKILL_BOUNDARY_CHARS}])`,
-                  "i"
-                );
-          if (re.test(text) && !seen.has(p.canonical)) {
-                  seen.add(p.canonical);
-                  found.push(p.canonical);
-          }
-    }
+    const found = detectTechSkills(text);
     const roleMatch = text.match(
           /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i
         );

@@ -70,6 +70,8 @@ const EXTRA_TERMS: [string, string, string][] = [
   ["Distributed Systems", "\\bdistributed (?:systems?|computing)\\b", "i"],
   ["Object-Oriented Design", "\\bobject[- ]oriented (?:design|programming)\\b|\\bOOP\\b", "i"],
   ["Design Patterns", "\\bdesign patterns?\\b", "i"],
+  // "Review code developed by other developers" is a code-review requirement.
+  ["Code Review", "\\breview(?:ed|ing)? (?:the )?code\\b|\\bcode reviews?\\b", "i"],
   ["Accessibility", "\\baccessib(?:le|ility)\\b|\\ba11y\\b", "i"],
   ["BLE", "\\bBLE\\b|\\bBluetooth Low Energy\\b", ""],
   ["FreeRTOS", "\\bFreeRTOS\\b", "i"],

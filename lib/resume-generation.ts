@@ -8,6 +8,9 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { GENERATION_TEMPERATURE } from "@/lib/models";
+import { detectTechSkills, TECH_SKILLS } from "@/lib/jd-keywords";
+
+const KNOWN_SKILLS = new Set(TECH_SKILLS.map((s) => s.name));
 import {
   sanitiseGeneratedResume,
   normaliseGeneratedResume,
@@ -161,16 +164,59 @@ export type GenerationInput = {
   user_profile: GenerationProfile;
 };
 
-/** The labelled payload the SYSTEM_PROMPT expects. */
+/**
+ * Every place in the profile a skill can be evidenced: the skills list, but
+ * also role titles, experience bullets, project names, descriptions and tech.
+ */
+function profileEvidence(p: GenerationProfile): string {
+  const parts: string[] = [p.summary ?? "", ...(p.skills ?? [])];
+  for (const e of p.experience ?? []) parts.push(e.role, ...e.bullets);
+  for (const pr of p.projects ?? []) parts.push(pr.name, pr.description, ...pr.tech);
+  return parts.join("\n");
+}
+
+/**
+ * The labelled payload the SYSTEM_PROMPT expects.
+ *
+ * INTERSECTION_SKILLS (must include) vs JD_ONLY_SKILLS (never claim) decides
+ * what the model is allowed to say, so it must reflect what the candidate
+ * actually has. It used to compare curated keywords against the skills list
+ * by exact normalised string, so a candidate whose profile says "ReactJS",
+ * "RESTful APIs" or "Data Structures and Algorithms" — or who shows code
+ * reviews only in a bullet — was told NEVER to claim React, REST API, Data
+ * Structures or Code Review, and those skills were then listed back to them
+ * as "missing". Curated keywords are canonical TECH_SKILLS names, so the
+ * profile is read with the same alias-aware matcher (lib/jd-keywords), over
+ * every field that can evidence a skill. The exact-string check remains for
+ * keywords the candidate typed in themselves.
+ */
 export function buildGenerationPayload(input: GenerationInput) {
   const p = input.user_profile;
   const curated = (input.jd_keywords ?? []).map(k => k.trim()).filter(Boolean);
   const profileSkills = (p.skills ?? []).map(s => s.trim()).filter(Boolean);
   const profileSkillsNorm = new Set(profileSkills.map(norm));
+  const evidenceText = profileEvidence(p);
+  const evidenced = new Set(detectTechSkills(evidenceText));
+  const evidenceNorm = ` ${norm(evidenceText).replace(/\s+/g, " ")} `;
+  const has = (k: string) =>
+    evidenced.has(k) ||
+    profileSkillsNorm.has(norm(k)) ||
+    // A keyword the candidate typed that is not a known skill ("Razorpay"),
+    // evidenced verbatim. Known skills never take this path: they go only
+    // through detectTechSkills and its English-word guards, or "express
+    // interest" / "excel at" in a bullet would license Express and Excel.
+    (!KNOWN_SKILLS.has(k) && norm(k).length >= 3 && evidenceNorm.includes(` ${norm(k)} `));
+  const curatedSet = new Set(curated);
   const curatedNorm = new Set(curated.map(norm));
-  const intersection = curated.filter(k => profileSkillsNorm.has(norm(k)));
-  const jdOnly = curated.filter(k => !profileSkillsNorm.has(norm(k)));
-  const profileExtras = profileSkills.filter(s => !curatedNorm.has(norm(s)));
+  const intersection = curated.filter(has);
+  const jdOnly = curated.filter(k => !has(k));
+  // A profile skill already represented by a curated keyword ("ReactJS" when
+  // "React" is curated) is not an extra.
+  const profileExtras = profileSkills.filter(s => {
+    if (curatedNorm.has(norm(s))) return false;
+    const canon = detectTechSkills(s);
+    return !(canon.length > 0 && canon.every(c => curatedSet.has(c)));
+  });
   return {
     JD_TEXT: input.jd_text,
     JD_URL: input.jd_url || null,
