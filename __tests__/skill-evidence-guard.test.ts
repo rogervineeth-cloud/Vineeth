@@ -138,6 +138,48 @@ describe("the guard leaves faithful output alone", () => {
   });
 });
 
+describe("the guard never drops a candidate's own skills (first live after-run regression)", () => {
+  it.each(Object.entries(PROFILE_FILES))("%s: every profile skill and project tech entry survives", (_id, file) => {
+    const up = read<ProfileFixture>(`fixtures/profiles/${file}`).user_profile;
+    const resume = {
+      summary: "x",
+      skills: [...(up.skills ?? [])],
+      projects: (up.projects ?? []).map((p) => ({ ...p, tech: [...p.tech] })),
+      ats_score: 50,
+    };
+    const r = enforceSkillEvidence(structuredClone(resume) as never, up);
+    expect(r.warnings.filter((w) => w.startsWith("dropped_unsupported"))).toEqual([]);
+    expect((r.resume as unknown as { skills: string[] }).skills).toEqual(up.skills);
+  });
+
+  it("C: JPA, Hibernate, Jenkins and JUnit (dropped in the first after-run) are kept", () => {
+    const C = read<ProfileFixture>(`fixtures/profiles/${PROFILE_FILES.C}`).user_profile;
+    const r = enforceSkillEvidence({ skills: ["JPA", "Hibernate", "Jenkins", "JUnit"] } as never, C);
+    expect((r.resume as unknown as { skills: string[] }).skills).toEqual(["JPA", "Hibernate", "Jenkins", "JUnit"]);
+  });
+});
+
+describe("practice terms are checked against the bullet's own source", () => {
+  it("S04 after-run: 'efficient Data Structures' added to an internship bullet is reverted, although B lists DSA", () => {
+    const B = read<ProfileFixture>(`fixtures/profiles/${PROFILE_FILES.B}`).user_profile;
+    const src = B.experience![0].bullets[0];
+    const resume = {
+      experience: [{ ...B.experience![0], bullets: [
+        "Built 6 REST endpoints in Spring Boot for the order-returns module backed by MySQL, handling concurrent requests with efficient Data Structures.",
+      ] }],
+    };
+    const r = enforceSkillEvidence(resume as never, B);
+    expect((r.resume as unknown as { experience: { bullets: string[] }[] }).experience[0].bullets).toEqual([src]);
+  });
+
+  it("a practice the source bullet already names is kept (C: code reviews)", () => {
+    const C = read<ProfileFixture>(`fixtures/profiles/${PROFILE_FILES.C}`).user_profile;
+    const b = "Mentored 2 junior engineers and led code reviews in 2-week Agile sprints.";
+    const r = enforceSkillEvidence({ experience: [{ ...C.experience![0], bullets: [b] }] } as never, C);
+    expect((r.resume as unknown as { experience: { bullets: string[] }[] }).experience[0].bullets).toEqual([b]);
+  });
+});
+
 describe("prompt rules", () => {
   it("adds evidence-only skills (H) and title/level honesty (I)", () => {
     expect(SYSTEM_PROMPT).toMatch(/H\. SKILLS ARE EVIDENCE-ONLY/);

@@ -322,7 +322,22 @@ export function postProcessResume(resumeJson: unknown, profile: GenerationProfil
 // not evidence (it carries aspiration), but reverting TO it is allowed: it is
 // their own words.
 
-const WEAK_EVIDENCE_KEY = (s: string) => norm(s).replace(/\s+/g, " ").trim();
+// Separators become spaces, never nothing: deleting them glued adjacent
+// evidence together ("JUnit\nJPA" -> "junitjpa", "JPA/Hibernate" ->
+// "jpahibernate"), so the guard dropped the candidate's own JPA, Hibernate,
+// Jenkins and JUnit in the first live after-run.
+const WEAK_EVIDENCE_KEY = (s: string) => s.toLowerCase().replace(/[^a-z0-9+#.]+/g, " ").replace(/\s+/g, " ").trim();
+
+/**
+ * Engineering practices a recruiter probes against the specific work claimed
+ * ("tell me about the data structures you used here"). A rewritten bullet or
+ * project may name one only if its OWN source does — profile-level evidence
+ * is not enough for these. Languages and tools stay profile-level.
+ */
+const PRACTICE_SKILLS = new Set([
+  "Data Structures", "Algorithms", "System Design", "Distributed Systems", "Object-Oriented Design",
+  "Design Patterns", "Code Review", "Microservices", "Unit Testing", "Accessibility",
+]);
 
 function sourceSimilarity(a: string, b: string): number {
   const ta = new Set(WEAK_EVIDENCE_KEY(a).split(" ").filter((w) => w.length > 2));
@@ -390,11 +405,16 @@ export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationPro
         (p) => norm(p.company) === norm(exp.company ?? "") && norm(p.role) === norm(exp.role ?? "")
       ) ?? (profile.experience ?? []).find((p) => norm(p.company) === norm(exp.company ?? ""));
       const bullets = (exp.bullets ?? []).flatMap((b) => {
-        const bad = unsupportedIn(b);
-        if (bad.length === 0) return [b];
         const best = (src?.bullets ?? [])
           .map((sb) => ({ sb, score: sourceSimilarity(b, sb) }))
           .sort((x, y) => y.score - x.score)[0];
+        const sourceText = best && best.score >= 0.3 ? best.sb : "";
+        const sourcePractices = new Set(skillsMentioned(sourceText));
+        const bad = [
+          ...unsupportedIn(b),
+          ...skillsMentioned(b).filter((k) => PRACTICE_SKILLS.has(k) && evidenced.has(k) && !sourcePractices.has(k)),
+        ];
+        if (bad.length === 0) return [b];
         if (best && best.score >= 0.3) {
           warnings.push(`reverted_bullet_unsupported_skill:${bad.join("|")}`);
           return [best.sb];
@@ -413,7 +433,11 @@ export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationPro
         return a === b || a.startsWith(b) || b.startsWith(a);
       });
       let description = pr.description ?? "";
-      const bad = unsupportedIn(description);
+      const srcPractices = new Set(skillsMentioned(`${src?.description ?? ""}\n${(src?.tech ?? []).join("\n")}`));
+      const bad = [
+        ...unsupportedIn(description),
+        ...skillsMentioned(description).filter((k) => PRACTICE_SKILLS.has(k) && evidenced.has(k) && !srcPractices.has(k)),
+      ];
       if (bad.length > 0) {
         warnings.push(`reverted_project_description_unsupported_skill:${bad.join("|")}`);
         description = src?.description ?? "";

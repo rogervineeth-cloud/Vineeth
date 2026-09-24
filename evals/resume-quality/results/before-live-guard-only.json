@@ -257,10 +257,6 @@
         "interview_chance": "strong",
         "sanitiser_warnings": [
           "dropped_bullet_unverifiable_metric:10",
-          "dropped_unsupported_skill:JPA",
-          "dropped_unsupported_skill:Hibernate",
-          "dropped_unsupported_skill:Jenkins",
-          "dropped_unsupported_skill:JUnit",
           "reverted_bullet_unsupported_skill:Design Patterns",
           "dropped_summary_sentence_unsupported_skill:Distributed Systems"
         ]
@@ -304,10 +300,6 @@
           "dropped_bullet_unverifiable_metric:10",
           "dropped_unsupported_skill:System Design",
           "dropped_unsupported_skill:Distributed Systems",
-          "dropped_unsupported_skill:JPA",
-          "dropped_unsupported_skill:Hibernate",
-          "dropped_unsupported_skill:Jenkins",
-          "dropped_unsupported_skill:JUnit",
           "reverted_bullet_unsupported_skill:Distributed Systems",
           "reverted_bullet_unsupported_skill:System Design",
           "dropped_summary_sentence_unsupported_skill:System Design|Distributed Systems|GCP",
@@ -357,8 +349,6 @@
           "dropped_unsupported_skill:Algorithms",
           "dropped_unsupported_skill:Distributed Systems",
           "dropped_unsupported_skill:Object-Oriented Design",
-          "dropped_unsupported_skill:Embedded C",
-          "dropped_unsupported_skill:Test Automation",
           "reverted_project_description_unsupported_skill:System Design",
           "dropped_summary_sentence_unsupported_skill:Data Structures|Algorithms|Distributed Systems|Object-Oriented Design"
         ]
@@ -406,8 +396,6 @@
           "dropped_unsupported_skill:System Design",
           "dropped_unsupported_skill:Distributed Systems",
           "dropped_unsupported_skill:Code Review",
-          "dropped_unsupported_skill:Test Automation",
-          "dropped_unsupported_skill:Embedded C",
           "reverted_project_description_unsupported_skill:System Design",
           "dropped_summary_sentence_unsupported_skill:System Design|Distributed Systems|Code Review"
         ]
@@ -455,7 +443,7 @@
           "reverted_bullet_unsupported_skill:Microservices|Design Patterns",
           "reverted_bullet_unsupported_skill:Code Review",
           "reverted_bullet_unsupported_skill:Algorithms",
-          "reverted_project_description_unsupported_skill:Algorithms",
+          "reverted_project_description_unsupported_skill:Algorithms|Accessibility",
           "dropped_summary_sentence_unsupported_skill:Distributed Systems",
           "dropped_summary_sentence_unsupported_skill:Algorithms|Design Patterns|Code Review"
         ]
@@ -507,6 +495,7 @@
           "reverted_bullet_unsupported_skill:Microservices|Distributed Systems",
           "reverted_bullet_unsupported_skill:UI/UX",
           "reverted_bullet_unsupported_skill:Code Review",
+          "reverted_project_description_unsupported_skill:Accessibility",
           "dropped_summary_sentence_unsupported_skill:Distributed Systems",
           "dropped_summary_sentence_unsupported_skill:Code Review",
           "dropped_summary_sentence_unsupported_skill:System Design|GCP"
