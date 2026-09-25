@@ -343,3 +343,47 @@ now re-run today's post-processing over the captured **raw** model reply
   rewrote bullets, and project embellishments still revert.
 - These are replays of one run's raw output; a fresh live run of this code has
   not been done.
+
+## Final live verification of `2bfe4be` (`final-live-4`, 2026-09-25)
+
+11 fictional scenarios ran on the branch-only preview
+`dpl_DnT93WnuyKSATnFqdmNfbjAYsxtH` between 06:34Z and 06:38Z. Each capture
+holds the raw and the final output, and all 11 are SHA-256-verified. Scored:
+`results/final-live-4`; tailoring/PDF comparison:
+`results/live-compare-final3-vs-final4`.
+
+| | final-live-3 (as captured) | **final-live-4 (live, 2bfe4be)** |
+|---|---|---|
+| factual · detail · advice · ats_keywords | 11 · 11 · 11 · 11 | 11 · 11 · 11 · 11 |
+| summary_framing (includes the fragment check) | 8 | **11** |
+| Summary names the target role | 1 | **11** |
+| Keyword precision · unsupported-claim rate | 1.0 · 0 | 1.0 · 0 |
+| seniority (ATS "undersells" heuristic, S01/S10) | 9 | 9 |
+| Final bullets verbatim / tailored-clean / unclean | 28 / 6 / 0 | 29 / 5 / 0 |
+| PDF: one A4 page in all 4 templates | 11 | 11 |
+| Tips kept / raw | 34 / 40 | 38 / 39 |
+| Growth-note sentences kept / raw | 27 / 29 | 29 / 30 |
+
+**Manual audit: not a clean pass.**
+- Fixed live: S08 and S10 now read "<title> with N+ years of professional
+  experience. Seeking the <role> role."; the role is named in all 11
+  summaries; S10's tips are kept (4/4, tip 3 cut to its clean first half).
+- **New defect, S09.** The summary reads "QA Engineer with 2+ years of
+  professional experience. Seeking a Software Engineer II role at Google
+  Cloud, C++, and test automation."
+  - The trim removed ", bringing expertise in Python" only up to the next
+    comma, leaving the rest of a list attached to the role.
+  - Every gate passes it.
+  - Fix needed: a clause cut must not end inside a list (extend to the
+    sentence end, or reject the trim).
+- **Advice false positive, S03.** "You are a fresher … applying for a role
+  requiring 3+ years …" was dropped: "requiring" is not in the requirement
+  words, so the role's 3+ years was read as the candidate's claim.
+- **S11:** "Formalise your code review practices: …" is still removed
+  (deliberate). S07's note is kept in full.
+- **Unchanged:**
+  - bullets are mostly verbatim (model rewrites are reverted or trimmed back
+    to the source);
+  - project embellishments in S01–S05 revert;
+  - S08/S09 lose the model's domain words ("embedded … firmware testing");
+  - the ATS heuristic still fires on S01/S10.
