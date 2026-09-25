@@ -498,3 +498,101 @@ Tailoring is still thin.
 - **Projects.** The project embellishments in S01–S05 still revert
   ("designed", "eliminated", "deployed locally"). This keeps them factual but
   leaves them untailored.
+
+### Fixes for the final-live-5 findings (`d363fe8`, replayed offline first)
+
+- **S08/S09 domain over-trim.** "in embedded systems and firmware testing" was
+  dropped because "systems" counted as a new word, even though the profile
+  tested "embedded devices".
+  - Fix: in a summary, "systems" is supported when every use of it follows a
+    word the profile has.
+  - "scalable systems" and "distributed systems" stay unsupported (the skill
+    guard checks "Distributed Systems" as well). Bullets and projects are
+    unchanged.
+  - S07 now keeps "building backend systems in Java and Spring Boot"; only
+    "scalable" is cut.
+- **S07 tip false positive.** "Deepen your System Design and Distributed
+  Systems knowledge…" was flagged as presupposing a skill.
+  - Cause: the learning noun "knowledge" came after a list of skill names,
+    outside the 3-word window.
+  - Fix: such a list counts as growth advice only if every item is just a
+    skill name. "your System Design contributions/leadership" still fails.
+- **The evaluator** (a separate implementation) was changed the same way.
+- **ATS "undersells" flag on S01/S10.** Left unchanged and still reported.
+  - `expected_fit: "match"` is a seniority label, whereas the ATS score
+    measures keyword coverage.
+  - A test pins that the score is the model's own (raw equals final) and that
+    every missing keyword it cites is absent from the profile. On that
+    evidence the flag is **accepted as non-blocking**; it is not hidden.
+- **Verification:**
+  - Replaying final-live-5 changes only S07, S08 and S09. Every gate except
+    the ATS heuristic passes 11/11.
+  - Jest 657/657 (31 suites). tsc clean, build OK, changed-file lint clean.
+  - Offline corpus audit identical to baseline.
+
+## Live run of `d363fe8` (`final-live-6`, 2026-09-25)
+
+**Setup.**
+- Route-bearing preview: `dpl_8gQWhJ2av3tW6uo7CdK3eQytXArx` (`b8c550d`).
+- The first route deployment (`dpl_GAsHuGfmU4h2CughcpeyEPeUjHEy`, `ed88840`)
+  expired unused at 08:28:36Z while the bypass was being fixed. The expiry
+  was re-armed once and no model call was made before then.
+- Each scenario ran once, 13:25–13:28Z. All 11 captures are SHA-256-verified.
+- The runner was removed in `a9cffc9`, so the tree equals `d363fe8`.
+- Scores are in `results/final-live-6`; the tailoring and PDF comparison is in
+  `results/live-compare-final5-vs-final6`.
+
+| | final-live-5 (`c1c3c95`) | **final-live-6 (live, `d363fe8`)** |
+|---|---|---|
+| factual_fidelity | 11 | **10 (S04: institution misspelt)** |
+| detail · framing · advice · ats_keywords | 11 · 11 · 11 · 11 | 11 · 11 · 11 · 11 |
+| Summary names the target role | 11 | 11 |
+| Unsupported-claim rate (S04) | 0 | 0.053 |
+| seniority (ATS heuristic, S01/S10, accepted non-blocking) | 9 | 9 |
+| Bullets verbatim / tailored-clean / unclean | 29 / 5 / 0 | 29 / 5 / 0 |
+| Projects verbatim / tailored-clean / unclean | 14 / 1 / 0 | 12 / 3 / 0 |
+| PDF: one A4 page in all 4 templates | 11 | 11 |
+| Tips kept / raw | 37 / 39 | 38 / 39 |
+
+**Manual audit. Not a clean pass: one new factual defect.**
+- **BLOCKER, S04: misspelt institution.**
+  - The model wrote "Declan College of Engineering"; the profile says
+    "Deccan College of Engineering". It reached the final resume.
+  - The runtime has no check for this. `sanitise-resume.ts` drops a company
+    that isn't in the profile, but for institutions it only drops
+    placeholders. Only prompt rule A asks for them verbatim.
+  - The evaluator catches it (`unknown institution`); the product does not.
+  - This is the first time in 7 live runs that the model changed an
+    institution name.
+  - A narrow fix is needed before release: restore the profile's institution
+    when an education entry matches it by degree and year; otherwise drop the
+    entry. It needs its own regression test.
+- **Fixed live:**
+  - S07: "Software Engineer with 3+ years of professional experience building
+    backend systems in Java and Spring Boot. Seeking the Software Engineer II
+    role at Google Cloud." The "Deepen your System Design and Distributed
+    Systems knowledge…" tip is kept.
+  - S08/S09: "QA Engineer with 2+ years of professional experience in
+    embedded systems and firmware testing. Seeking …". The S09 bullets are
+    the source text word for word.
+- **Minor advice issues in S07:**
+  - The growth note's opening sentence ("…the JD emphasises Python,
+    JavaScript, and C++ alongside Java, and your profile shows only Java")
+    was dropped as `credits_unevidenced`, a false positive: "only" is not
+    read as a negation. What's left starts with "Additionally, …".
+  - A kept tip reads "Your microservices and REST API experience is strong;
+    explicitly frame it as distributed systems work in future roles". This is
+    borderline: it encourages reframing existing work under a skill the
+    profile doesn't show.
+- **ATS scores (the model's own; raw equals final):**
+  - S01: 38. Missing Data Structures, Algorithms, Distributed Systems,
+    Object-Oriented Design, all absent from profile A.
+  - S10: 48. Missing Algorithms, Distributed Systems, Design Patterns, Code
+    Review, all absent from profile E.
+  - Accepted as non-blocking.
+- **Tailoring is still thin but truthful.**
+  - S10's summary is generic ("…5+ years of professional experience. Seeking
+    the … role.").
+  - Model embellishments in the S01–S05 projects still revert.
+- **Pre-model payload gate:** S09 still fails it, unchanged since the first
+  run.
