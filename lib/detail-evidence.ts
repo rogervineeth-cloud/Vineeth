@@ -169,6 +169,17 @@ function tidy(t: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** ", C++, and test automation" — the rest of a comma-separated list. */
+const LIST_TAIL = /^,\s*[^,;]+(?:,\s*[^,;]+)*,?\s+(?:and|or)\s+\S/i;
+
+/**
+ * A role or noun phrase followed directly by a bare list ("...role at Google
+ * Cloud, C++, and test automation") — a list that lost its introducing
+ * clause.
+ */
+export const LIST_FRAGMENT =
+  /\b(?:role|position|opportunity|opening)\b(?:\s+(?:at|with|in)\s+[A-Z][\w&.-]*(?:\s+[A-Z][\w&.-]*)*)?,\s+(?!(?:with|bringing|including|where|which|who|to|and|using|building|focusing|applying)\b)[^,.;]+,\s*(?:and|or)\s/i;
+
 function clauseRemovals(body: string): string[] {
   const out: string[] = [];
   for (const re of CLAUSE_STARTS) {
@@ -178,7 +189,12 @@ function clauseRemovals(body: string): string[] {
       const rest = body.slice(s + 1);
       const next = rest.search(/[,;]/);
       const ends = [body.length];
-      if (next >= 0) ends.push(s + 1 + next);
+      // Never stop a cut inside a list: after ", bringing expertise in
+      // Python" comes ", C++, and test automation", and cutting only to that
+      // comma left "...role at Google Cloud, C++, and test automation."
+      // (final-live-4 S09). A cut that ends where a list continues goes to
+      // the end of the sentence instead.
+      if (next >= 0 && !LIST_TAIL.test(body.slice(s + 1 + next))) ends.push(s + 1 + next);
       for (const e of ends) out.push(body.slice(0, s) + body.slice(e));
     }
   }

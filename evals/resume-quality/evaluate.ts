@@ -562,6 +562,10 @@ export function evaluateResume(
   // final-live-3 S08/S09/S10: "QA Engineer." passed every gate.
   const summaryWordList = summary.trim().split(/\s+/).filter(Boolean);
   if (summary.trim() && summaryWordList.length < 6) fr.push(`summary is a fragment: "${summary.trim()}"`);
+  // final-live-4 S09: "...role at Google Cloud, C++, and test automation." —
+  // a bare list hanging off the role, its introducing clause cut away.
+  const fragment = summary.match(/\b(?:role|position|opening)\b(?:\s+(?:at|with|in)\s+[A-Z][\w&.-]*(?:\s+[A-Z][\w&.-]*)*)?,\s+(?!(?:with|bringing|including|where|which|who|to|and|using|building|focusing|applying)\b)[^,.;]+,\s*(?:and|or)\s[^.]*\./i);
+  if (fragment) fr.push(`summary has a dangling list after the role: "${fragment[0]}"`);
   gates.push({ gate: "summary_framing", pass: fr.length === 0, defects: fr });
 
   // 10. Advice fidelity --------------------------------------------------
@@ -579,7 +583,7 @@ export function evaluateResume(
     for (const clause of text.split(/[;:]|\b(?:but|however|whereas|while)\b/i)) {
       const credits = CREDIT.test(clause) && !LACK.test(clause) && !GAIN.test(clause);
       if (credits && lacking(clause).length) adv.push(`${where} credits the candidate with ${lacking(clause).join(", ")}: "${clause.trim().slice(0, 70)}"`);
-      if ((credits && !/\b(?:requires?|required|asks?|expects?|needs?|minimum|targets?)\b/i.test(clause)) || /\byour\s+(?:[a-z]+\s+){0,2}\d/i.test(clause)) {
+      if ((credits && !/\b(?:requires?|required|requiring|asks?|asking|expects?|expecting|needs?|minimum|targets?)\b/i.test(clause)) || /\byour\s+(?:[a-z]+\s+){0,2}\d/i.test(clause)) {
         for (const d of yearsDefects(clause, profile.facts.professional_years, tenures)) adv.push(`${where} ${d}`);
       }
     }

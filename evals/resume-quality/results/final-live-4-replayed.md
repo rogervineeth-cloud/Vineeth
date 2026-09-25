@@ -1,6 +1,6 @@
-# Resume-quality eval — results/final-live-4
+# Resume-quality eval — results/final-live-4-replayed
 
-- Mode: **live model (captured from preview: live-final-4)**  |  Model: `claude-haiku-4-5-20251001`  |  JD sources: OFFICIAL_PARAPHRASE
+- Mode: **live model (captured from preview: live-final-4, re-post-processed with current code)**  |  Model: `claude-haiku-4-5-20251001`  |  JD sources: OFFICIAL_PARAPHRASE
 
 ## Pre-model payload (what production would send)
 
@@ -30,12 +30,11 @@
 | S06 | 58 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | strong |
 | S07 | 58 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | strong |
 | S08 | 38 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | adequate |
-| S09 | 48 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | FAIL | PASS | PASS | PASS | PASS | PASS | adequate |
+| S09 | 48 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | strong |
 | S10 | 48 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | FAIL | PASS | PASS | PASS | PASS | PASS | PASS | adequate |
 | S11 | 68 | 0 | 1 | 1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | adequate |
 
 ### Defects
 
 - **S01** [seniority_calibration] ats_score 42 undersells a matching profile
-- **S09** [summary_framing] summary has a dangling list after the role: "role at Google Cloud, C++, and test automation."
 - **S10** [seniority_calibration] ats_score 48 undersells a matching profile

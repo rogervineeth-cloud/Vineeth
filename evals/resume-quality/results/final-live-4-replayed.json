@@ -1,7 +1,7 @@
 {
   "meta": {
-    "run_id": "results/final-live-4",
-    "mode": "live model (captured from preview: live-final-4)",
+    "run_id": "results/final-live-4-replayed",
+    "mode": "live model (captured from preview: live-final-4, re-post-processed with current code)",
     "model": "claude-haiku-4-5-20251001",
     "jd_sources": "OFFICIAL_PARAPHRASE"
   },
@@ -48,6 +48,9 @@
         "sanitiser_warnings": [
           "trimmed_summary_sentence_unsupported_skill:Object-Oriented Design",
           "reverted_project_description_unsupported_detail:designed|eliminated",
+          "reverted_project_description_unsupported_detail:deployed",
+          "trimmed_summary_sentence_unsupported_skill:Object-Oriented Design",
+          "reverted_project_description_unsupported_detail:designed|eliminated",
           "reverted_project_description_unsupported_detail:deployed"
         ]
       }
@@ -90,6 +93,10 @@
         "defects": [],
         "interview_chance": "strong",
         "sanitiser_warnings": [
+          "trimmed_summary_sentence_unsupported_skill:Distributed Systems",
+          "reverted_project_description_unsupported_detail:eliminated",
+          "reverted_project_description_unsupported_detail:deployed",
+          "trimmed_summary_sentence_unsupported_detail:contribute",
           "trimmed_summary_sentence_unsupported_skill:Distributed Systems",
           "reverted_project_description_unsupported_detail:eliminated",
           "reverted_project_description_unsupported_detail:deployed",
@@ -140,7 +147,12 @@
           "reverted_project_description_unsupported_detail:display|real|time|deployed",
           "trimmed_summary_sentence_unsupported_detail:scalable",
           "dropped_summary_sentence_unsupported_detail:demonstrated|ability|design|systems|end|database|deployment",
-          "dropped_growth_note_sentence:years_overstated:3+ years,years_overstated:2+ years"
+          "dropped_growth_note_sentence:years_overstated:3+ years,years_overstated:2+ years",
+          "reverted_project_description_unsupported_detail:process|transitions|application",
+          "reverted_project_description_unsupported_detail:designed|eliminated|conflicts",
+          "reverted_project_description_unsupported_detail:display|real|time|deployed",
+          "trimmed_summary_sentence_unsupported_detail:scalable",
+          "dropped_summary_sentence_unsupported_detail:demonstrated|ability|design|systems|end|database|deployment"
         ]
       }
     },
@@ -182,6 +194,8 @@
         "defects": [],
         "interview_chance": "adequate",
         "sanitiser_warnings": [
+          "reverted_project_description_unsupported_detail:designed|integrating|features",
+          "trimmed_summary_sentence_unsupported_detail:foundation|based",
           "reverted_project_description_unsupported_detail:designed|integrating|features",
           "trimmed_summary_sentence_unsupported_detail:foundation|based"
         ]
@@ -227,6 +241,9 @@
         "sanitiser_warnings": [
           "reverted_project_description_unsupported_detail:designed|integrating|features",
           "trimmed_summary_sentence_unsupported_detail:resolution",
+          "corrected_advice_count",
+          "reverted_project_description_unsupported_detail:designed|integrating|features",
+          "trimmed_summary_sentence_unsupported_detail:resolution",
           "corrected_advice_count"
         ]
       }
@@ -270,6 +287,8 @@
         "interview_chance": "strong",
         "sanitiser_warnings": [
           "trimmed_summary_sentence_unsupported_skill:Distributed Systems|Design Patterns",
+          "trimmed_summary_sentence_unsupported_detail:scalable",
+          "trimmed_summary_sentence_unsupported_skill:Distributed Systems|Design Patterns",
           "trimmed_summary_sentence_unsupported_detail:scalable"
         ]
       }
@@ -312,6 +331,8 @@
         "defects": [],
         "interview_chance": "strong",
         "sanitiser_warnings": [
+          "trimmed_summary_sentence_unsupported_skill:System Design|Distributed Systems",
+          "trimmed_summary_sentence_unsupported_detail:scalable",
           "trimmed_summary_sentence_unsupported_skill:System Design|Distributed Systems",
           "trimmed_summary_sentence_unsupported_detail:scalable"
         ]
@@ -357,6 +378,9 @@
         "sanitiser_warnings": [
           "trimmed_summary_sentence_unsupported_skill:Algorithms",
           "dropped_summary_sentence_unsupported_detail:systems",
+          "summary_prepended_identity",
+          "trimmed_summary_sentence_unsupported_skill:Algorithms",
+          "dropped_summary_sentence_unsupported_detail:systems",
           "summary_prepended_identity"
         ]
       }
@@ -394,15 +418,21 @@
           "career_gap": true,
           "projects_vs_employment": true,
           "detail_fidelity": true,
-          "summary_framing": false,
+          "summary_framing": true,
           "advice_fidelity": true,
           "structural_validity": true
         },
-        "defects": [
-          "[summary_framing] summary has a dangling list after the role: \"role at Google Cloud, C++, and test automation.\""
-        ],
-        "interview_chance": "adequate",
+        "defects": [],
+        "interview_chance": "strong",
         "sanitiser_warnings": [
+          "trimmed_summary_sentence_unsupported_skill:Distributed Systems",
+          "trimmed_bullet_unsupported_detail:ensuring|protocol|compliance|cross|platform|stability",
+          "reverted_bullet_unsupported_detail:time|enabling|faster|release",
+          "trimmed_bullet_unsupported_detail:ensuring|clear|communication|timely|resolution|critical|issues",
+          "reverted_project_description_unsupported_detail:storage",
+          "dropped_summary_sentence_unsupported_detail:systems",
+          "trimmed_summary_sentence_unsupported_detail:bringing|expertise",
+          "summary_prepended_identity",
           "trimmed_summary_sentence_unsupported_skill:Distributed Systems",
           "trimmed_bullet_unsupported_detail:ensuring|protocol|compliance|cross|platform|stability",
           "reverted_bullet_unsupported_detail:time|enabling|faster|release",
@@ -464,6 +494,17 @@
           "trimmed_bullet_unsupported_detail:validating|system|performance|production|like|conditions",
           "dropped_summary_sentence_unsupported_detail:designing|scalable|applications",
           "summary_prepended_identity",
+          "trimmed_tip:presupposes_unevidenced:Design Patterns",
+          "trimmed_project_description_unsupported_skill:Accessibility",
+          "trimmed_summary_sentence_unsupported_skill:Algorithms|Distributed Systems",
+          "trimmed_bullet_unsupported_detail:demonstrating|experience|distributed|driven|systems",
+          "trimmed_bullet_unsupported_detail:features|end",
+          "trimmed_bullet_unsupported_detail:managing|operational|scaling",
+          "trimmed_bullet_unsupported_detail:strengthening|system|reliability",
+          "trimmed_bullet_unsupported_detail:establishing|standards|source|control|practices",
+          "trimmed_bullet_unsupported_detail:validating|system|performance|production|like|conditions",
+          "dropped_summary_sentence_unsupported_detail:designing|scalable|applications",
+          "summary_prepended_identity",
           "trimmed_tip:presupposes_unevidenced:Design Patterns"
         ]
       }
@@ -508,6 +549,9 @@
         "sanitiser_warnings": [
           "trimmed_summary_sentence_unsupported_skill:Distributed Systems",
           "trimmed_summary_sentence_unsupported_detail:contribute|technologies",
+          "dropped_tip:presupposes_unevidenced:Code Review",
+          "trimmed_summary_sentence_unsupported_skill:Distributed Systems",
+          "trimmed_summary_sentence_unsupported_detail:contribute",
           "dropped_tip:presupposes_unevidenced:Code Review"
         ]
       }

@@ -10,7 +10,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { GENERATION_TEMPERATURE } from "@/lib/models";
 import { detectTechSkills, TECH_SKILLS } from "@/lib/jd-keywords";
 import { computeFacts, yearsProblems, type CandidateFacts } from "@/lib/profile-facts";
-import { Evidence, novelDetail, trimToEvidence, contentTokens } from "@/lib/detail-evidence";
+import { Evidence, novelDetail, trimToEvidence, contentTokens, LIST_FRAGMENT } from "@/lib/detail-evidence";
 
 const KNOWN_SKILLS = new Set(TECH_SKILLS.map((s) => s.name));
 import {
@@ -405,6 +405,7 @@ export function keepsSummaryFraming(original: string, trimmed: string, titles: s
   const claim = original.match(YEARS_IN);
   if (claim && !trimmed.includes(claim[0])) return false;
   if (trimmed.trim().split(/\s+/).length < 6) return false;
+  if (LIST_FRAGMENT.test(trimmed)) return false;
   const titleWords = new Set(contentTokens(titles.join(" ")));
   return !contentTokens(trimmed).every((w) => titleWords.has(w));
 }
@@ -771,7 +772,9 @@ function adviceProblems(text: string, unevidenced: (t: string) => string[], fact
       problems.push(`credits_unevidenced:${bad.join("|")}`);
     }
     // "You have 3 years", "Your 2 years" — not "the role requires 1+ year".
-    const aboutRole = /\b(?:requires?|required|asks?|expects?|needs?|minimum|calls for|targets?|seeks?)\b/i.test(clause);
+    // "...applying for a role requiring 3+ years" (final-live-4 S03) states the
+    // role's requirement, not the candidate's experience.
+    const aboutRole = /\b(?:requires?|required|requiring|asks?|asking|expects?|expecting|needs?|minimum|calls for|targets?|seeks?)\b/i.test(clause);
     if ((ASSERT.test(clause) && !NEGATED.test(clause) && !aboutRole) || /\byour\s+(?:[a-z]+\s+){0,2}\d/i.test(clause)) {
       for (const y of yearsProblems(clause, facts)) problems.push(`years_${y.kind}:${y.claim}`);
     }

@@ -387,3 +387,24 @@ holds the raw and the final output, and all 11 are SHA-256-verified. Scored:
   - project embellishments in S01–S05 revert;
   - S08/S09 lose the model's domain words ("embedded … firmware testing");
   - the ATS heuristic still fires on S01/S10.
+
+### Fixes for the final-live-4 defects (replayed offline from the raw captures)
+
+- **S09 list fragment.** A clause cut that would stop at a comma where a
+  comma-separated list continues (", C++, and test automation") now runs to
+  the end of the sentence instead. `keepsSummaryFraming` also rejects any
+  "…role [at Employer], A, and B" fragment. The evaluator's `summary_framing`
+  flags the same pattern with its own regex. The as-captured S09 fails it;
+  replayed, S09 reads "QA Engineer with 2+ years of professional experience.
+  Seeking a Software Engineer II role at Google Cloud."
+- **S03 requirement context.** "requiring/asking/expecting" count as
+  role-requirement words, in the guard and the evaluator separately. "…applying
+  for a role requiring 3+ years…" is kept. A wrong years claim about the
+  candidate ("You have 1 year…") is still removed.
+- **Replay of all 11** (`results/final-live-4-replayed`,
+  `results/live-compare-final3-vs-final4-replayed`):
+  - only S03 and S09 change;
+  - factual, detail, framing, advice and ats_keywords are 11/11;
+  - the role is named 11/11;
+  - PDF is one page in all 4 templates, 11/11;
+  - the ATS "undersells" heuristic still fires on S01/S10.
