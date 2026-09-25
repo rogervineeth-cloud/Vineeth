@@ -300,7 +300,12 @@ const IDENTITY =
   /\b(?:engineers?|developers?|graduates?|analysts?|testers?|students?|professionals?|candidates?|specialists?|freshers?|interns?|leads?|architects?|scientists?|managers?|designers?|consultants?|programmers?|executives?|accountants?|auditors?|recruiters?|teachers?|educators?|lecturers?|trainers?|instructors?|nurses?|pharmacists?|doctors?|physicians?|technicians?|officers?|associates?|coordinators?|supervisors?|representatives?|trainees?|marketers?|writers?|lawyers?|advocates?|planners?|advisors?|advisers?|researchers?|operators?|clerks?|directors?|controllers?)\b/i;
 const CREDIT =
   /^\s*(?:strong|solid|excellent|good|proven|deep|extensive|robust)\b|\byou(?:'ve|'re)\b|\byou\s+(?!should|could|can|may|might|will|would|need|must|want|to\b|consider|try)[a-z]+\b|\byour\b[^.;:]*?\b(?:demonstrates|shows|reflects|includes|highlights|proves)\b/i;
-const LACK = /\b(?:not|no|never|lacks?|lacking|without|missing|yet to|gaps?|limited|absent)\b/i;
+const LACK = /\b(?:not|no|never|neither|nor|none|lacks?|lacking|without|missing|yet to|gaps?|limited|absent)\b|n't\b/i;
+/** "Deepen your X knowledge" asks the candidate to grow X; it does not credit them with it. */
+const GROW = /^(?:deepen|deepening|develop|developing|build|building|strengthen|strengthening|expand|expanding|improve|improving|broaden|broadening|grow|growing|gain|gaining|sharpen|sharpening)$/i;
+const LEARNING = /\b(?:knowledge|understanding|skills?|expertise|proficiency|foundations?|fundamentals)\b/i;
+/** "Seeking a <title> role [at <Employer>]": the role applied for, not a claim. */
+const SOUGHT = /\b(?:[Ss]eeking|[Tt]argeting|[Pp]ursuing|[Aa]pplying (?:for|to))\s+(?:the|a|an)\s+[^.;]*?\b(?:role|position|opportunity|opening)\b(?:\s+(?:at|with|in)\s+[A-Z][\w&.-]*(?:\s+[A-Z][\w&.-]*)*)?/g;
 const GAIN =
   /\b(?:gain|gaining|learn|learning|build|building|study|studying|practi[sc]e|practi[sc]ing|complete|earn|contribute|contributing|take|explore|exploring|pursue|participate|obtain|acquire|solve|solving|refactor|apply|applying|develop|developing)\b/i;
 const EDIT = /\b(?:add|adding|highlight|highlighting|mention|mentioning|include|list|emphasi[sz]e|showcase|feature|call out|inject|insert|incorporate|weave|name)\b/i;
@@ -349,6 +354,7 @@ export function evaluateResume(
 ): ResumeReport {
   const up = profile.user_profile;
   const gates: Gate[] = [];
+  const summary0 = r.summary ?? "";
   const present = now.getUTCFullYear() * 12 + now.getUTCMonth();
 
   // 1. Factual fidelity ---------------------------------------------------
@@ -385,7 +391,7 @@ export function evaluateResume(
     if (!supported) fid.push(`unsupported skill "${s}"`);
   }
   // "seeking the UI/UX Designer role" names the target, it does not claim UI/UX.
-  let prose = proseText(r);
+  let prose = proseText(r).replace(SOUGHT, "seeking the role");
   for (const title of [jd.title, r.tailored_role ?? ""].filter(Boolean)) {
     const esc = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     prose = prose.replace(new RegExp(`(seeking|targeting|pursuing|applying for|for|toward|towards)(\\s+(?:the|a|an))?\\s+${esc}`, "gi"), "$1$2");
@@ -422,7 +428,8 @@ export function evaluateResume(
   // 2. ATS keyword relevance ---------------------------------------------
   const jdSkills = skillsIn(jd.text);
   const attainable = [...jdSkills].filter((s) => have.has(s));
-  const inResume = [...skillsIn(resumeText(r))].filter((s) => jdSkills.has(s));
+  // The role sought ("... role at Google Cloud") is not a GCP claim.
+  const inResume = [...skillsIn(resumeText({ ...r, summary: summary0.replace(SOUGHT, "seeking the role") }))].filter((s) => jdSkills.has(s));
   const truthfulHits = inResume.filter((s) => have.has(s));
   const precision = ratio(truthfulHits.length, inResume.length);
   const recall = ratio(truthfulHits.length, attainable.length);
@@ -551,7 +558,10 @@ export function evaluateResume(
   // years", "Computer Science graduate"), not "Proficient in Java...".
   const fr: string[] = [];
   const firstSentence = summary.trim().split(/(?<=[.!?])\s+(?=[A-Z])/)[0] ?? "";
-  if (summary.trim() && !IDENTITY.test(firstSentence)) fr.push(`summary opens without the candidate's identity: "${firstSentence.slice(0, 60)}"`);
+  if (summary.trim() && !IDENTITY.test(firstSentence.replace(SOUGHT, "seeking the role"))) fr.push(`summary opens without the candidate's identity: "${firstSentence.slice(0, 60)}"`);
+  // final-live-3 S08/S09/S10: "QA Engineer." passed every gate.
+  const summaryWordList = summary.trim().split(/\s+/).filter(Boolean);
+  if (summary.trim() && summaryWordList.length < 6) fr.push(`summary is a fragment: "${summary.trim()}"`);
   gates.push({ gate: "summary_framing", pass: fr.length === 0, defects: fr });
 
   // 10. Advice fidelity --------------------------------------------------
@@ -574,6 +584,8 @@ export function evaluateResume(
       }
     }
     for (const m of text.matchAll(/\byour\s+(?:(?:current|existing|strong|solid|proven)\s+)?([\w/+#.-]+(?:\s+[\w/+#.-]+){0,2})/gi)) {
+      const verb = text.slice(0, m.index ?? 0).trim().split(/\s+/).pop() ?? "";
+      if (GROW.test(verb) && LEARNING.test(m[1])) continue;
       const rest = m[1].split(/\s+/).slice(1).join(" ");
       const bad = lacking(m[1]).filter((k) => !lacking(rest).includes(k));
       if (bad.length) adv.push(`${where} presupposes the candidate's ${bad.join(", ")}: "your ${m[1]}"`);

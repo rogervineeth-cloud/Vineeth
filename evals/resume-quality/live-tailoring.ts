@@ -20,6 +20,7 @@ import { join, dirname } from "node:path";
 import { PDFDocument } from "pdf-lib";
 import { renderResumePdf, type ResumeJson } from "@/lib/resume-pdf";
 import { usableSections } from "@/lib/profile-completeness";
+import { postProcessResume } from "@/lib/resume-generation";
 import { evaluateResume, addedWords, wordSet, NEUTRAL, type ProfileFixture, type JdFixture, type Scenario, type GeneratedResume } from "./evaluate";
 
 const ROOT = join(process.cwd(), "evals", "resume-quality");
@@ -156,6 +157,7 @@ function readCaptures(label: string): Map<string, Capture> {
 async function main() {
   const arg = (n: string) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : undefined; };
   const labels = [arg("--a") ?? "live-final-2", arg("--b") ?? "live-final-3"].filter((l) => existsSync(join(ROOT, "captured", l)));
+  const replay = (arg("--replay") ?? "").split(",").filter(Boolean);
   const profiles = new Map(readdirSync(join(ROOT, "fixtures/profiles")).map((f) => { const p = JSON.parse(readFileSync(join(ROOT, "fixtures/profiles", f), "utf8")) as ProfileFixture; return [p.id, p]; }));
   const jds = new Map(readdirSync(join(ROOT, "fixtures/jds")).map((f) => { const j = JSON.parse(readFileSync(join(ROOT, "fixtures/jds", f), "utf8")) as JdFixture; return [j.id, j]; }));
   const { scenarios } = JSON.parse(readFileSync(join(ROOT, "scenarios.json"), "utf8")) as { scenarios: Scenario[] };
@@ -171,8 +173,12 @@ async function main() {
     const jd = jds.get(s.jd)!;
     const now = new Date(`${profile.facts_as_of}T12:00:00Z`);
     for (const label of labels) {
-      const cap = readCaptures(label).get(s.id);
-      if (!cap) continue;
+      const stored = readCaptures(label).get(s.id);
+      if (!stored) continue;
+      // --replay: re-run today's post-processing over the captured RAW reply.
+      const cap = replay.includes(label) && stored.raw_resume
+        ? { ...stored, final_resume: postProcessResume(structuredClone(stored.raw_resume), profile.user_profile, { now }).resume as GeneratedResume }
+        : stored;
       const ev = evaluateResume(profile, jd, s, cap.final_resume, now);
       const g = Object.fromEntries(ev.gates.map((x) => [x.gate, x.pass]));
       const t = tailoringReport(profile.user_profile, jd.title, cap.final_resume, cap.raw_resume ?? null);

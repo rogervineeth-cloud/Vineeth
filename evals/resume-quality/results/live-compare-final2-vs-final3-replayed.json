@@ -83,13 +83,13 @@
           "reverted": 0,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 1,
-          "trimmed": 0,
-          "dropped": 1
+          "trimmed": 1,
+          "dropped": 0
         }
       },
       "pdf": {
@@ -177,13 +177,13 @@
           "reverted": 0,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 1,
-          "trimmed": 0,
-          "dropped": 1
+          "trimmed": 1,
+          "dropped": 0
         }
       },
       "pdf": {
@@ -271,13 +271,13 @@
           "reverted": 0,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 1,
-          "trimmed": 0,
-          "dropped": 1
+          "trimmed": 1,
+          "dropped": 0
         }
       },
       "pdf": {
@@ -461,13 +461,13 @@
           "reverted": 0,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 1,
-          "trimmed": 0,
-          "dropped": 1
+          "trimmed": 1,
+          "dropped": 0
         }
       },
       "pdf": {
@@ -555,13 +555,13 @@
           "reverted": 0,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 0,
-          "trimmed": 1,
-          "dropped": 1
+          "trimmed": 2,
+          "dropped": 0
         }
       },
       "pdf": {
@@ -649,13 +649,13 @@
           "reverted": 0,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 0,
-          "trimmed": 1,
-          "dropped": 1
+          "trimmed": 2,
+          "dropped": 0
         }
       },
       "pdf": {
@@ -720,12 +720,10 @@
         "career_gap": true,
         "projects_vs_employment": true,
         "detail_fidelity": true,
-        "summary_framing": false,
+        "summary_framing": true,
         "advice_fidelity": true
       },
-      "defects": [
-        "[summary_framing] summary is a fragment: \"QA Engineer.\""
-      ],
+      "defects": [],
       "tailoring": {
         "bullets_final": 3,
         "bullets_verbatim_source": 2,
@@ -745,13 +743,13 @@
           "reverted": 0,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 0,
-          "trimmed": 0,
-          "dropped": 2
+          "trimmed": 2,
+          "dropped": 0
         }
       },
       "pdf": {
@@ -816,12 +814,10 @@
         "career_gap": true,
         "projects_vs_employment": true,
         "detail_fidelity": true,
-        "summary_framing": false,
+        "summary_framing": true,
         "advice_fidelity": true
       },
-      "defects": [
-        "[summary_framing] summary is a fragment: \"QA Engineer.\""
-      ],
+      "defects": [],
       "tailoring": {
         "bullets_final": 3,
         "bullets_verbatim_source": 2,
@@ -841,13 +837,13 @@
           "reverted": 0,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 0,
-          "trimmed": 0,
-          "dropped": 2
+          "trimmed": 2,
+          "dropped": 0
         }
       },
       "pdf": {
@@ -914,12 +910,11 @@
         "career_gap": true,
         "projects_vs_employment": true,
         "detail_fidelity": true,
-        "summary_framing": false,
+        "summary_framing": true,
         "advice_fidelity": true
       },
       "defects": [
-        "[seniority_calibration] ats_score 48 undersells a matching profile",
-        "[summary_framing] summary is a fragment: \"Software Engineer (Full Stack).\""
+        "[seniority_calibration] ats_score 48 undersells a matching profile"
       ],
       "tailoring": {
         "bullets_final": 6,
@@ -940,13 +935,13 @@
           "reverted": 6,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 0,
-          "trimmed": 1,
-          "dropped": 1
+          "trimmed": 2,
+          "dropped": 0
         }
       },
       "pdf": {
@@ -1034,13 +1029,13 @@
           "reverted": 0,
           "dropped": 0
         },
-        "summary_names_target": false,
+        "summary_names_target": true,
         "summary_uses_own_summary": false,
         "raw_summary": {
           "sentences": 2,
           "kept": 1,
-          "trimmed": 0,
-          "dropped": 1
+          "trimmed": 1,
+          "dropped": 0
         }
       },
       "pdf": {

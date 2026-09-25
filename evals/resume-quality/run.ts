@@ -189,7 +189,9 @@ async function main() {
           let resumeForEval = cap.final_resume as GeneratedResume;
           let reprocessWarnings: string[] = [];
           if (process.argv.includes("--reprocess")) {
-            const re = postProcessResume(cap.final_resume, profile.user_profile, { now });
+            // Replay from the raw model reply when the capture has one
+            // (final-live-3 onwards); older captures hold only final output.
+            const re = postProcessResume(structuredClone(cap.raw_resume ?? cap.final_resume), profile.user_profile, { now });
             resumeForEval = re.resume as GeneratedResume;
             reprocessWarnings = re.warnings;
           }

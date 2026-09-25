@@ -10,7 +10,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { GENERATION_TEMPERATURE } from "@/lib/models";
 import { detectTechSkills, TECH_SKILLS } from "@/lib/jd-keywords";
 import { computeFacts, yearsProblems, type CandidateFacts } from "@/lib/profile-facts";
-import { Evidence, novelDetail, trimToEvidence } from "@/lib/detail-evidence";
+import { Evidence, novelDetail, trimToEvidence, contentTokens } from "@/lib/detail-evidence";
 
 const KNOWN_SKILLS = new Set(TECH_SKILLS.map((s) => s.name));
 import {
@@ -378,9 +378,39 @@ function skillsMentioned(text: string): string[] {
 
 /** The target role, where the text frames it as sought ("seeking the X role"), removed. */
 export function maskSoughtRole(text: string, role: string): string {
-  if (!role) return text;
-  const esc = role.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return text.replace(new RegExp(`((?:seeking|targeting|pursuing|applying for|for|toward|towards)\\s+(?:the|a|an)?\\s*)${esc}`, "gi"), "$1");
+  let out = text;
+  if (role) {
+    const esc = role.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`((?:seeking|targeting|pursuing|applying for|for|toward|towards)\\s+(?:the|a|an)?\\s*)${esc}`, "gi"), "$1");
+  }
+  // The model paraphrases the title: "Seeking a Software Engineer II role at
+  // Google Cloud" (live S05/S09) named GCP only as the employer sought.
+  return out.replace(SOUGHT_ROLE, "$1 the role");
+}
+
+/** "seeking a|the <title> role|position [at <Employer>]" — the role being applied for. */
+const SOUGHT_ROLE =
+  /\b([Ss]eeking|[Tt]argeting|[Pp]ursuing|[Aa]pplying for|[Aa]pplying to)\s+(?:the|a|an)\s+[^.;]*?\b(?:role|position|opportunity|opening)\b(?:\s+(?:at|with|in)\s+[A-Z][\w&.-]*(?:\s+[A-Z][\w&.-]*)*)?/g;
+
+/**
+ * Live final-live-3 S08/S09/S10: "QA Engineer with 2+ years of professional
+ * experience in embedded systems and firmware testing" lost its whole " with
+ * ..." clause over one unsupported word and became "QA Engineer.". A trimmed
+ * summary sentence must keep any years claim the original made and must not
+ * shrink to a title fragment; otherwise it is dropped and the summary falls
+ * back to the computed opening or the candidate's own summary.
+ */
+const YEARS_IN = /\d+(?:\.\d+)?\+?(?:\s*|-)(?:years?|yrs?)\b/i;
+export function keepsSummaryFraming(original: string, trimmed: string, titles: string[]): boolean {
+  const claim = original.match(YEARS_IN);
+  if (claim && !trimmed.includes(claim[0])) return false;
+  if (trimmed.trim().split(/\s+/).length < 6) return false;
+  const titleWords = new Set(contentTokens(titles.join(" ")));
+  return !contentTokens(trimmed).every((w) => titleWords.has(w));
+}
+
+function titlesOf(profile: GenerationProfile): string[] {
+  return [...(profile.experience ?? []).map((e) => e.role), ...(profile.education ?? []).map((e) => e.degree)];
 }
 
 /**
@@ -527,7 +557,11 @@ export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationPro
     const kept = sentences.flatMap((sn) => {
       const bad = unsupportedClaims(sn);
       if (!bad.length) return [sn];
-      const trimmed = trimToEvidence(sn, { clausesOnly: true, novel: unsupportedClaims });
+      const trimmed = trimToEvidence(sn, {
+        clausesOnly: true,
+        novel: unsupportedClaims,
+        ok: (t) => keepsSummaryFraming(sn, t, titlesOf(profile)),
+      });
       warnings.push(`${trimmed ? "trimmed" : "dropped"}_summary_sentence_unsupported_skill:${bad.join("|")}`);
       return trimmed ? [trimmed] : [];
     });
@@ -636,7 +670,9 @@ const IDENTITY_NOUN =
 
 export function opensWithIdentity(summary: string): boolean {
   const first = (summary ?? "").trim().split(SENTENCE_SPLIT)[0] ?? "";
-  return IDENTITY_NOUN.test(first);
+  // "Seeking a Software Development Engineer role." names the role sought,
+  // not who the candidate is (replayed final-live-3 S08/S10).
+  return IDENTITY_NOUN.test(maskSoughtRole(first, ""));
 }
 
 export function enforceSummaryFacts(resume: ResumeShape, profile: GenerationProfile, facts: CandidateFacts) {
@@ -664,7 +700,7 @@ export function enforceSummaryFacts(resume: ResumeShape, profile: GenerationProf
       // "...through data-driven creative testing": lose the word, keep the sentence.
       const trimmed = trimToEvidence(sn, {
         novel: (t) => novelDetail(t, evidence, { summary: true }),
-        ok: (t) => yearsProblems(t, facts).length === 0,
+        ok: (t) => yearsProblems(t, facts).length === 0 && keepsSummaryFraming(sn, t, titlesOf(profile)),
       });
       warnings.push(`${trimmed ? "trimmed" : "dropped"}_summary_sentence_unsupported_detail:${added.join("|")}`);
       return trimmed ? [trimmed] : [];
@@ -707,7 +743,11 @@ export function enforceSummaryFacts(resume: ResumeShape, profile: GenerationProf
 const ASSERT =
   /^\s*(?:strong|solid|excellent|good|proven|deep|extensive|robust)\b|\byou(?:'ve|'re)\b|\byou\s+(?!should|could|can|may|might|will|would|need|must|want|to\b|consider|try)[a-z]+\b|\byour\b[^.;:]*?\b(?:demonstrates|shows|reflects|includes|highlights|proves)\b/i;
 /** ...unless it says they lack it. */
-const NEGATED = /\b(?:not|no|never|lacks?|lacking|without|missing|yet to|gaps?|limited|absent)\b/i;
+// "neither of which your profile currently shows" (live S07) is a stated gap.
+const NEGATED = /\b(?:not|no|never|neither|nor|none|lacks?|lacking|without|missing|yet to|gaps?|limited|absent)\b|n't\b/i;
+/** "Deepen your distributed systems knowledge": advice to grow it, not a claim to have it. */
+const DEVELOP_VERB = /^(?:deepen|deepening|develop|developing|build|building|strengthen|strengthening|expand|expanding|improve|improving|broaden|broadening|grow|growing|gain|gaining|sharpen|sharpening)$/i;
+const LEARNING_NOUN = /\b(?:knowledge|understanding|skills?|expertise|proficiency|foundations?|fundamentals)\b/i;
 /** Recommending acquisition, not presentation. */
 const ACQUIRE =
   /\b(?:gain|gaining|learn|learning|build|building|study|studying|practi[sc]e|practi[sc]ing|complete|completing|earn|earning|contribute|contributing|take|taking|explore|exploring|pursue|pursuing|participate|participating|obtain|acquire|solve|solving|refactor|refactoring|apply|applying|develop|developing)\b/i;
@@ -737,6 +777,8 @@ function adviceProblems(text: string, unevidenced: (t: string) => string[], fact
     }
   }
   for (const m of text.matchAll(YOUR_SKILL)) {
+    const verb = text.slice(0, m.index ?? 0).trim().split(/\s+/).pop() ?? "";
+    if (DEVELOP_VERB.test(verb) && LEARNING_NOUN.test(m[1])) continue;
     const rest = m[1].split(/\s+/).slice(1).join(" ");
     const bad = unevidenced(m[1]).filter((k) => !unevidenced(rest).includes(k));
     if (bad.length) problems.push(`presupposes_unevidenced:${bad.join("|")}`);
@@ -812,11 +854,23 @@ export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationPr
   }
 
   if (Array.isArray(out.profile_improvement_tips)) {
-    out.profile_improvement_tips = out.profile_improvement_tips.filter((tip) => {
-      if (typeof tip !== "string") return false;
+    out.profile_improvement_tips = out.profile_improvement_tips.flatMap((tip) => {
+      if (typeof tip !== "string") return [];
       const p = adviceProblems(tip, unevidenced, facts);
-      if (p.length) warnings.push(`dropped_tip:${p.join(",")}`);
-      return p.length === 0;
+      if (!p.length) return [tip];
+      // Keep a clean leading instruction rather than the whole tip going:
+      // "Lead or participate in formal code review processes and document
+      // your design pattern usage ..." (live S10) keeps its first half.
+      const cuts = [...tip.matchAll(/;\s+|\s+and\s+(?=[a-z]+\s)|,\s+then\s+|\s+[-\u2014]\s+then\s+/g)].map((m) => m.index ?? 0).sort((a, b) => b - a);
+      for (const cut of cuts) {
+        const head = tip.slice(0, cut).trim().replace(/[,;:]$/, "");
+        if (head.split(/\s+/).length >= 4 && adviceProblems(head, unevidenced, facts).length === 0) {
+          warnings.push(`trimmed_tip:${p.join(",")}`);
+          return [`${head}.`];
+        }
+      }
+      warnings.push(`dropped_tip:${p.join(",")}`);
+      return [];
     });
   }
 

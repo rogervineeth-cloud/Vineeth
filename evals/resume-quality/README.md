@@ -292,3 +292,54 @@ already the source verbatim.
 **PDF readiness.** Every final resume renders with the production renderer in
 all four templates on one A4 page. Growth notes contain "—", but they are not
 part of the PDF.
+
+### Fixes for the final-live-3 defects (replayed offline from the raw captures)
+
+`run.ts --captured <label> --reprocess` and `live-tailoring.ts --replay <label>`
+now re-run today's post-processing over the captured **raw** model reply
+(when the capture has one). Results: `results/final-live-3-replayed`,
+`results/live-compare-final2-vs-final3-replayed`.
+
+| final-live-3 (11 scenarios) | as captured (previous code) | replayed (this fix) |
+|---|---|---|
+| summary_framing (now also fails summaries under 6 words) | 8 | **11** |
+| Summary names the target role | 1 | **11** |
+| Summary opens with the candidate's identity and years (S08/S09/S10) | bare title ×3 | fixed |
+| Tips kept (raw 40) | 34 | **39** |
+| Growth-note sentences kept (raw 29) | 27 | **29** |
+| factual · detail · advice · ats_keywords | 11 · 11 · 11 · 11 | 11 · 11 · 11 · 11 |
+| Final bullets verbatim / tailored-clean | 28 / 6 | 28 / 6 |
+| PDF: one A4 page in all 4 templates | 11 | 11 |
+
+- **Summary framing.**
+  - A trimmed summary sentence must keep the years claim it made, and must not
+    shrink to under 6 words or to title words only.
+  - Otherwise the sentence is dropped. The computed opening ("QA Engineer with
+    2+ years of professional experience.") or the candidate's own summary
+    takes its place.
+  - The identity check ignores the sought-role phrase, so "Seeking a Software
+    Development Engineer role." no longer counts as saying who the candidate
+    is.
+- **Target role.**
+  - The sought-role phrase itself is masked, including an employer ("…role at
+    Google Cloud"), so it is not read as a skill claim.
+  - " to <verb> …" purpose clauses are trimmable, so "Seeking the SDE II role
+    to deepen expertise in distributed systems…" keeps "Seeking the SDE II
+    role." The evaluator masks the same phrase separately, in its fidelity and
+    keyword checks.
+- **Advice.**
+  - "neither", "nor", "none" and "n't" count as negation (S07).
+  - "Deepen / build / strengthen your X knowledge|skills|expertise" is advice to
+    grow X, not a claim to have it (S10, S11).
+  - A tip with a problem keeps its clean leading instruction ("Lead or
+    participate in formal code review processes.") instead of being dropped.
+- **Still removed, deliberately:** S11's "Formalise your code review
+  practices: …", which presupposes practice the profile does not show.
+
+**Remaining limits.**
+- S08/S09 lose the model's "embedded … firmware testing" domain words. The
+  standard opening is truthful but generic.
+- Bullet and project tailoring are unchanged: in this run the model barely
+  rewrote bullets, and project embellishments still revert.
+- These are replays of one run's raw output; a fresh live run of this code has
+  not been done.

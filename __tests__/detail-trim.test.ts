@@ -67,9 +67,9 @@ describe("trimToEvidence", () => {
 
 describe("maskSoughtRole", () => {
   it("masks the role only where it is framed as sought", () => {
-    expect(maskSoughtRole("Designer, seeking the UI/UX Designer role.", "UI/UX Designer")).toBe("Designer, seeking the  role.");
+    expect(maskSoughtRole("Designer, seeking the UI/UX Designer role.", "UI/UX Designer")).not.toMatch(/UI\/UX/);
     expect(maskSoughtRole("UI/UX Designer with 3 years.", "UI/UX Designer")).toBe("UI/UX Designer with 3 years.");
-    expect(maskSoughtRole("Applying for the Financial Analyst (FP&A) role.", "Financial Analyst (FP&A)")).toBe("Applying for the  role.");
+    expect(maskSoughtRole("Applying for the Financial Analyst (FP&A) role.", "Financial Analyst (FP&A)")).not.toMatch(/FP&A/);
   });
 });
 

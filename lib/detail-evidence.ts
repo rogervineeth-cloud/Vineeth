@@ -126,11 +126,13 @@ export function novelDetail(rewrite: string, evidence: Evidence, opts: { summary
 // candidate's source text and still mostly says what the source said.
 // Otherwise the caller reverts exactly as before.
 
-/** Where a removable clause may start: ", improving ...", " and optimising ...", " by/using/through/via/with/as ...", "; ...". */
+/** Where a removable clause may start: ", improving ...", " and optimising ...", " by/using/through/via/with/as ...", " to deepen ...", "; ...". */
 const CLAUSE_STARTS = [
   /,\s+(?:and\s+|while\s+|thereby\s+)?[a-z]+ing\b/gi,
   /\s+(?:and|while)\s+[a-z]+ing\b/gi,
   /,?\s+(?:by|using|through|via|with|as)\s+/gi,
+  // Purpose clause: "Seeking the SDE II role to deepen expertise in ...".
+  /\s+to\s+(?!\d)[a-z]+\b/gi,
   /;\s+/g,
 ];
 
