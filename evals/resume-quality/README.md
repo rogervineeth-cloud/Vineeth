@@ -233,3 +233,62 @@ What changed, and why:
   (`results/final-live-2-reprocessed`) shows only the advice-count fix. The
   tailoring gain on real model output is unmeasured until a new live run.
 
+
+## Final live rerun of the tailoring code (`final-live-3`), 2026-09-25
+
+11 fictional scenarios ran on a branch-only preview
+(`dpl_A2NURPNRCJM7EPMNisoTGiPimvnr`) between 05:58Z and 06:01Z. Each capture
+holds the **raw model reply** (text and parsed JSON, taken before
+post-processing) and the post-processed resume. All 11 are SHA-256-verified
+against the value the preview computed. Scored: `results/final-live-3`;
+compared with `final-live-2` in `results/live-compare-final2-vs-final3`.
+
+| | final-live-2 | final-live-3 |
+|---|---|---|
+| factual · detail · framing · advice fidelity | 11 · 11 · 11 · 10 | 11 · 11 · 11 · **11** |
+| seniority (ATS "undersells" heuristic on S01, S10) | 9 | 9 |
+| Final bullets: verbatim source / tailored-clean / unclean | 29 / 5 / 0 | 28 / 6 / 0 |
+| Projects: verbatim / tailored-clean | 14 / 1 | 13 / 2 |
+| Summary names the target role | 0 | 1 |
+| Summary falls back to the candidate's own | 5 | **0** |
+| Renders in all 4 PDF templates, one A4 page each | 11 | 11 |
+
+**Raw rewrites** (bullets the model changed): 12 in total, 6 of them with no
+unsupported content. 6 were kept and 6 ended as the source bullet. In S10,
+trimming the added trailing clause ("…, demonstrating experience with
+distributed event-driven systems") leaves exactly the candidate's own bullet.
+The model rarely rewrote bullets at all this time: 22 of 34 raw bullets were
+already the source verbatim.
+
+**Manual audit: not a pass.** Residual defects:
+
+1. **Summary regression caused by the new trimming (S08, S09, S10).**
+   - The final summaries are "QA Engineer." (S08, S09) and "Software Engineer
+     (Full Stack)." (S10).
+   - The model's first sentence ("QA Engineer with 2+ years of professional
+     experience in embedded systems and firmware testing") had one unsupported
+     word ("systems"). The clause trim removed the whole " with …" phrase,
+     taking the correct years and domain with it.
+   - The 2-content-word minimum let a bare title through.
+   - `final-live-2` had fuller, truthful summaries for these three.
+   - The gates miss it: an identity noun is present and nothing unsupported
+     is added.
+2. **Target role still rarely named (1/11).** The model's "Seeking the … role
+   to …" sentence usually carries unsupported claims in a "to …" purpose clause
+   or a "with expertise in …" list, which the trimming does not cover. So it is
+   dropped whole.
+3. **Advice over-dropping persists.**
+   - S07's note loses its explanatory sentence. "…GCP expertise, neither of
+     which your profile currently shows" was read as crediting the skills
+     ("your profile … shows"), because "neither" is not recognised as negation.
+   - S10 and S11 lose 2 tips each; S11 also loses its closing growth-note
+     sentence.
+4. **Model embellishment is still reverted, not tailored.**
+   - Project descriptions in S01–S05 revert, because "designed", "eliminated",
+     "deployed" or "integrating" are added.
+   - This is truthful, but untailored.
+5. **ATS "undersells" heuristic on S01 (42) and S10 (48)**, as before.
+
+**PDF readiness.** Every final resume renders with the production renderer in
+all four templates on one A4 page. Growth notes contain "—", but they are not
+part of the PDF.
