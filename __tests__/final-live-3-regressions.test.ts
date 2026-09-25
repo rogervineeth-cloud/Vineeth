@@ -42,8 +42,9 @@ describe("summaries no longer collapse to a bare title (S08, S09, S10)", () => {
   });
 
   it("replayed: the standard opening with the correct years, then the role sought", () => {
-    expect(load("S08").replayed.summary).toBe("QA Engineer with 2+ years of professional experience. Seeking a Software Development Engineer role.");
-    expect(load("S09").replayed.summary).toBe("QA Engineer with 2+ years of professional experience. Seeking a Software Engineer II role at Google Cloud.");
+    // Since final-live-5 the evidenced domain ("embedded systems" for "embedded devices") is kept too.
+    expect(load("S08").replayed.summary).toBe("QA Engineer with 2+ years of professional experience in embedded systems and firmware testing. Seeking a Software Development Engineer role.");
+    expect(load("S09").replayed.summary).toBe("QA Engineer with 2+ years of professional experience in embedded systems and firmware testing. Seeking a Software Engineer II role at Google Cloud.");
     expect(load("S10").replayed.summary).toBe("Software Engineer (Full Stack) with 5+ years of professional experience. Seeking the Software Development Engineer II role.");
   });
 

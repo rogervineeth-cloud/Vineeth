@@ -110,9 +110,23 @@ export function novelDetail(rewrite: string, evidence: Evidence, opts: { summary
   for (const w of contentTokens(rewrite)) {
     if (evidence.has(w) || PRESENTATION_EVIDENCE.has(w)) continue;
     if (opts.summary && SUMMARY_EVIDENCE.has(w)) continue;
+    if (opts.summary && w === "systems" && headNounOnEvidence(rewrite, w, evidence)) continue;
     if (!out.includes(w)) out.push(w);
   }
   return out;
+}
+
+/**
+ * "experience in embedded systems" for a candidate who tested "embedded
+ * devices" (final-live-5 S09): the generic head noun names no new fact when
+ * the word it heads is the candidate's own. Every occurrence must be headed by
+ * an evidenced content word, so "scalable systems" (and a JD skill such as
+ * "distributed systems", which the skill guard also checks) stays novel.
+ */
+export function headNounOnEvidence(text: string, noun: string, evidence: Evidence): boolean {
+  const found = [...(text ?? "").toLowerCase().matchAll(new RegExp(`(?:^|[^a-z0-9+#-])([a-z0-9+#-]+)\\s+${noun}\\b`, "g"))];
+  const total = ((text ?? "").toLowerCase().match(new RegExp(`\\b${noun}\\b`, "g")) ?? []).length;
+  return found.length === total && found.every((m) => !STOP.has(m[1]) && contentTokens(m[1]).length > 0 && contentTokens(m[1]).every((w) => evidence.has(w)));
 }
 
 // ── Trim instead of revert ─────────────────────────────────────────────────

@@ -762,6 +762,23 @@ const EDIT_TARGET = /\b(?:resume|cv|bullets?|summary|skills (?:section|list)|pro
  */
 const YOUR_SKILL = /\byour\s+(?:(?:current|existing|strong|solid|proven)\s+)?([\w/+#.-]+(?:\s+[\w/+#.-]+){0,2})/gi;
 
+/**
+ * "Deepen your System Design and Distributed Systems knowledge" (final-live-5
+ * S07): the learning noun sits past the 3-word window, after a list of skill
+ * names. It counts only if every list item is nothing but a skill name —
+ * "your system design contributions and knowledge" still presupposes.
+ */
+function growsSkillList(afterYour: string): boolean {
+  const m = afterYour.match(/^\s+([^.;:]*?)\s+(?:knowledge|understanding|skills?|expertise|proficiency|foundations?|fundamentals)\b/i);
+  if (!m || m[1].split(/\s+/).length > 8) return false;
+  const items = m[1].split(/,|\band\b|\bor\b|&/i).map((s) => s.trim()).filter(Boolean);
+  return items.length > 0 && items.every((item) => {
+    const skills = skillsMentioned(item);
+    const skillWords = new Set(contentTokens(skills.join(" ")));
+    return skills.length > 0 && contentTokens(item).every((w) => skillWords.has(w));
+  });
+}
+
 function adviceProblems(text: string, unevidenced: (t: string) => string[], facts: CandidateFacts): string[] {
   const problems: string[] = [];
   // Clauses end at ; : and contrast words — not commas, which also separate
@@ -781,7 +798,7 @@ function adviceProblems(text: string, unevidenced: (t: string) => string[], fact
   }
   for (const m of text.matchAll(YOUR_SKILL)) {
     const verb = text.slice(0, m.index ?? 0).trim().split(/\s+/).pop() ?? "";
-    if (DEVELOP_VERB.test(verb) && LEARNING_NOUN.test(m[1])) continue;
+    if (DEVELOP_VERB.test(verb) && (LEARNING_NOUN.test(m[1]) || growsSkillList(text.slice((m.index ?? 0) + 4)))) continue;
     const rest = m[1].split(/\s+/).slice(1).join(" ");
     const bad = unevidenced(m[1]).filter((k) => !unevidenced(rest).includes(k));
     if (bad.length) problems.push(`presupposes_unevidenced:${bad.join("|")}`);

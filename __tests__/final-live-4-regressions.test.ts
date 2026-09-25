@@ -45,7 +45,8 @@ describe("S09: a clause cut never leaves a list fragment", () => {
 
   it("replayed: a complete target-role statement", () => {
     const { profile, jd, s, replayed } = load("S09");
-    expect(replayed.summary).toBe("QA Engineer with 2+ years of professional experience. Seeking a Software Engineer II role at Google Cloud.");
+    // Since final-live-5 the evidenced domain ("embedded systems" for "embedded devices") is kept too.
+    expect(replayed.summary).toBe("QA Engineer with 2+ years of professional experience in embedded systems and firmware testing. Seeking a Software Engineer II role at Google Cloud.");
     expect(gate(evaluateResume(profile, jd, s, replayed, NOW), "summary_framing").defects).toEqual([]);
   });
 
@@ -88,12 +89,12 @@ describe("S03: a role requirement ('requiring 3+ years') is not a candidate clai
 });
 
 describe("all 11 final-live-4 captures, replayed", () => {
-  it("only S03 and S09 change", () => {
+  it("only S03, S08 and S09 change (S08: evidenced domain kept since final-live-5)", () => {
     const changed = IDS.filter((id) => {
       const { cap, replayed } = load(id);
       return JSON.stringify(cap.final_resume) !== JSON.stringify(replayed);
     });
-    expect(changed).toEqual(["S03", "S09"]);
+    expect(changed).toEqual(["S03", "S08", "S09"]);
   });
 
   it.each(IDS)("%s: factual, detail, framing, advice and keyword gates pass; the role is named", (id) => {

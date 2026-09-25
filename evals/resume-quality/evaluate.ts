@@ -548,7 +548,13 @@ export function evaluateResume(
   }
   {
     const scope = wordSet([profileText(up), jd.title, r.tailored_role ?? ""].join(" "));
-    const added = addedWords(summary, scope, SUMMARY_NEUTRAL);
+    // "embedded systems" for a candidate with "embedded devices": the generic
+    // head noun adds nothing when every use heads a word the profile has.
+    const headed = (noun: string) => {
+      const uses = summary.toLowerCase().split(/[^a-z0-9+#]+/).flatMap((w, i, all) => (w === noun ? [all[i - 1] ?? ""] : []));
+      return uses.length > 0 && uses.every((prev) => prev.length >= 2 && !FUNCTION_WORDS.has(prev) && scope.has(stem5(prev)));
+    };
+    const added = addedWords(summary, scope, SUMMARY_NEUTRAL).filter((w) => !(w === "systems" && headed(w)));
     if (added.length) det.push(`summary adds "${added.join(", ")}"`);
   }
   gates.push({ gate: "detail_fidelity", pass: det.length === 0, defects: det });
@@ -590,6 +596,17 @@ export function evaluateResume(
     for (const m of text.matchAll(/\byour\s+(?:(?:current|existing|strong|solid|proven)\s+)?([\w/+#.-]+(?:\s+[\w/+#.-]+){0,2})/gi)) {
       const verb = text.slice(0, m.index ?? 0).trim().split(/\s+/).pop() ?? "";
       if (GROW.test(verb) && LEARNING.test(m[1])) continue;
+      // "Deepen your System Design and Distributed Systems knowledge": only skill names before the learning noun.
+      const list = text.slice((m.index ?? 0) + 4).match(/^\s+([^.;:]*?)\s+(?:knowledge|understanding|skills?|expertise|proficiency|foundations?|fundamentals)\b/i);
+      if (GROW.test(verb) && list && list[1].split(/\s+/).length <= 8) {
+        const items = list[1].split(/,|\band\b|\bor\b|&/i).map((x) => x.trim()).filter(Boolean);
+        const onlySkills = (item: string) => {
+          const ks = [...skillsIn(item)];
+          const kw = wordSet(ks.join(" "));
+          return ks.length > 0 && [...wordSet(item)].every((w) => kw.has(w));
+        };
+        if (items.length && items.every(onlySkills)) continue;
+      }
       const rest = m[1].split(/\s+/).slice(1).join(" ");
       const bad = lacking(m[1]).filter((k) => !lacking(rest).includes(k));
       if (bad.length) adv.push(`${where} presupposes the candidate's ${bad.join(", ")}: "your ${m[1]}"`);
