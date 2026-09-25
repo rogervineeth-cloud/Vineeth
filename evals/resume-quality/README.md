@@ -596,3 +596,74 @@ Tailoring is still thin.
   - Model embellishments in the S01–S05 projects still revert.
 - **Pre-model payload gate:** S09 still fails it, unchanged since the first
   run.
+
+### Fix for the final-live-6 S04 blocker (`b7ab77e`, replayed offline first)
+
+`sanitise-resume.ts` now keeps the candidate's own proper nouns:
+- **Education.** An entry must match a profile entry, by institution name
+  (exact, or a single near-identical spelling) or by the same degree and
+  years.
+  - The candidate's institution, degree and years are put back.
+  - An entry that matches nothing is dropped as fabricated.
+- **Employers.** A misspelt or shortened profile employer is restored to the
+  candidate's spelling, and so is an entry whose title and dates match
+  exactly one profile role. Before, such an entry was dropped along with its
+  truthful bullets. Made-up employers are still dropped.
+- **Replay.** Every stored raw live capture was replayed. Only final-live-6
+  S04 changes ("Declan" → "Deccan"), and it now passes factual_fidelity.
+- **Tests:** `__tests__/proper-noun-preservation.test.ts` (14). Jest 671/671.
+
+## Final QA run of `b7ab77e` (`final-live-7`, 2026-09-25)
+
+**Setup.**
+- Route-bearing preview: `dpl_6RRs27QSaHHZrCE3FAPzkyHNsKk2` (`123a742` =
+  `b7ab77e` + runner).
+- Each scenario ran once, 14:36–14:39Z. All 11 captures are SHA-256-verified.
+- The runner was removed in `87b1f1b`, so the tree equals `b7ab77e`.
+- Scores are in `results/final-live-7`; the tailoring and PDF comparison is in
+  `results/live-compare-final6-vs-final7`.
+
+| | final-live-6 (`d363fe8`) | **final-live-7 (live, `b7ab77e`)** |
+|---|---|---|
+| factual · detail · framing · advice · ats_keywords | 10 · 11 · 11 · 11 · 11 | **11 · 11 · 11 · 11 · 11** |
+| Summary names the target role | 11 | 11 |
+| Unsupported-claim rate | 0.053 (S04) | 0 |
+| ATS heuristic (S01/S10; accepted non-blocking) | 9 | 9 |
+| Bullets verbatim / tailored-clean / unclean | 29 / 5 / 0 | 26 / 8 / 0 |
+| Projects verbatim / tailored-clean / unclean | 12 / 3 / 0 | 13 / 2 / 0 |
+| PDF: one A4 page in all 4 templates | 11 | 11 |
+| Tips kept / raw · growth-note sentences kept / raw | 38 / 39 · 27 / 29 | 39 / 40 · 31 / 32 |
+
+**Manual audit.** Proper nouns and the resume body are clean. One advice defect
+is missed by both the guard and the evaluator.
+- **Proper nouns.** Every institution and employer in all 11 outputs matches
+  the profile verbatim. In this run the model spelled S04's "Deccan College
+  of Engineering" correctly, so the new restore path was not exercised live;
+  it is covered by the replay regression test.
+- **Summaries.** All 11 are truthful and name the role.
+  - S08/S09 keep "in embedded systems and firmware testing".
+  - S07 reads "…building Java and Spring Boot microservices in fintech.
+    Seeking the Software Engineer II role at Google Cloud."
+  - S10 is still generic.
+- **Advice defect (S07, tip 2), missed by both the guard and the evaluator.**
+  The tip reads "…your microservices and distributed systems work translates
+  well, but GCP-specific projects will boost your profile."
+  - It credits the candidate with distributed systems work, which profile C
+    does not show; Distributed Systems is in its missing keywords.
+  - It slips through because "translates" is not a crediting verb in either
+    check, and "distributed" without "systems" right after "your" is not
+    matched.
+  - It affects the advice panel, not the resume document.
+  - It should be fixed before sign-off, with a regression test from this
+    capture.
+- **ATS scores (the model's own; raw equals final):**
+  - S01: 42. Missing Data Structures, Algorithms, Distributed Systems,
+    Object-Oriented Design, all absent.
+  - S10: 48. Missing Algorithms, Distributed Systems, Design Patterns, Code
+    Review, all absent.
+  - Non-blocking, as documented.
+- **Deliberate drops.** S11 "Formalise your code review practices…" is still
+  removed. S06 tip 4 lost only its "to strengthen your 2+ years of
+  design/architecture requirement" clause, a years misstatement.
+- **Pre-model payload gate:** S09 still fails it, unchanged since the first
+  run.
