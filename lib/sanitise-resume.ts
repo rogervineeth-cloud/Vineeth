@@ -14,8 +14,11 @@
 // profile before anything is stored:
 //
 //   1. Experience whose company is a placeholder or absent from the profile
-//      is dropped outright.
-//   2. Education whose institution is a placeholder is dropped.
+//      is dropped outright; a misspelt or shortened profile employer is
+//      restored to the candidate's spelling.
+//   2. Education whose institution is a placeholder or matches no profile
+//      entry is dropped; a matched entry shows the candidate's own
+//      institution, degree and year.
 //   3. Bullets containing a number that appears nowhere in the profile are
 //      dropped — an unverifiable metric is worse than a missing bullet.
 //
@@ -116,6 +119,45 @@ function bulletSimilarity(a: string, b: string): number {
   for (const w of wa) if (wb.has(w)) shared++;
   return shared / Math.max(1, Math.min(wa.size, wb.size));
 }
+
+/** 1 - edit distance / longer length, on normalised text. */
+export function nameSimilarity(a: string, b: string): number {
+  const x = norm(a), y = norm(b);
+  if (!x || !y) return 0;
+  let prev = Array.from({ length: y.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= x.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= y.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (x[i - 1] === y[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return 1 - prev[y.length] / Math.max(x.length, y.length);
+}
+
+/**
+ * The candidate's own spelling of a proper noun the model changed slightly.
+ * Live eval final-live-6 S04: the model wrote "Declan College of Engineering"
+ * for the profile's "Deccan College of Engineering" and it reached the final
+ * resume. A name is restored only when exactly one profile name is a near
+ * miss (one or two typos) or contains every word of it ("Tessellate Fintech"
+ * for "Tessellate Fintech Pvt Ltd"); otherwise null.
+ */
+export function resolveProfileName(name: string, profileNames: string[]): string | null {
+  const distinct = [...new Map(profileNames.filter(Boolean).map((p) => [norm(p), p])).values()];
+  const exact = distinct.find((p) => norm(p) === norm(name));
+  if (exact) return exact;
+  const words = (s: string) => norm(s).split(/\s+/).filter(Boolean);
+  const own = words(name);
+  const near = distinct.filter((p) => {
+    if (nameSimilarity(name, p) >= 0.85) return true;
+    const theirs = new Set(words(p));
+    return own.some((w) => w.length >= 4) && own.every((w) => theirs.has(w));
+  });
+  return near.length === 1 ? near[0] : null;
+}
+
+const numbersKey = (s: string) => [...extractNumbers(s ?? "")].sort().join(" ");
 
 /** Numeric tokens in a blob of text, with thousands separators removed. */
 export function extractNumbers(text: string): Set<string> {
@@ -256,8 +298,19 @@ export function sanitiseGeneratedResume(
         return false;
       }
       if (profileCompanies.size > 0 && !profileCompanies.has(norm(c))) {
-        warnings.push(`dropped_fabricated_company:${c}`);
-        return false;
+        // A misspelt or shortened employer is the candidate's own; so is an
+        // entry whose role and dates match exactly one profile role.
+        const byName = resolveProfileName(c, (profile.experience ?? []).map((p) => p.company));
+        const byRole = (profile.experience ?? []).filter(
+          (p) => norm(p.role) === norm(exp.role ?? "") && norm(p.duration) === norm(exp.duration ?? "")
+        );
+        const restored = byName ?? (byRole.length === 1 ? byRole[0].company : null);
+        if (!restored) {
+          warnings.push(`dropped_fabricated_company:${c}`);
+          return false;
+        }
+        warnings.push(`restored_company_name:${c}->${restored}`);
+        exp.company = restored;
       }
       return true;
     });
@@ -327,6 +380,37 @@ export function sanitiseGeneratedResume(
       if (PLACEHOLDER_INSTITUTION_PATTERNS.some((re) => re.test(inst))) {
         warnings.push(`dropped_placeholder_institution:${inst}`);
         return false;
+      }
+      // Institution, degree and year are the candidate's own facts: an entry
+      // must be one of theirs, and is shown with their spelling. It is matched
+      // by institution name (exact or near miss) or, failing that, by the same
+      // degree and years; an entry that matches nothing is fabricated.
+      const profileEdu = profile.education ?? [];
+      if (profileEdu.length === 0) return true;
+      const name = resolveProfileName(inst, profileEdu.map((p) => p.institution));
+      const byName = name ? profileEdu.filter((p) => norm(p.institution) === norm(name)) : [];
+      const byDegree = profileEdu.filter(
+        (p) => norm(p.degree) === norm(ed.degree ?? "") && numbersKey(p.year) === numbersKey(ed.year ?? "")
+      );
+      const src =
+        (byName.length === 1 ? byName[0] : null) ??
+        byName.find((p) => norm(p.degree) === norm(ed.degree ?? "")) ??
+        (byDegree.length === 1 ? byDegree[0] : null);
+      if (!src) {
+        warnings.push(`dropped_fabricated_institution:${inst}`);
+        return false;
+      }
+      if (norm(src.institution) !== norm(inst)) {
+        warnings.push(`restored_institution:${inst}->${src.institution}`);
+        ed.institution = src.institution;
+      }
+      if (typeof ed.degree === "string" && norm(ed.degree) !== norm(src.degree)) {
+        warnings.push(`restored_degree:${ed.degree}->${src.degree}`);
+        ed.degree = src.degree;
+      }
+      if (typeof ed.year === "string" && src.year && numbersKey(ed.year) !== numbersKey(src.year)) {
+        warnings.push(`restored_education_year:${ed.year}->${src.year}`);
+        ed.year = src.year;
       }
       return true;
     });
