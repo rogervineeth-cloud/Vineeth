@@ -408,3 +408,93 @@ holds the raw and the final output, and all 11 are SHA-256-verified. Scored:
   - the role is named 11/11;
   - PDF is one page in all 4 templates, 11/11;
   - the ATS "undersells" heuristic still fires on S01/S10.
+
+## Live run of `c1c3c95` (`final-live-5`, 2026-09-25)
+
+Before this run, an offline review asked whether the reverted rewrites and the
+ATS "undersells" flags were guard defects. The findings:
+- The bullets that revert all added claims the source never made
+  ("ensuring…", "enabling faster release").
+- The projects that revert mostly add ownership or invented detail
+  ("designed", "real-time", "deployed" for "run locally"). About three
+  truthful synonyms are lost as well.
+- The S01 (42) and S10 (48) scores come from the model: raw equals final,
+  and no guard lowers them.
+
+No change was made, so the run went ahead on `c1c3c95` unchanged.
+
+Setup:
+- One branch-only preview (`dpl_FyziYWpgyuBjPV7XcKNdG7XxpwS2`, commit
+  `81634f0`, runner removed in `7951ace`).
+- Each of the 11 scenarios ran once, between 07:01Z and 07:05Z.
+- Every capture holds the raw and the final output, and all 11 are
+  SHA-256-verified.
+- S02, S05, S08 and S10 returned byte-identical output to final-live-4 (same
+  SHA-256).
+- Scores are in `results/final-live-5`; the tailoring and PDF comparison is in
+  `results/live-compare-final4-vs-final5`.
+
+| | final-live-4 (as captured) | **final-live-5 (live, c1c3c95)** |
+|---|---|---|
+| factual · detail · advice · ats_keywords | 11 · 11 · 11 · 11 | 11 · 11 · 11 · 11 |
+| summary_framing | 10 (with the new list check) | **11** |
+| Summary names the target role | 11 | 11 |
+| Keyword precision · unsupported-claim rate | 1.0 · 0 | 1.0 · 0 |
+| seniority (ATS "undersells" heuristic, S01/S10) | 9 | 9 |
+| Final bullets verbatim / tailored-clean / unclean | 29 / 5 / 0 | 29 / 5 / 0 |
+| Projects verbatim / tailored-clean / unclean | 14 / 1 / 0 | 14 / 1 / 0 |
+| PDF: one A4 page in all 4 templates | 11 | 11 |
+| Tips kept / raw | 38 / 39 | 37 / 39 |
+| Growth-note sentences kept / raw (plain sentence match) | 28 / 30 | 27 / 28 (the 1 is S05's count repaired "8 of 10" → "9 of 10") |
+
+The pre-model payload gate still fails on S09. This is unchanged from every
+earlier run: one truthful JD requirement is not licensed as a must-inject
+keyword.
+
+**Manual audit.** Neither fix introduced a new factual or framing defect.
+Tailoring is still thin.
+- **S09 (fixed live).** The raw summary was:
+
+  > "QA Engineer with 2+ years of professional experience in embedded systems
+  > and firmware testing. Seeking a Software Engineer II role at Google Cloud,
+  > bringing expertise in Python, C++, and test automation with a strong
+  > foundation in distributed systems and code quality practices."
+
+  The final summary is:
+
+  > "QA Engineer with 2+ years of professional experience. Seeking a Software
+  > Engineer II role at Google Cloud."
+
+  - The list fragment is gone.
+  - The truthful "in embedded systems and firmware testing" is lost too,
+    because "systems" is flagged as novel. This over-trim leaves the summary
+    generic but not false.
+  - Its 3 bullets are the source text word for word. The model's rewrites
+    added "ensuring…" and "enabling faster release" and were reverted.
+  - Tips 3/3, growth note 3/3.
+- **S03 (fixed live).** The note keeps "You are a fresher (graduating 2025)
+  applying for a role requiring 3+ years of professional software development
+  and 2+ years of system design experience." Growth note 3/3, tips 4/4.
+- **ATS cases (model-assigned; unchanged by the guards).**
+  - S01: `ats_score` 42 (raw 42). Missing: Data Structures, Algorithms,
+    Distributed Systems, Object-Oriented Design.
+  - S10: `ats_score` 48 (raw 48). Missing: Algorithms, Distributed Systems,
+    Design Patterns, Code Review.
+  - Both are "match" scenarios, so the heuristic flags them. The missing
+    keywords are genuinely absent from the profiles, so the low scores are
+    defensible. The heuristic's "match" label may be too generous.
+- **Advice.** Two tips were dropped in this run:
+  - S11 "Formalise your code review practices…" (deliberate, as before).
+  - S07 "Deepen your System Design and Distributed Systems knowledge through
+    structured learning…", flagged `presupposes_unevidenced: System Design`.
+    This is a minor false positive: the learning noun ("knowledge") is more
+    than 3 words after "your", outside the exemption window.
+- **Generic summaries:**
+  - S07: "Software Engineer with 3+ years of professional experience. Seeking
+    the Software Engineer II role at Google Cloud."
+  - S08: "QA Engineer with 2+ years of professional experience. Seeking a
+    Software Development Engineer role."
+  - Both are truthful but carry no domain detail.
+- **Projects.** The project embellishments in S01–S05 still revert
+  ("designed", "eliminated", "deployed locally"). This keeps them factual but
+  leaves them untailored.
