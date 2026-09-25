@@ -779,8 +779,38 @@ function growsSkillList(afterYour: string): boolean {
   });
 }
 
-function adviceProblems(text: string, unevidenced: (t: string) => string[], facts: CandidateFacts): string[] {
+/**
+ * "your microservices and distributed systems work translates well"
+ * (final-live-7 S07): a possessive noun phrase ending in an experience noun
+ * says the candidate already has what it names, whatever verb follows. The
+ * phrase is read up to its head noun; a function word ends it ("your profile
+ * does not show ... work" is not one phrase).
+ */
+const ATTRIBUTED_EXPERIENCE =
+  /\byour\s+((?:[\w/+#.'-]+,?\s+){1,6}?)(?:work|experience|background|exposure|projects?|history|track record|contributions?|achievements?|expertise|skills?)\b/gi;
+const PHRASE_BREAK =
+  /^(?:does|do|did|not|no|never|is|are|was|were|be|been|has|have|had|to|in|on|at|for|with|by|from|of|the|a|an|that|which|this|these|those|as|than|but|yet|if|when|while|profile|resume|cv)$/i;
+
+/** Missing skills or domains a possessive experience phrase attributes to the candidate. */
+function attributedUnevidenced(text: string, unevidenced: (t: string) => string[], missing: string[]): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(ATTRIBUTED_EXPERIENCE)) {
+    // "Build/gain/deepen your distributed systems experience" is growth advice.
+    const verb = text.slice(0, m.index ?? 0).trim().split(/\s+/).pop() ?? "";
+    if (DEVELOP_VERB.test(verb)) continue;
+    const phrase = m[1].trim().replace(/,$/, "");
+    if (phrase.split(/[\s,]+/).some((w) => PHRASE_BREAK.test(w)) || /'s\b/.test(phrase.split(/\s+/)[0])) continue;
+    const lower = ` ${phrase.toLowerCase()} `;
+    const named = missing.filter((k) => k.trim() && lower.includes(` ${k.trim().toLowerCase()} `));
+    out.push(...unevidenced(phrase), ...named);
+  }
+  return [...new Set(out)];
+}
+
+function adviceProblems(text: string, unevidenced: (t: string) => string[], facts: CandidateFacts, missing: string[] = []): string[] {
   const problems: string[] = [];
+  const attributed = attributedUnevidenced(text, unevidenced, missing);
+  if (attributed.length) problems.push(`attributes_unevidenced:${attributed.join("|")}`);
   // Clauses end at ; : and contrast words — not commas, which also separate
   // the items of one list ("Strong match on Java, REST APIs, and system design").
   for (const clause of text.split(/[;:]|\bbut\b|\bhowever\b|\bwhereas\b|\bwhile\b/i)) {
@@ -837,6 +867,8 @@ export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationPr
   }
   const evidenced = new Set(skillsMentioned(profileEvidence(profile)));
   const unevidenced = (t: string) => skillsMentioned(t).filter((k) => !evidenced.has(k));
+  // What the resume itself lists as missing (already cleared of evidenced skills).
+  const missing = (Array.isArray(out.missing_keywords) ? out.missing_keywords : []).filter((k): k is string => typeof k === "string");
 
   if (typeof out.growth_note === "string" && out.growth_note.trim() && out.growth_note.trim() !== "null") {
     const sentences = out.growth_note.trim().split(SENTENCE_SPLIT);
@@ -844,7 +876,7 @@ export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationPr
     let previousDropped = false;
     let previousSkills: string[] = [];
     for (const sn of sentences) {
-      const p = adviceProblems(sn, unevidenced, facts);
+      const p = adviceProblems(sn, unevidenced, facts, missing);
       // "Inject these into bullets or summary", after a sentence naming skills
       // the candidate lacks.
       if (previousSkills.length && /\b(?:these|them|those|they)\b/i.test(sn) && EDIT_VERB.test(sn) && EDIT_TARGET.test(sn) && !ACQUIRE.test(sn)) {
@@ -876,7 +908,7 @@ export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationPr
   if (Array.isArray(out.profile_improvement_tips)) {
     out.profile_improvement_tips = out.profile_improvement_tips.flatMap((tip) => {
       if (typeof tip !== "string") return [];
-      const p = adviceProblems(tip, unevidenced, facts);
+      const p = adviceProblems(tip, unevidenced, facts, missing);
       if (!p.length) return [tip];
       // Keep a clean leading instruction rather than the whole tip going:
       // "Lead or participate in formal code review processes and document
@@ -884,7 +916,11 @@ export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationPr
       const cuts = [...tip.matchAll(/;\s+|\s+and\s+(?=[a-z]+\s)|,\s+then\s+|\s+[-\u2014]\s+then\s+/g)].map((m) => m.index ?? 0).sort((a, b) => b - a);
       for (const cut of cuts) {
         const head = tip.slice(0, cut).trim().replace(/[,;:]$/, "");
-        if (head.split(/\s+/).length >= 4 && adviceProblems(head, unevidenced, facts).length === 0) {
+        // "...or Pub/Sub; your microservices." (final-live-7 S07): a cut inside
+        // the clause after a semicolon leaves a stub; cut at the semicolon.
+        const lastClause = head.split(/;\s+/).pop() ?? head;
+        if (lastClause.split(/\s+/).length < 4) continue;
+        if (head.split(/\s+/).length >= 4 && adviceProblems(head, unevidenced, facts, missing).length === 0) {
           warnings.push(`trimmed_tip:${p.join(",")}`);
           return [`${head}.`];
         }

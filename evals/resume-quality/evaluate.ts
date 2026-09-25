@@ -611,6 +611,19 @@ export function evaluateResume(
       const bad = lacking(m[1]).filter((k) => !lacking(rest).includes(k));
       if (bad.length) adv.push(`${where} presupposes the candidate's ${bad.join(", ")}: "your ${m[1]}"`);
     }
+    // "your microservices and distributed systems work translates well": an
+    // experience phrase naming a skill the profile lacks, or one the resume
+    // lists as missing, whatever the verb (final-live-7 S07).
+    const missingKw = (r.missing_keywords ?? []).filter((k): k is string => typeof k === "string" && !!k.trim() && !missingOwn.includes(k));
+    for (const m of text.matchAll(/\byour\s+((?:[\w/+#.'-]+,?\s+){1,6}?)(?:work|experience|background|exposure|projects?|history|track record|contributions?|achievements?|expertise|skills?)\b/gi)) {
+      const verb = text.slice(0, m.index ?? 0).trim().split(/\s+/).pop() ?? "";
+      if (GROW.test(verb)) continue;
+      const phrase = m[1].trim().replace(/,$/, "");
+      const toks = phrase.toLowerCase().split(/[\s,]+/);
+      if (toks.some((w) => FUNCTION_WORDS.has(w) && w !== "and" && w !== "or") || toks.some((w) => /^(?:not|no|never|does|do|did|profile|resume|cv)$/.test(w)) || /'s$/.test(toks[0])) continue;
+      const claimed = [...lacking(phrase), ...missingKw.filter((k) => ` ${phrase.toLowerCase()} `.includes(` ${k.toLowerCase().trim()} `))];
+      if (claimed.length) adv.push(`${where} attributes ${[...new Set(claimed)].join(", ")} to the candidate: "your ${phrase}..."`);
+    }
     const editsResume = EDIT.test(text) && EDIT_TARGET.test(text) && !GAIN.test(text);
     if (editsResume && lacking(text).length) adv.push(`${where} tells the candidate to put ${lacking(text).join(", ")} on the resume`);
     if (editsResume && where === "growth_note" && prevLacking.length && /\b(?:these|them|those|they)\b/i.test(text)) {
