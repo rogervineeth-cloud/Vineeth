@@ -96,11 +96,6 @@ export default function DashboardPage() {
   const [pendingDelete, setPendingDelete] = useState<Resume | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  function handleViewResume(e: React.MouseEvent, resumeId: string) {
-    e.preventDefault();
-    e.stopPropagation();
-    router.push(`/preview/${resumeId}`);
-  }
 
   function handleAskDelete(e: React.MouseEvent, resume: Resume) {
     e.preventDefault();
@@ -250,42 +245,51 @@ export default function DashboardPage() {
               const summary = resume.resume_json?.summary ?? "";
               const truncated = summary.length > 120 ? summary.slice(0, 120) + "…" : summary;
               return (
-                <Link
+                // A card, not one big link: the actions used to be <button>s
+                // nested inside the card's <a> (invalid, and a tap on one could
+                // also follow the link). The title link is stretched over the
+                // card so a click or tap anywhere still opens the preview; the
+                // actions sit above it as their own controls.
+                <div
                   key={resume.id}
-                  href={`/preview/${resume.id}`}
-                  className="group relative bg-white rounded-xl border border-stone-200 p-5 shadow-sm hover:shadow-md hover:border-[#1f5c3a]/30 transition-all flex flex-col gap-3"
+                  className="group relative bg-white rounded-xl border border-stone-200 p-5 shadow-sm hover:shadow-md hover:border-[#1f5c3a]/30 focus-within:border-[#1f5c3a]/40 transition-all flex flex-col gap-3"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-serif italic text-lg text-[#1a1a1a] leading-tight">
+                    <Link
+                      href={`/preview/${resume.id}`}
+                      className="font-serif italic text-lg text-[#1a1a1a] leading-tight rounded-sm after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f5c3a]/50"
+                    >
                       {resume.tailored_role || "Resume"}
-                    </p>
+                    </Link>
                     <ATSBadge score={resume.ats_score ?? 0} />
                   </div>
                   {truncated && <p className="text-xs text-[#6b6b6b] leading-relaxed flex-1">{truncated}</p>}
                   <p className="text-xs text-[#6b6b6b]">{formatDate(resume.created_at)}</p>
-                  {/* Always visible on touch devices. These were hover-only,
-                      which made View and Download unreachable on phones and
-                      tablets — the majority of this product's audience. On
-                      pointer devices they still fade in on hover. */}
-                  <div className="flex gap-2 opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8"
-                      onClick={(e) => handleViewResume(e, resume.id)}>
-                      <Eye className="w-3 h-3 mr-1" />View
+                  {/* Always visible and always tappable. They used to be fully
+                      transparent until hover on any device reporting hover —
+                      including touchscreen laptops — while still clickable
+                      while invisible. Larger targets on coarse pointers. */}
+                  <div className="relative z-10 flex gap-2">
+                    <Button asChild size="sm" variant="outline" className="flex-1 text-xs h-8 [@media(pointer:coarse)]:h-11">
+                      <Link href={`/preview/${resume.id}`} aria-label={`View ${resume.tailored_role || "resume"}`}>
+                        <Eye className="w-3 h-3 mr-1" />View
+                      </Link>
                     </Button>
-                    <Button size="sm" variant="ghost" className="flex-1 text-xs h-8"
+                    <Button size="sm" variant="ghost" className="flex-1 text-xs h-8 [@media(pointer:coarse)]:h-11"
+                      aria-label={`Download ${resume.tailored_role || "resume"} as PDF`}
                       onClick={(e) => handleQuickDownload(e, resume.id)}
                       disabled={downloading === resume.id}>
                       <Download className="w-3 h-3 mr-1" />
                       {downloading === resume.id ? "…" : "Download"}
                     </Button>
                     <Button size="sm" variant="ghost"
-                      className="text-xs h-8 px-2 text-[#6b6b6b] hover:text-red-600 hover:bg-red-50"
+                      className="text-xs h-8 px-2 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:px-3 text-[#6b6b6b] hover:text-red-600 hover:bg-red-50"
                       aria-label={`Delete ${resume.tailored_role || "resume"}`}
                       onClick={(e) => handleAskDelete(e, resume)}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

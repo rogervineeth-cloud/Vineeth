@@ -7,6 +7,7 @@ import { track } from "@/lib/analytics";
 import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD } from "@/lib/models";
 import { buildGenerationPayload, buildModelRequest, parseModelReply, postProcessResume } from "@/lib/resume-generation";
 import { usableSections, hasResumeContent, MISSING_RESUME_CONTENT } from "@/lib/profile-completeness";
+import { cleanTargetRoles } from "@/lib/target-roles";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
 const inputSchema = z.object({
@@ -21,7 +22,8 @@ const inputSchema = z.object({
     phone: z.string().nullable().optional(),
     current_city: z.string().nullable().optional(),
     graduation_year: z.number().nullable().optional(),
-    target_roles: z.array(z.string()).optional(),
+    // Never tailor to the role picker's "Other" sentinel or a blank entry.
+    target_roles: z.array(z.string()).optional().transform((r) => (r === undefined ? undefined : cleanTargetRoles(r))),
     linkedin_data: z.record(z.string(), z.unknown()).nullable().optional(),
     summary: z.string().optional(),
     experience: z.array(z.object({

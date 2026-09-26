@@ -18,6 +18,8 @@ import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent } from "@/lib/profile-completeness";
 import { createHref } from "@/lib/regen";
 import { INDIAN_JOB_ROLES } from "@/lib/seed/roles";
+import { cleanTargetRoles, customRoleError, isOtherSentinel, MAX_TARGET_ROLES } from "@/lib/target-roles";
+import { shouldRemoveLastChip, withoutLastChip } from "@/lib/chip-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import {
   isValidEmail,
   isValidPhone,
-  isValidGradYear,
+  gradYearError,
   isBasicsComplete,
   initialBasics,
   buildProfileWrite,
@@ -187,6 +189,10 @@ function ProfilePageInner() {
 
   const [basics, setBasics] = useState<BasicInfo>({ full_name: "", email: "", phone: "", current_city: "", graduation_year: "" });
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
+  // "Other" opens a text field; the typed role is what gets saved.
+  const [otherOpen, setOtherOpen] = useState(false);
+  const [otherDraft, setOtherDraft] = useState("");
+  const [otherError, setOtherError] = useState<string | null>(null);
   const [summary, setSummary] = useState("");
   const [experience, setExperience] = useState<ExpEntry[]>([emptyExp()]);
   const [expSkipped, setExpSkipped] = useState(false);
@@ -230,7 +236,8 @@ function ProfilePageInner() {
       if (initial.email) setEmailTouched(true);
       if (profileRes.data) {
         const p = profileRes.data;
-        setTargetRoles(p.target_roles ?? []);
+        // A literal "Other" saved by the old picker is not a role.
+        setTargetRoles(cleanTargetRoles(p.target_roles));
         const pd = p.profile_data ?? {};
         if (pd.summary && !pd.summary.startsWith("e.g.")) setSummary(pd.summary);
         if (pd.experience?.length) setExperience(pd.experience.map((e: Omit<ExpEntry, "id">) => ({ ...e, id: uid() })));
@@ -280,7 +287,7 @@ function ProfilePageInner() {
   // Basics are only "done" when the contact details are actually usable —
   // a malformed email used to pass and ship on the finished resume.
   const sec1Done = isBasicsComplete(basics);
-  const sec2Done = targetRoles.length > 0;
+  const sec2Done = cleanTargetRoles(targetRoles).length > 0;
   // Experience: done if skipped, fresher-flagged, or has at least one entry
   const sec3Done = expSkipped || isFresher || experience.some((e) => e.company.trim());
   // Education: done if skipped or has at least one entry
@@ -298,8 +305,15 @@ function ProfilePageInner() {
       toast.info("Fill in your full name and email — both are required to continue.");
       return;
     }
+    if (currentStep === 4 && otherOpen && otherDraft.trim()) {
+      // A typed role that was never added would be silently lost.
+      toast.info("Press Add to save the role you typed, or clear it.");
+      return;
+    }
     if (currentStep === 4 && !sec2Done) {
-      toast.info("Pick at least one target role so the AI knows what to tailor for.");
+      toast.info(otherOpen
+        ? "Type the role you're targeting and press Add, so the AI knows what to tailor for."
+        : "Pick at least one target role so the AI knows what to tailor for.");
       return;
     }
     if (currentStep === 1 && !isFresher && !experience.some((e) => e.company.trim())) setExpSkipped(true); if (currentStep === 2 && !education.some((e) => e.institution.trim())) setEduSkipped(true); if (currentStep === 3 && !projects.some((p) => p.name.trim())) setProjSkipped(true); if (currentStep < STEPS.length - 1) {
@@ -325,11 +339,26 @@ function ProfilePageInner() {
   }
 
   function toggleRole(role: string) {
+    // "Other" is not a role: it opens the field for typing one.
+    if (isOtherSentinel(role)) {
+      setOtherOpen((open) => !open);
+      setOtherError(null);
+      return;
+    }
     setTargetRoles((prev) => {
       if (prev.includes(role)) return prev.filter((r) => r !== role);
-      if (prev.length >= 3) { toast.info("Pick up to 3 roles."); return prev; }
+      if (prev.length >= MAX_TARGET_ROLES) { toast.info(`Pick up to ${MAX_TARGET_ROLES} roles.`); return prev; }
       return [...prev, role];
     });
+  }
+
+  function addCustomRole() {
+    const error = customRoleError(otherDraft, targetRoles);
+    if (error) { setOtherError(error); return; }
+    setTargetRoles((prev) => cleanTargetRoles([...prev, otherDraft]));
+    setOtherDraft("");
+    setOtherError(null);
+    setOtherOpen(false);
   }
 
   function updateExp(id: string, field: keyof Omit<ExpEntry, "id" | "bullets">, val: string) { setExperience((prev) => prev.map((e) => (e.id === id ? { ...e, [field]: val } : e))); }
@@ -442,7 +471,7 @@ function ProfilePageInner() {
               <Field label="Current city (optional)"><Input value={basics.current_city} onChange={(e) => setBasics((b) => ({ ...b, current_city: e.target.value }))} placeholder="e.g. Kochi" /></Field>
               <Field
                 label="Graduation year (optional)"
-                error={!isValidGradYear(basics.graduation_year) ? "Enter a 4-digit year, e.g. 2022" : null}
+                error={gradYearError(basics.graduation_year)}
               >
                 <Input value={basics.graduation_year} onChange={(e) => setBasics((b) => ({ ...b, graduation_year: e.target.value }))} inputMode="numeric" placeholder="e.g. 2022" />
               </Field>
@@ -538,16 +567,23 @@ function ProfilePageInner() {
                 {/* Skills */}
                 <div className="mt-8 pt-6 border-t border-stone-200">
                   <p className="text-sm font-semibold text-[#1a1a1a] mb-1">Skills <span className="text-xs text-[#6b6b6b] font-normal">(optional)</span></p>
-                  <p className="text-xs text-[#6b6b6b] mb-3">Type a skill and press Enter or comma to add it.</p>
+                  <p className="text-xs text-[#6b6b6b] mb-3">Type a skill and press Enter or comma to add it. Backspace in the empty field removes the last one.</p>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {skills.map((skill) => (
                       <span key={skill} className="flex items-center gap-1 text-sm bg-[#1f5c3a]/10 text-[#1f5c3a] px-2.5 py-1 rounded-full border border-[#1f5c3a]/20">
-                        {skill}<button type="button" onClick={() => removeSkill(skill)} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
+                        {skill}<button type="button" aria-label={`Remove ${skill}`} onClick={() => removeSkill(skill)} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
                       </span>
                     ))}
                   </div>
                   <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addSkill(skillInput); } }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addSkill(skillInput); return; }
+                      // Backspace in an empty field removes the last chip.
+                      if (shouldRemoveLastChip({ key: e.key, repeat: e.repeat, isComposing: e.nativeEvent.isComposing, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey }, skillInput, skills.length)) {
+                        e.preventDefault();
+                        setSkills((prev) => withoutLastChip(prev));
+                      }
+                    }}
                     onBlur={() => { if (skillInput.trim()) addSkill(skillInput); }}
                     placeholder="e.g. React, SQL, Power BI — press Enter to add" className="bg-white text-sm" />
                 </div>
@@ -662,15 +698,47 @@ function ProfilePageInner() {
       case 4:
         return (
           <div>
-            <p className="text-xs text-[#6b6b6b] mb-3">Pick up to 3. The AI tailors your resume keywords to these roles.</p>
+            <p className="text-xs text-[#6b6b6b] mb-3">Pick up to 3. The AI tailors your resume keywords to these roles. Not listed? Choose Other and type it.</p>
             <div className="flex flex-wrap gap-2">
-              {INDIAN_JOB_ROLES.map((role) => (
-                <button key={role} type="button" onClick={() => toggleRole(role)}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${targetRoles.includes(role) ? "bg-[#1f5c3a] text-white border-[#1f5c3a]" : "bg-white text-[#1a1a1a] border-stone-200 hover:border-[#1f5c3a]"}`}>
-                  {targetRoles.includes(role) && <X className="inline w-3 h-3 mr-1 -mt-0.5" />}{role}
+              {/* Roles typed via "Other" are not in the list; show them first so they can be removed. */}
+              {targetRoles.filter((r) => !INDIAN_JOB_ROLES.includes(r)).map((role) => (
+                <button key={`custom-${role}`} type="button" onClick={() => toggleRole(role)} aria-pressed="true"
+                  className="px-3 py-1.5 rounded-full text-sm border transition-colors bg-[#1f5c3a] text-white border-[#1f5c3a]">
+                  <X className="inline w-3 h-3 mr-1 -mt-0.5" />{role}
                 </button>
               ))}
+              {INDIAN_JOB_ROLES.map((role) => {
+                const active = isOtherSentinel(role) ? otherOpen : targetRoles.includes(role);
+                return (
+                  <button key={role} type="button" onClick={() => toggleRole(role)} aria-pressed={active}
+                    aria-expanded={isOtherSentinel(role) ? otherOpen : undefined}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${active ? "bg-[#1f5c3a] text-white border-[#1f5c3a]" : "bg-white text-[#1a1a1a] border-stone-200 hover:border-[#1f5c3a]"}`}>
+                    {active && !isOtherSentinel(role) && <X className="inline w-3 h-3 mr-1 -mt-0.5" />}{isOtherSentinel(role) ? "Other…" : role}
+                  </button>
+                );
+              })}
             </div>
+            {otherOpen && (
+              <div className="mt-4 flex flex-col gap-1.5">
+                <Label htmlFor="other-role" className="text-xs text-[#6b6b6b]">Your target role</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="other-role"
+                    autoFocus
+                    value={otherDraft}
+                    maxLength={80}
+                    onChange={(e) => { setOtherDraft(e.target.value); setOtherError(null); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomRole(); } }}
+                    placeholder="e.g. Supply Chain Analyst"
+                    aria-invalid={!!otherError}
+                    aria-describedby={otherError ? "other-role-error" : undefined}
+                    className="bg-white text-sm"
+                  />
+                  <Button type="button" variant="outline" onClick={addCustomRole}>Add</Button>
+                </div>
+                {otherError && <p id="other-role-error" className="text-xs text-red-600">{otherError}</p>}
+              </div>
+            )}
             {targetRoles.length > 0 && <p className="text-sm text-[#1f5c3a] font-medium mt-3">Selected: {targetRoles.join(", ")}</p>}
           </div>
         );

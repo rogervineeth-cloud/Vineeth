@@ -8,6 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent, RESUME_CONTENT_HINT } from "@/lib/profile-completeness";
 import { parseRegenParam } from "@/lib/regen";
 import { analyzeJd, type JdAnalysis } from "@/lib/jd-keywords";
+import { cleanTargetRoles } from "@/lib/target-roles";
+import { singleFlight } from "@/lib/single-flight";
+import { jdLengthStatus, JD_MIN_CHARS } from "@/lib/jd-length";
+import { shouldRemoveLastChip } from "@/lib/chip-input";
 import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,7 +69,8 @@ function checkCompleteness(profile: Profile | null): { complete: boolean; missin
   if (!profile) return { complete: false, missing: "your profile" };
   if (!profile.full_name?.trim()) return { complete: false, missing: "your name" };
   if (!profile.email?.trim()) return { complete: false, missing: "your email" };
-  if (!profile.target_roles?.length) return { complete: false, missing: "your target roles" };
+  // A literal "Other" from the old role picker is not a target role.
+  if (!cleanTargetRoles(profile.target_roles).length) return { complete: false, missing: "your target roles" };
   // Same rule the server enforces (lib/profile-completeness.ts). Checking
   // array length here let a skipped section's blank placeholder row count as
   // content, so the page said "ready" and the server then refused.
@@ -265,6 +270,10 @@ function CreatePageInner() {
   const [genError, setGenError] = useState<string | null>(null);
 
   const [generating, setGenerating] = useState(false);
+  // Synchronous lock: `generating` only disables the button on the next
+  // render, so a double click used to start two generations — two credits and
+  // two saved resumes. See lib/single-flight.ts.
+  const generateFlight = useRef(singleFlight((run: () => Promise<void>) => run()));
   const [genStageIdx, setGenStageIdx] = useState(0);
   const [genProgress, setGenProgress] = useState(0);
   const [tipIdx, setTipIdx] = useState(0);
@@ -343,8 +352,9 @@ function CreatePageInner() {
       setShowMissingPopup(true);
       return;
     }
-    if (jdText.trim().length < 200) {
-      toast.error("Please paste a longer job description (min 200 characters).");
+    const jdStatus = jdLengthStatus(jdText);
+    if (!jdStatus.ready) {
+      toast.error(jdStatus.toast);
       jdRef.current?.focus();
       return;
     }
@@ -396,7 +406,7 @@ function CreatePageInner() {
             phone: profile!.phone,
             current_city: profile!.current_city,
             graduation_year: profile!.graduation_year,
-            target_roles: profile!.target_roles,
+            target_roles: cleanTargetRoles(profile!.target_roles),
             linkedin_data: profile!.linkedin_data,
             summary: pd.summary,
             experience: pd.experience,
@@ -530,6 +540,8 @@ function CreatePageInner() {
   }
 
   async function handleClickGenerate() {
+    // A second click while a generation is running must not start another.
+    if (generateFlight.current.inFlight) return;
     const comp = checkCompleteness(profile);
     if (!comp.complete) {
       setShowMissingPopup(true);
@@ -545,12 +557,13 @@ function CreatePageInner() {
       return;
     }
     setFlowStep(4);
-    handleGenerate();
+    await generateFlight.current(() => handleGenerate());
   }
 
   const completeness = checkCompleteness(profile);
   const isCreator = userEmail === CREATOR_EMAIL;
-  const jdReady = jdText.trim().length >= 200;
+  const jdStatus = jdLengthStatus(jdText);
+  const jdReady = jdStatus.ready;
   const effectiveKeywords = useMemo(() => {
     const base = jdAnalysis.keywords.filter((k) => !removedKeywords.has(k.toLowerCase()));
     const extras = extraKeywords.filter((k) => !base.some((b) => b.toLowerCase() === k.toLowerCase()));
@@ -628,10 +641,8 @@ function CreatePageInner() {
                 onChange={(e) => setJdText(e.target.value)}
               />
               <div className="flex items-center justify-between mt-1.5">
-                <span className={`text-xs ${jdReady ? "text-[#1f5c3a] font-medium" : "text-[#999]"}`}>
-                  {jdText.length < 200
-                    ? `${jdText.length}/200 characters minimum`
-                    : `${jdText.length} characters ✓`}
+                <span className={`text-xs ${jdReady ? "text-[#1f5c3a] font-medium" : "text-[#999]"}`} aria-live="polite">
+                  {jdStatus.counter}
                 </span>
                 {jdAnalysis.quality === "good" && (
                   <span className="text-xs text-[#1f5c3a]">Detailed JD ✓</span>
@@ -676,7 +687,17 @@ function CreatePageInner() {
                   type="text"
                   value={newSkillInput}
                   onChange={(e) => setNewSkillInput(e.target.value)}
+                  aria-label="Add a skill"
                   onKeyDown={(e) => {
+                    const visible = effectiveKeywords.slice(0, 12);
+                    if (shouldRemoveLastChip({ key: e.key, repeat: e.repeat, isComposing: e.nativeEvent.isComposing, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey }, newSkillInput, visible.length)) {
+                      // Remove the last chip on screen — the same as its × button.
+                      e.preventDefault();
+                      const kw = visible[visible.length - 1];
+                      setRemovedKeywords((prev) => new Set(prev).add(kw.toLowerCase()));
+                      setExtraKeywords((prev) => prev.filter((x) => x.toLowerCase() !== kw.toLowerCase()));
+                      return;
+                    }
                     if (e.key === "Enter" || e.key === ",") {
                       e.preventDefault();
                       const v = newSkillInput.trim().replace(/,$/, "");
@@ -737,7 +758,7 @@ function CreatePageInner() {
               Next — Choose template →
             </Button>
             {!jdReady && (
-              <p className="lg:hidden text-xs text-center text-[#999] mt-2">Paste a job description above to continue</p>
+              <p className="lg:hidden text-xs text-center text-[#999] mt-2">{jdStatus.blocker}</p>
             )}
           </div>
 
@@ -765,9 +786,9 @@ function CreatePageInner() {
                         {completeness.complete ? (
                           <>
                             <p className="text-xs text-[#6b6b6b] mt-0.5">{profile?.email}</p>
-                            {(profile?.target_roles?.length ?? 0) > 0 && (
+                            {cleanTargetRoles(profile?.target_roles).length > 0 && (
                               <p className="text-xs text-[#6b6b6b] mt-0.5">
-                                Targeting: {profile!.target_roles!.slice(0, 2).join(", ")}
+                                Targeting: {cleanTargetRoles(profile!.target_roles).slice(0, 2).join(", ")}
                               </p>
                             )}
                             {planCheck?.allowed && (
@@ -825,7 +846,9 @@ function CreatePageInner() {
                     <FileText className="w-3.5 h-3.5 shrink-0 text-[#1f5c3a]" />
                     {jdReady
                       ? "Profile and job description look good — you're ready to continue."
-                      : "Profile looks good — paste a JD above to continue."}
+                      : jdStatus.state === "empty"
+                        ? "Profile looks good — paste a JD above to continue."
+                        : `Profile looks good — the job description needs at least ${JD_MIN_CHARS} characters (${jdStatus.count} so far).`}
                   </div>
                 )}
               </div>
@@ -845,9 +868,7 @@ function CreatePageInner() {
                   simply too short. */}
               {!jdReady && (
                 <p className="text-xs text-center text-[#999] mt-2">
-                  {jdText.trim().length === 0
-                    ? "Paste a job description to continue"
-                    : `Needs at least 200 characters (${jdText.trim().length} so far)`}
+                  {jdStatus.blocker}
                 </p>
               )}
             </div>
@@ -935,9 +956,9 @@ function CreatePageInner() {
                 <p className="text-sm font-semibold text-[#1a1a1a]">{profile?.full_name}</p>
               </div>
               <p className="text-xs text-[#6b6b6b]">{profile?.email}</p>
-              {(profile?.target_roles?.length ?? 0) > 0 && (
+              {cleanTargetRoles(profile?.target_roles).length > 0 && (
                 <p className="text-xs text-[#6b6b6b] mt-0.5">
-                  Targeting: {profile!.target_roles!.slice(0, 2).join(", ")}
+                  Targeting: {cleanTargetRoles(profile!.target_roles).slice(0, 2).join(", ")}
                 </p>
               )}
               {planCheck?.allowed && (
@@ -1020,8 +1041,8 @@ function CreatePageInner() {
                   {profile.current_city && !profile.current_city.startsWith("e.g.") && (
                     <span className="text-[#6b6b6b]">{profile.current_city}</span>
                   )}
-                  {(profile.target_roles?.length ?? 0) > 0 && (
-                    <span className="text-[#6b6b6b] mt-0.5">Targeting: {profile.target_roles!.join(", ")}</span>
+                  {cleanTargetRoles(profile.target_roles).length > 0 && (
+                    <span className="text-[#6b6b6b] mt-0.5">Targeting: {cleanTargetRoles(profile.target_roles).join(", ")}</span>
                   )}
                 </div>
               </div>
