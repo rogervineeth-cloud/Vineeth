@@ -56,7 +56,9 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
   const [skipped, setSkipped] = useState<Record<SkipKey, boolean>>({ experience: false, education: false, projects: false });
 
   useEffect(() => {
-    if (active < 0) { setLoaded(true); return; }
+    // Not a stepper page: nothing to load. (The redirect effect below also
+    // returns for active < 1, so `loaded` is not needed here.)
+    if (active < 0) return;
     const supabase = createClient();
     let cancelled = false;
     (async () => {

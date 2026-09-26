@@ -10,8 +10,8 @@
  *     -> Anthropic call      (stubbed; the network call is the only stub)
  *     -> prefill-aware JSON parse
  *     -> sanitiseGeneratedResume
- *     -> consumeCredit
- *   -> the exact object app/(app)/create/page.tsx writes to public.resumes
+ *     -> complete_resume_generation (charge + INSERT, one transaction; faked)
+ *   -> the row the server stores in public.resumes
  *   -> lib/resume-pdf.ts renderResumePdf
  *
  * The point is the seams. The client writes four columns straight off the
@@ -56,6 +56,15 @@ jest.mock("@/lib/plans", () => ({
 
 jest.mock("@/lib/analytics", () => ({ track: jest.fn() }));
 
+import { randomUUID } from "crypto";
+import { createFakeGenerationStore } from "./helpers/fake-generation-store";
+// Migration 013's store, in memory (same rules as the SQL functions);
+// charges go through this file's credit mock.
+const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+jest.mock("@/lib/generation-idempotency", () => ({
+  ...jest.requireActual("@/lib/generation-idempotency"),
+  generationStore: () => mockGenerationStore,
+}));
 import { POST } from "@/app/api/generate-resume/route";
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
@@ -94,6 +103,7 @@ function request(overrides: Record<string, unknown> = {}): NextRequest {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      request_key: randomUUID(),
       jd_text: JD,
       template: "modern",
       jd_keywords: ["TypeScript", "AWS", "PostgreSQL"],
@@ -139,28 +149,16 @@ const GOOD_COMPLETION = completion(`
   "growth_note": null
 }`);
 
-/** Exactly what app/(app)/create/page.tsx writes to public.resumes. */
-function clientInsertPayload(resumeJson: Record<string, unknown>, template: string) {
-  return {
-    user_id: "user-1",
-    jd_text: JD,
-    resume_json: resumeJson,
-    ats_score: resumeJson.ats_score,
-    tailored_role: resumeJson.tailored_role,
-    matched_keywords: resumeJson.matched_keywords,
-    missing_keywords: resumeJson.missing_keywords,
-    contact_snapshot: {
-      full_name: USER_PROFILE.full_name,
-      email: USER_PROFILE.email,
-      phone: USER_PROFILE.phone,
-      current_city: USER_PROFILE.current_city,
-    },
-    template,
-  };
+/** The resumes row the server stored in the charge transaction (migration 013). */
+function storedRow() {
+  const all = mockGenerationStore.resumes;
+  expect(all).toHaveLength(1);
+  return all[0].row;
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGenerationStore.reset();
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1", email: "someone@example.com" } } });
   mockCanGenerateResume.mockResolvedValue({ allowed: true });
   mockCanGenerateFreeRegen.mockResolvedValue(false);
@@ -180,10 +178,13 @@ describe("generation pipeline — happy path", () => {
     expect(mockConsumeCredit).toHaveBeenCalledWith("user-1");
   });
 
-  it("every column the client writes is defined — no NULL corruption", async () => {
+  it("every column the server writes is defined — no NULL corruption", async () => {
     mockMessagesCreate.mockResolvedValue(GOOD_COMPLETION);
     const body = await (await POST(request())).json();
-    const row = clientInsertPayload(body.resume_json, "modern");
+    const row = storedRow();
+    expect(row.resume_json).toEqual(body.resume_json);
+    expect(row.template).toBe("modern");
+    expect(row.contact_snapshot).toEqual({ full_name: USER_PROFILE.full_name, email: USER_PROFILE.email, phone: USER_PROFILE.phone, current_city: USER_PROFILE.current_city });
 
     for (const key of ["ats_score", "tailored_role", "matched_keywords", "missing_keywords"] as const) {
       expect({ key, value: row[key] }).not.toEqual({ key, value: undefined });
@@ -248,7 +249,8 @@ describe("generation pipeline — model omits fields", () => {
     );
     const res = await POST(request());
     expect(res.status).toBe(200);
-    const row = clientInsertPayload((await res.json()).resume_json, "classic");
+    const row = storedRow();
+    expect(row.resume_json).toEqual((await res.json()).resume_json);
 
     for (const key of ["ats_score", "tailored_role", "matched_keywords", "missing_keywords"] as const) {
       expect({ key, value: row[key] }).not.toEqual({ key, value: undefined });

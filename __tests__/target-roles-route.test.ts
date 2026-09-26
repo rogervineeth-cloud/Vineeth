@@ -25,6 +25,14 @@ jest.mock("@/lib/plans", () => ({
 }));
 jest.mock("@/lib/analytics", () => ({ track: jest.fn() }));
 
+import { randomUUID } from "crypto";
+import { createFakeGenerationStore } from "./helpers/fake-generation-store";
+// Migration 013's store, in memory (same rules as the SQL functions).
+const mockGenerationStore = createFakeGenerationStore();
+jest.mock("@/lib/generation-idempotency", () => ({
+  ...jest.requireActual("@/lib/generation-idempotency"),
+  generationStore: () => mockGenerationStore,
+}));
 import { POST } from "@/app/api/generate-resume/route";
 
 const JD =
@@ -37,6 +45,7 @@ function request(targetRoles: string[]): NextRequest {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      request_key: randomUUID(),
       jd_text: JD,
       user_profile: {
         full_name: "Priya Sharma",
@@ -57,6 +66,7 @@ function userTurns(): string {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGenerationStore.reset();
   // No tailored_role: the server falls back to the first target role.
   mockMessagesCreate.mockResolvedValue({ content: [{ type: "text", text: '{"ats_score":70,"summary":"Backend Engineer building Node.js services on AWS."}' }] });
 });

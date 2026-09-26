@@ -288,13 +288,8 @@ function ProfilePageInner() {
   // a malformed email used to pass and ship on the finished resume.
   const sec1Done = isBasicsComplete(basics);
   const sec2Done = cleanTargetRoles(targetRoles).length > 0;
-  // Experience: done if skipped, fresher-flagged, or has at least one entry
-  const sec3Done = expSkipped || isFresher || experience.some((e) => e.company.trim());
-  // Education: done if skipped or has at least one entry
-  const sec4Done = eduSkipped || education.some((e) => e.institution.trim());
-  // Projects: always optional — done if skipped or has entries
-  const sec5Done = projSkipped || projects.some((p) => p.name.trim());
-  const completed = [sec1Done, sec3Done, sec4Done, sec5Done, sec2Done];
+  // Experience / Education / Projects completion is computed in the
+  // checklist below (profileSteps); those sections never gate Next.
 
   const nextDisabled =
     (currentStep === 0 && !sec1Done) ||
@@ -515,7 +510,7 @@ function ProfilePageInner() {
                 <div className="mb-5 p-4 bg-stone-50 border border-stone-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-[#1a1a1a]">Upload your existing resume</p>
-                    <p className="text-xs text-[#6b6b6b] mt-0.5">PDF only · We'll extract and pre-fill all sections automatically.</p>
+                    <p className="text-xs text-[#6b6b6b] mt-0.5">PDF only · We&apos;ll extract and pre-fill all sections automatically.</p>
                   </div>
                   <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors border ${uploadingResume ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed" : "bg-white text-[#1f5c3a] border-[#1f5c3a] hover:bg-[#1f5c3a] hover:text-white"}`}>
                     <Upload className="w-4 h-4" />

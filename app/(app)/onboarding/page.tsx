@@ -1,6 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -45,22 +45,19 @@ const basicsSchema = z.object({
 type BasicsData = z.infer<typeof basicsSchema>;
 
 // ── Component ──────────────────────────────────────────────────────────────
-export default function OnboardingPage() {
+function OnboardingPageInner() {
   const router = useRouter();
 
-  // Auto-select candidate type from landing page CTA
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const pathParam = params.get("path");
-    if (pathParam === "experienced") { setCandidateType("experienced"); setStep(0); }
-    else if (pathParam === "fresher") { setCandidateType("fresher"); setStep(0); }
-  }, []);
+  // Auto-select candidate type from the landing page CTA (?path=...). Read as
+  // the initial state rather than set in an effect: the effect used to run
+  // before these states were declared, and set state synchronously on mount.
+  const pathParam = useSearchParams().get("path");
+  const presetType = pathParam === "experienced" || pathParam === "fresher" ? pathParam : null;
 
   // step -1 = candidate type, 0 = path selection, 1 = upload, 2 = basics
-  const [candidateType, setCandidateType] = useState<"experienced" | "fresher" | null>(null);
+  const [candidateType, setCandidateType] = useState<"experienced" | "fresher" | null>(presetType);
   const [path, setPath] = useState<Path | null>(null);
-  const [step, setStep] = useState(-1);
+  const [step, setStep] = useState(presetType ? 0 : -1);
 
   const [uploading, setUploading] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
@@ -421,5 +418,15 @@ export default function OnboardingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary for prerendering (as on /profile
+// and /create).
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f3ea]" />}>
+      <OnboardingPageInner />
+    </Suspense>
   );
 }

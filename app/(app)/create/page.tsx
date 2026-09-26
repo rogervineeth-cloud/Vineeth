@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -274,6 +274,11 @@ function CreatePageInner() {
   // render, so a double click used to start two generations — two credits and
   // two saved resumes. See lib/single-flight.ts.
   const generateFlight = useRef(singleFlight((run: () => Promise<void>) => run()));
+  // Server-side idempotency key (migration 013): new for each attempt, reused
+  // only to retry the IDENTICAL request after a network or server failure, so
+  // a retry of a generation that actually finished returns that resume
+  // instead of charging again.
+  const attemptRef = useRef<{ key: string; signature: string } | null>(null);
   const [genStageIdx, setGenStageIdx] = useState(0);
   const [genProgress, setGenProgress] = useState(0);
   const [tipIdx, setTipIdx] = useState(0);
@@ -393,33 +398,52 @@ function CreatePageInner() {
     const pd = profile!.profile_data ?? {};
     pushUrlStep("resume");
     try {
+      const requestBody = {
+        jd_text: jdText,
+        jd_keywords: effectiveKeywords,
+        template: selectedTemplate,
+        user_profile: {
+          full_name: profile!.full_name,
+          email: profile!.email,
+          phone: profile!.phone,
+          current_city: profile!.current_city,
+          graduation_year: profile!.graduation_year,
+          target_roles: cleanTargetRoles(profile!.target_roles),
+          linkedin_data: profile!.linkedin_data,
+          summary: pd.summary,
+          experience: pd.experience,
+          skills: pd.skills,
+          education: pd.education,
+          projects: pd.projects,
+        },
+        ...(regenParentId ? { regen_of_resume_id: regenParentId } : {}),
+      };
+      const signature = JSON.stringify(requestBody);
+      if (attemptRef.current?.signature !== signature) {
+        attemptRef.current = { key: crypto.randomUUID(), signature };
+      }
       const res = await fetch("/api/generate-resume", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jd_text: jdText,
-          jd_keywords: effectiveKeywords,
-          template: selectedTemplate,
-          user_profile: {
-            full_name: profile!.full_name,
-            email: profile!.email,
-            phone: profile!.phone,
-            current_city: profile!.current_city,
-            graduation_year: profile!.graduation_year,
-            target_roles: cleanTargetRoles(profile!.target_roles),
-            linkedin_data: profile!.linkedin_data,
-            summary: pd.summary,
-            experience: pd.experience,
-            skills: pd.skills,
-            education: pd.education,
-            projects: pd.projects,
-          },
-          ...(regenParentId ? { regen_of_resume_id: regenParentId } : {}),
-        }),
+        body: JSON.stringify({ ...requestBody, request_key: attemptRef.current.key }),
       });
 
       timers.forEach(clearTimeout);
+      // A definite answer ends this attempt; after a 5xx the same request may
+      // be retried under the same key.
+      if (res.status < 500) attemptRef.current = null;
       const data = await res.json();
+
+      if (res.status === 409) {
+        // Another tab or device is generating this same resume right now (or
+        // a stale attempt timed out). Nothing was charged.
+        const msg = data.message || "This resume is already being generated. It will appear on your dashboard when it's ready.";
+        setGenError(msg);
+        toast.info(msg, { action: { label: "Dashboard", onClick: () => router.push("/dashboard") }, duration: 8000 });
+        setGenerating(false);
+        setGenProgress(0);
+        return;
+      }
 
       if (res.status === 402) {
         const msg =
@@ -465,55 +489,11 @@ function CreatePageInner() {
       if (data.is_free_regen) toast.success("Free regeneration — no credit used.");
       setGenProgress(100);
 
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Session expired.");
-        router.push("/login");
-        return;
-      }
-
+      // The server saved the resume in the same transaction that charged the
+      // credit (migration 013). The browser no longer inserts it: two tabs
+      // used to mean two rows.
       const resumeJson = data.resume_json;
-      // Freeze the contact details as they are right now. Preview and PDF used
-      // to join to the live profile, so editing your profile silently rewrote
-      // the name/email/phone on resumes you had already generated.
-      const contactSnapshot = {
-        full_name: profile?.full_name ?? "",
-        email: profile?.email ?? "",
-        phone: profile?.phone ?? "",
-        current_city: profile?.current_city ?? "",
-      };
-      const { data: savedResume, error: saveError } = await supabase
-        .from("resumes")
-        .insert({
-          user_id: user.id,
-          jd_text: jdText,
-          resume_json: resumeJson,
-          ats_score: resumeJson.ats_score,
-          tailored_role: resumeJson.tailored_role,
-          matched_keywords: resumeJson.matched_keywords,
-          missing_keywords: resumeJson.missing_keywords,
-          contact_snapshot: contactSnapshot,
-          // Persist the template so the PDF can actually render it. This used
-          // to be sent to the generator as a prompt hint and then thrown away.
-          template: selectedTemplate,
-          // Regeneration lineage. Deliberately the SERVER-VERIFIED id from the
-          // response, not the local variable we sent up: the server confirms
-          // the caller owns the parent and returns null otherwise, so an id
-          // belonging to someone else can never reach the column. Previously
-          // this was never written at all, leaving the column always NULL.
-          regen_of_resume_id: data.regen_of_resume_id ?? null,
-        })
-        .select("id")
-        .single();
-
-      if (saveError) {
-        toast.error("Couldn't save resume: " + saveError.message);
-        setGenerating(false);
-        return;
-      }
+      if (data.replayed) toast.info("This resume was already generated — showing it. No extra credit was used.");
 
       setGeneratedResume({
         ats_score: resumeJson.ats_score,
@@ -525,7 +505,7 @@ function CreatePageInner() {
         growth_note: resumeJson.growth_note ?? null,
         section_order: resumeJson.section_order ?? [],
       });
-      setSavedResumeId(savedResume.id);
+      setSavedResumeId(data.resume_id);
       setShowRevealDone(true);
       setGenerating(false);
     } catch (err) {
@@ -564,11 +544,13 @@ function CreatePageInner() {
   const isCreator = userEmail === CREATOR_EMAIL;
   const jdStatus = jdLengthStatus(jdText);
   const jdReady = jdStatus.ready;
-  const effectiveKeywords = useMemo(() => {
+  // Plain computation: the React Compiler memoises it. A manual useMemo here
+  // could not be preserved by the compiler (react-hooks/preserve-manual-memoization).
+  const effectiveKeywords = (() => {
     const base = jdAnalysis.keywords.filter((k) => !removedKeywords.has(k.toLowerCase()));
     const extras = extraKeywords.filter((k) => !base.some((b) => b.toLowerCase() === k.toLowerCase()));
     return [...base, ...extras];
-  }, [jdAnalysis.keywords, removedKeywords, extraKeywords]);
+  })();
   const canGenerate =
     jdReady &&
     completeness.complete &&

@@ -48,6 +48,15 @@ jest.mock("@/lib/analytics", () => ({
 }));
 
 // Route is imported AFTER the mocks above are registered.
+import { randomUUID } from "crypto";
+import { createFakeGenerationStore } from "./helpers/fake-generation-store";
+// Migration 013's store, in memory (same rules as the SQL functions);
+// charges go through this file's credit mock.
+const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+jest.mock("@/lib/generation-idempotency", () => ({
+  ...jest.requireActual("@/lib/generation-idempotency"),
+  generationStore: () => mockGenerationStore,
+}));
 import { POST } from "@/app/api/generate-resume/route";
 
 const VALID_BODY = {
@@ -86,12 +95,13 @@ function makeRequest(body: unknown): NextRequest {
   return new Request("http://localhost/api/generate-resume", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ request_key: randomUUID(), ...(body as object) }),
   }) as unknown as NextRequest;
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGenerationStore.reset();
   // Default: a non-creator authenticated user.
   mockGetUser.mockResolvedValue({
     data: { user: { id: "user-1", email: "someone@example.com" } },
