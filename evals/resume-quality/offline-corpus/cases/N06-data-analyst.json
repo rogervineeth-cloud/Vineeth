@@ -1,0 +1,69 @@
+{
+  "id": "N06",
+  "domain": "data / business analysis",
+  "expected_fit": "match",
+  "facts": { "professional_years": 2.2, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Priya Nair (fictional)",
+    "email": "priya.nair@example.com",
+    "summary": "Data analyst building sales dashboards with SQL and Power BI.",
+    "skills": ["SQL", "Power BI", "Excel", "Python", "Pandas", "DAX", "Data Cleaning"],
+    "target_roles": ["Business Analyst"],
+    "experience": [
+      {
+        "company": "Meridian Retail Analytics",
+        "role": "Data Analyst",
+        "duration": "Jul 2024 - Present",
+        "location": "Chennai",
+        "bullets": [
+          "Built 12 Power BI dashboards on sales and inventory for regional managers.",
+          "Wrote SQL queries to automate a weekly margin report, saving 5 hours a week.",
+          "Cleaned 3 years of POS data in Python and Pandas for a pricing study."
+        ]
+      }
+    ],
+    "education": [{ "institution": "Coastal Institute of Statistics", "degree": "B.Sc Statistics", "year": "2021 - 2024", "location": "Chennai" }],
+    "projects": [
+      { "name": "Churn Analysis Notebook", "description": "Python and Pandas analysis of 10,000 telecom customers identifying 4 churn drivers.", "tech": ["Python", "Pandas"] }
+    ]
+  },
+  "jd": {
+    "title": "Business Analyst",
+    "text": "Translate business questions into analysis: SQL, Excel and Power BI dashboards, requirement gathering with stakeholders, KPI definition and presentations to leadership. 2+ years of experience."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education", "projects"],
+    "summary": "Data Analyst with 2+ years of professional experience building Power BI dashboards with SQL, seeking the Business Analyst role. Skilled at translating business questions into SQL analysis.",
+    "experience": [
+      {
+        "company": "Meridian Retail Analytics",
+        "role": "Data Analyst",
+        "duration": "Jul 2024 - Present",
+        "bullets": [
+          "Built 12 Power BI dashboards for regional managers on sales and inventory.",
+          "Automated a weekly margin report with SQL queries, saving 5 hours a week and enabling faster decisions.",
+          "Prepared 3 years of POS data in Pandas and Python for a pricing study."
+        ]
+      }
+    ],
+    "skills": ["SQL", "Power BI", "Excel", "Python", "Pandas"],
+    "education": [{ "institution": "Coastal Institute of Statistics", "degree": "B.Sc Statistics", "year": "2021 - 2024" }],
+    "projects": [
+      { "name": "Churn Analysis Notebook", "description": "Pandas and Python analysis of 10,000 telecom customers identifying 4 key churn drivers.", "tech": ["Python", "Pandas"] }
+    ],
+    "ats_score": 70,
+    "matched_keywords": ["SQL", "Power BI", "Excel"],
+    "missing_keywords": ["Requirement Gathering"],
+    "tailored_role": "Business Analyst",
+    "profile_improvement_tips": ["Volunteer to gather requirements from a regional manager for your next dashboard."],
+    "growth_note": "Your profile covers 3 of the 4 core skills (SQL, Excel, Power BI). Requirement gathering with stakeholders is not yet evident."
+  },
+  "labels": [
+    { "where": "summary", "text": "Data Analyst with 2+ years of professional experience building Power BI dashboards with SQL, seeking the Business Analyst role.", "kind": "tailored" },
+    { "where": "summary", "text": "Skilled at translating business questions into SQL analysis.", "kind": "fabricated" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Built 12 Power BI dashboards for regional managers on sales and inventory.", "kind": "tailored" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Automated a weekly margin report with SQL queries, saving 5 hours a week and enabling faster decisions.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Prepared 3 years of POS data in Pandas and Python for a pricing study.", "kind": "verb_swap" },
+    { "where": "project", "project": 0, "text": "Pandas and Python analysis of 10,000 telecom customers identifying 4 key churn drivers.", "kind": "one_unsupported" }
+  ]
+}

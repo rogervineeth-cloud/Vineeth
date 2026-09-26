@@ -4,6 +4,7 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { cleanTargetRoles } from "@/lib/target-roles";
 
 const STEPS = [
   { key: "basics",     label: "Basics",    route: "/profile", subStep: "basics",     optional: false },
@@ -55,7 +56,9 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
   const [skipped, setSkipped] = useState<Record<SkipKey, boolean>>({ experience: false, education: false, projects: false });
 
   useEffect(() => {
-    if (active < 0) { setLoaded(true); return; }
+    // Not a stepper page: nothing to load. (The redirect effect below also
+    // returns for active < 1, so `loaded` is not needed here.)
+    if (active < 0) return;
     const supabase = createClient();
     let cancelled = false;
     (async () => {
@@ -83,7 +86,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
         
         setCompletion({
           basics: !!p?.full_name?.trim() && !!p?.email?.trim(),
-          roles: Array.isArray(p?.target_roles) && p.target_roles.length > 0,
+          roles: cleanTargetRoles(p?.target_roles).length > 0,
           // Experience: complete if skipped OR has at least one entry with company
           experience: expSkipped || exp.some((e) => e.company?.trim()),
           // Education: complete if skipped OR has at least one entry with institution

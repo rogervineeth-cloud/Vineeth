@@ -1,0 +1,66 @@
+{
+  "id": "N05",
+  "domain": "warehouse / supply-chain operations",
+  "expected_fit": "under",
+  "facts": { "professional_years": 4.5, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Imran Qureshi (fictional)",
+    "email": "imran.qureshi@example.com",
+    "summary": "Warehouse operations executive running inbound and dispatch for an FMCG distributor.",
+    "skills": ["Warehouse Operations", "Inventory Management", "SAP MM", "Excel", "Vendor Management", "5S", "Team Supervision"],
+    "target_roles": ["Operations Manager"],
+    "experience": [
+      {
+        "company": "Saffron Valley Distributors",
+        "role": "Operations Executive",
+        "duration": "Apr 2022 - Present",
+        "location": "Nagpur",
+        "bullets": [
+          "Supervised a team of 18 pickers and loaders across 2 shifts.",
+          "Reduced dispatch errors from 3.2% to 0.9% by introducing barcode scanning at packing.",
+          "Ran monthly cycle counts in SAP MM for 4,500 SKUs.",
+          "Negotiated freight rates with 6 transport vendors, saving Rs 18 lakh a year."
+        ]
+      }
+    ],
+    "education": [{ "institution": "Central Plains College of Engineering", "degree": "B.E. Mechanical", "year": "2018 - 2022", "location": "Nagpur" }],
+    "projects": []
+  },
+  "jd": {
+    "title": "Operations Manager - Fulfilment",
+    "text": "Lead fulfilment centre operations: team management, inventory accuracy, dispatch SLAs, vendor and 3PL management, cost reduction and continuous improvement (Lean, Six Sigma). 5+ years in warehouse operations."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education"],
+    "summary": "Operations Executive with 4+ years of professional experience running inbound and dispatch for an FMCG distributor, seeking the Operations Manager - Fulfilment role. Proven leader in Lean and Six Sigma continuous improvement.",
+    "experience": [
+      {
+        "company": "Saffron Valley Distributors",
+        "role": "Operations Executive",
+        "duration": "Apr 2022 - Present",
+        "bullets": [
+          "Supervised 18 pickers and loaders across 2 shifts.",
+          "Reduced dispatch errors from 3.2% to 0.9% by introducing automated barcode scanning at packing.",
+          "Improved inventory accuracy to 99.5% through Lean and Six Sigma cycle counts in SAP MM for 4,500 SKUs.",
+          "Negotiated freight rates with 6 transport vendors, saving Rs 18 lakh a year."
+        ]
+      }
+    ],
+    "skills": ["Warehouse Operations", "Inventory Management", "SAP MM", "Vendor Management", "Team Supervision"],
+    "education": [{ "institution": "Central Plains College of Engineering", "degree": "B.E. Mechanical", "year": "2018 - 2022" }],
+    "ats_score": 58,
+    "matched_keywords": ["Vendor Management"],
+    "missing_keywords": ["Lean", "Six Sigma", "3PL Management"],
+    "tailored_role": "Operations Manager - Fulfilment",
+    "profile_improvement_tips": ["Complete a Lean Six Sigma Green Belt course and apply it to a dispatch improvement project."],
+    "growth_note": "The role asks for 5+ years; your profile shows about 4.5. Lean and Six Sigma are not yet evident in your profile."
+  },
+  "labels": [
+    { "where": "summary", "text": "Operations Executive with 4+ years of professional experience running inbound and dispatch for an FMCG distributor, seeking the Operations Manager - Fulfilment role.", "kind": "tailored" },
+    { "where": "summary", "text": "Proven leader in Lean and Six Sigma continuous improvement.", "kind": "fabricated" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Supervised 18 pickers and loaders across 2 shifts.", "kind": "tailored" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Reduced dispatch errors from 3.2% to 0.9% by introducing automated barcode scanning at packing.", "kind": "one_unsupported", "note": "-ed modifier: expected NOT to be trimmed by a verb-safe rule (measured limitation)" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Improved inventory accuracy to 99.5% through Lean and Six Sigma cycle counts in SAP MM for 4,500 SKUs.", "kind": "fabricated" },
+    { "where": "bullet", "role": 0, "source": 3, "text": "Negotiated freight rates with 6 transport vendors, saving Rs 18 lakh a year.", "kind": "faithful" }
+  ]
+}

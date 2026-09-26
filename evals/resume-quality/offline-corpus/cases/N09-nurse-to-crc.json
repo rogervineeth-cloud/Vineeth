@@ -1,0 +1,63 @@
+{
+  "id": "N09",
+  "domain": "healthcare (nursing to clinical research)",
+  "expected_fit": "under",
+  "facts": { "professional_years": 4.6, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Anjali Thomas (fictional)",
+    "email": "anjali.thomas@example.com",
+    "summary": "Registered staff nurse in cardiology wards.",
+    "skills": ["Patient Care", "IV Therapy", "ECG Monitoring", "Electronic Health Records", "Infection Control", "BLS"],
+    "target_roles": ["Clinical Research Coordinator"],
+    "experience": [
+      {
+        "company": "Sunrise Heart Hospital",
+        "role": "Staff Nurse",
+        "duration": "Feb 2022 - Present",
+        "location": "Kochi",
+        "bullets": [
+          "Cared for 6 to 8 cardiac patients per shift in a 30-bed ward.",
+          "Recorded vitals and medication in the electronic health record for every shift.",
+          "Trained 5 new nurses on infection control and ECG monitoring."
+        ]
+      }
+    ],
+    "education": [{ "institution": "St. Brigid College of Nursing", "degree": "B.Sc Nursing", "year": "2017 - 2021", "location": "Kochi" }],
+    "projects": []
+  },
+  "jd": {
+    "title": "Clinical Research Coordinator",
+    "text": "Coordinate clinical trials: patient screening and enrolment, informed consent, CRF completion, GCP compliance, data entry in EDC systems and liaison with investigators. A nursing background is preferred; GCP certification is a plus."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education"],
+    "summary": "Staff Nurse with 4+ years of professional experience in cardiology wards, seeking the Clinical Research Coordinator role. GCP-certified professional experienced in trial coordination.",
+    "experience": [
+      {
+        "company": "Sunrise Heart Hospital",
+        "role": "Staff Nurse",
+        "duration": "Feb 2022 - Present",
+        "bullets": [
+          "Cared for 6 to 8 cardiac patients per shift in a 30-bed cardiology ward.",
+          "Recorded medication and vitals in the electronic health record every shift, ensuring GCP-level documentation.",
+          "Screened and enrolled 5 patients into clinical trials after obtaining informed consent."
+        ]
+      }
+    ],
+    "skills": ["Patient Care", "Electronic Health Records", "ECG Monitoring", "Infection Control"],
+    "education": [{ "institution": "St. Brigid College of Nursing", "degree": "B.Sc Nursing", "year": "2017 - 2021" }],
+    "ats_score": 48,
+    "matched_keywords": [],
+    "missing_keywords": ["GCP", "Informed Consent", "EDC"],
+    "tailored_role": "Clinical Research Coordinator",
+    "profile_improvement_tips": ["Complete an ICH-GCP certification course before applying."],
+    "growth_note": null
+  },
+  "labels": [
+    { "where": "summary", "text": "Staff Nurse with 4+ years of professional experience in cardiology wards, seeking the Clinical Research Coordinator role.", "kind": "tailored" },
+    { "where": "summary", "text": "GCP-certified professional experienced in trial coordination.", "kind": "fabricated" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Cared for 6 to 8 cardiac patients per shift in a 30-bed cardiology ward.", "kind": "truthful_unscoped", "note": "'cardiology' is in the candidate's summary, not the role" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Recorded medication and vitals in the electronic health record every shift, ensuring GCP-level documentation.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Screened and enrolled 5 patients into clinical trials after obtaining informed consent.", "kind": "fabricated" }
+  ]
+}

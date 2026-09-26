@@ -1,0 +1,27 @@
+{
+  "id": "GOOG-SWE2",
+  "company": "Google",
+  "title": "Software Engineer II, Google Cloud",
+  "location": "Bengaluru, Karnataka, India",
+  "url": "https://www.google.com/about/careers/applications/jobs/results/122221994455245510-software-engineer-ii-google-cloud",
+  "source_status": "OFFICIAL_PARAPHRASE",
+  "source_note": "Paraphrase of the official posting supplied by the project owner after independent verification. Not verbatim: wording is condensed, but every requirement comes from the official source and nothing has been added. Replaces the earlier reconstructed placeholder (the eval environment cannot reach the careers site).",
+  "expected": {
+    "level": "early-career (Software Engineer II)",
+    "min_years": 1,
+    "ground_truth_skills": [
+      "Python",
+      "C",
+      "C++",
+      "Java",
+      "JavaScript",
+      "Code Review",
+      "Distributed Systems",
+      "System Design",
+      "Debugging"
+    ]
+  },
+  "text": "Software Engineer II, Google Cloud\nBengaluru, Karnataka, India\n\nMinimum qualifications:\n- Bachelor's degree or equivalent practical experience.\n- 1 year of experience with software development in one or more programming languages: Python, C, C++, Java, or JavaScript.\n\nResponsibilities:\n- Write product or system development code.\n- Participate in, or lead, design reviews with peers and stakeholders.\n- Review code and give feedback to ensure quality and style.\n- Contribute to documentation and educational material.\n- Triage product or system issues, and debug, track and resolve them.\n\nAreas of work:\nDistributed computing, large-scale system design, networking, data storage, security, artificial intelligence (AI), natural language processing, UI, and mobile and full-stack development.",
+  "source_verified_by": "Project owner, independently verified against the official posting",
+  "source_verified_date": "2026-09-24"
+}

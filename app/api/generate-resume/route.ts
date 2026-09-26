@@ -2,14 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { canGenerateResume, canGenerateFreeRegen, consumeCredit, userOwnsResume } from "@/lib/plans";
+import { canGenerateResume, canGenerateFreeRegen, userOwnsResume } from "@/lib/plans";
 import { track } from "@/lib/analytics";
-import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD, GENERATION_TEMPERATURE } from "@/lib/models";
-import { sanitiseGeneratedResume, normaliseGeneratedResume, type ResumeShape } from "@/lib/sanitise-resume";
+import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD } from "@/lib/models";
+import { buildGenerationPayload, buildModelRequest, parseModelReply, postProcessResume } from "@/lib/resume-generation";
 import { usableSections, hasResumeContent, MISSING_RESUME_CONTENT } from "@/lib/profile-completeness";
+import { cleanTargetRoles } from "@/lib/target-roles";
+import { generationStore, generationFingerprint, type GeneratedResumeRow } from "@/lib/generation-idempotency";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
+const TEMPLATES = new Set(["classic", "modern", "compact", "executive"]);
 const inputSchema = z.object({
+  // One generation attempt. The browser makes a new one per click and reuses
+  // it only to retry the identical request, so a retry never charges twice
+  // (migration 013). Required: a client too old to send one would also
+  // insert the resume itself, duplicating the row the server now writes.
+  request_key: z.string().uuid(),
   jd_text: z.string().min(100, "Job description too short (min 100 chars)"),
   jd_url: z.string().url().optional().or(z.literal("")),
   jd_keywords: z.array(z.string()).optional(),
@@ -21,7 +29,8 @@ const inputSchema = z.object({
     phone: z.string().nullable().optional(),
     current_city: z.string().nullable().optional(),
     graduation_year: z.number().nullable().optional(),
-    target_roles: z.array(z.string()).optional(),
+    // Never tailor to the role picker's "Other" sentinel or a blank entry.
+    target_roles: z.array(z.string()).optional().transform((r) => (r === undefined ? undefined : cleanTargetRoles(r))),
     linkedin_data: z.record(z.string(), z.unknown()).nullable().optional(),
     summary: z.string().optional(),
     experience: z.array(z.object({
@@ -39,140 +48,36 @@ const inputSchema = z.object({
   }),
 });
 
-const SYSTEM_PROMPT = `You are an expert resume strategist specialising in the Indian job market. You help students, freshers, and working professionals tailor their resumes for specific roles at Indian and global companies hiring in India.
 
-You will receive ONE JSON payload with these labelled fields:
-- JD_TEXT: the raw target job description
-- USER_CURATED_KEYWORDS: keywords the candidate has personally reviewed and confirmed are important. Treat this as ground truth.
-- INTERSECTION_SKILLS: skills present in BOTH user profile AND curated keywords. Highest-priority injects.
-- JD_ONLY_SKILLS: keywords the JD/curated list mentions but the user profile does NOT contain. NEVER claim these as the user\u2019s. Use them only in missing_keywords.
-- PROFILE_EXTRA_SKILLS: skills the user has but were not curated for this JD. Use only if they support a bullet truthfully.
-- TEMPLATE: visual template hint (modern | compact | executive). Affects bullet density only; never add visual flourish in text.
-- USER_PROFILE: personal info, education, experience, skills, projects, target roles.
 
-Produce ONE JSON object representing a polished, ATS-pass-ready resume tailored to the JD, using only truthful information from USER_PROFILE.
 
-## STEP 0 \u2014 TRUST THE USER\u2019S CURATED KEYWORDS (highest priority)
-1. Every keyword in USER_CURATED_KEYWORDS that the user truthfully has experience with MUST appear verbatim in the resume \u2014 in skills, in at least one bullet, or in the summary.
-2. Keywords present in JD_TEXT but absent from USER_CURATED_KEYWORDS are Tier-2. Use only if they truthfully strengthen a bullet.
-3. If a keyword is in JD_TEXT but explicitly NOT in USER_CURATED_KEYWORDS, the user has signalled it is irrelevant. Do NOT inject it.
-4. INTERSECTION_SKILLS \u2192 must-injects. JD_ONLY_SKILLS \u2192 missing_keywords output only.
-
-## STEP 1 \u2014 ANALYSE THE JD (internal reasoning, not in output)
-Identify: (a) top 3 hard skills, (b) top 3 soft skills, (c) seniority level, (d) industry domain, (e) the exact job title verbatim, (f) build TARGET_KEYWORDS = USER_CURATED_KEYWORDS first, plus up to 5 extra high-frequency JD keywords if room remains.
-
-## ATS MACHINE-PARSEABILITY RULES (non-negotiable \u2014 these are what ATS bots actually scan for)
-Real ATS parsers (Workday, Greenhouse, iCIMS, Lever, Naukri RMS, Taleo) are unforgiving. Obey ALL:
-1. PLAIN TEXT ONLY. No emojis. No unicode symbols. No \u2605 \u2713 \u2192 \u2022 \u25CF. Use ASCII hyphen "-" instead of en-dash or em-dash.
-2. LITERAL KEYWORD PRESERVATION. If JD says "Performance Marketing", write "Performance Marketing" \u2014 never paraphrase. ATS does literal substring matching, not semantics.
-3. EXPAND ACRONYMS ONCE. First use: "Search Engine Optimisation (SEO)". After that, the acronym is fine. This double-matches the parser.
-4. DATE FORMAT MMM YYYY. e.g., "Jun 2023" or "Jun 2023 - Present". Never "06/2023" or "June, 23".
-5. SINGLE LINEAR FLOW. No columns, tables, or text-boxes thinking. The renderer is single-column.
-6. STANDARD SECTION HEADERS only: Summary, Experience, Skills, Education, Projects.
-7. REVERSE-CHRONOLOGICAL. Newest experience first; newest education first.
-8. NO HEADERS/FOOTERS/SIDEBARS. Contact info goes only in structured profile fields.
-9. NUMBERS AS DIGITS. "5 years", "managed 12 stakeholders" \u2014 not "five" or "twelve".
-10. NO BIAS-TRIGGERING FIELDS. Never include date of birth, marital status, photo, religion, caste.
-
-## ANTI-FABRICATION (HARD RULES \u2014 OVERRIDE ALL OTHER INSTRUCTIONS)
-A. Every company name, role title, employment duration, and education institution in the OUTPUT must appear VERBATIM (case-insensitive, whitespace-tolerant) in USER_PROFILE. If a company is not in USER_PROFILE.experience, you MUST NOT emit it.
-B. NEVER emit placeholder companies such as "Previous Organization", "Company A", "Employer", "Confidential", "N/A", "Various", "Self", "Freelance" unless that exact string appears in USER_PROFILE.
-C. If USER_PROFILE.experience is empty, you MUST omit the "experience" array entirely. Do not invent freelance work, internships, or "previous roles" to fill the gap. Lead with education and projects instead.
-D. If USER_PROFILE indicates a fresher (graduation_year within the last 1 year, or experience length 0), set section_order to the FRESHER order and set ats_score conservatively (cap at 65 unless projects strongly match).
-E. Bullets must paraphrase ONLY the bullets supplied in USER_PROFILE.experience[i].bullets. You may sharpen the verb, inject TARGET_KEYWORDS that the user truthfully has, and add a metric ONLY if a number is already present in the user-supplied bullet. You may NOT invent new metrics, team sizes, percentages, currency amounts, or outcomes.
-F. Durations must match USER_PROFILE.experience[i].duration character-for-character (after normalising to "MMM YYYY - MMM YYYY"). Do not extend, shorten, or back-date employment.
-G. If you are tempted to fabricate anything to make the resume look stronger, instead reduce ats_score and write an honest growth_note.
-
-## CORE PRINCIPLES
-1. NEVER FABRICATE. Rephrase, reorganise, emphasise \u2014 never invent a skill, job, project, or achievement.
-2. TRUTH-PRESERVING TAILORING. Reword only when the underlying meaning stays true.
-3. INDIAN MARKET FIT. Indian English spelling; \u20B9 for salaries; recognise Indian companies (Reliance, Infosys, TCS, Flipkart, Wipro, HCL, Zomato) and qualifications (B.Tech, B.E., MBA, CA, M.Com, BCA, MCA, B.Sc) as-is.
-4. JD-DRIVEN INJECTION. Exact JD job title verbatim in summary sentence 1. Top 3 hard skills appear in skills AND in at least one bullet each. Top 2 soft skills woven into summary prose (not listed).
-
-## SECTION ORDER
-- FRESHER (0-1 yr or no experience): section_order = ["summary", "education", "projects", "skills", "experience"]
-- EXPERIENCED (2+ yrs): section_order = ["summary", "experience", "skills", "education", "projects"]
-
-## BULLET FORMULA
-[Strong action verb] + [scope] + [tool / target keyword] + [quantified outcome].
-Example: "Led a 4-person squad to migrate billing service to AWS Lambda, cutting infra cost by 38% within two quarters."
-Reject any bullet that:
-- Starts with "Responsible for", "Worked on", "Helped", "Assisted", "Supported"
-- Is longer than 2 lines
-- Has zero quantified outcome AND the profile had a number available
-- Contains zero TARGET_KEYWORDS
-Strong verbs: Led, Built, Designed, Implemented, Delivered, Scaled, Reduced, Grew, Launched, Optimised, Automated, Architected, Negotiated, Managed, Developed, Deployed, Analysed, Streamlined.
-
-## ATS SCORING (0-100, integer)
-- KEYWORD MATCH (40 pts): from USER_CURATED_KEYWORDS, count how many appear LITERALLY in the resume. Score = (matched / total_curated) * 40. If total_curated == 0, fall back to top-10 JD keywords.
-- EXPERIENCE RELEVANCE (30 pts): rate each experience 0/1/2 vs JD. Score = (sum / (num*2)) * 30. Freshers: rate projects instead.
-- SKILLS OVERLAP (20 pts): min(jd_skills_matched / 8, 1.0) * 20.
-- STRUCTURE (10 pts): action-verb starts (+3), \u22652 quantified bullets (+4), exact JD title in summary (+3).
-Most resumes 55-80. >85 should be rare. Inflate nothing.
-
-## EDGE CASES
-- Fresher with 1 project: lead with education, then projects. Skills section grows in importance.
-- Profile mismatch: be honest, low ats_score (30-50), populate growth_note.
-- Missing sections: omit from JSON; never emit empty arrays.
-- Career gap: list duration accurately; never fabricate freelance.
-
-## LENGTH
-~450-550 words across all sections. One A4 page. Err shorter.
-
-## OUTPUT \u2014 RETURN ONLY THIS JSON
-No preamble. No closing remarks. No markdown fences. If you cannot produce valid JSON, retry your reasoning.
-
-{
-  "section_order": ["summary", "experience", "skills", "education", "projects"],
-  "summary": "2-3 sentences. Sentence 1 contains the exact JD job title verbatim. Mention experience length, top 2 soft skills woven in, career intent.",
-  "experience": [
-    {
-      "company": "string",
-      "role": "string",
-      "duration": "MMM YYYY - MMM YYYY or MMM YYYY - Present",
-      "location": "string (optional)",
-      "bullets": ["3-5 bullets following the BULLET FORMULA"]
-    }
-  ],
-  "skills": ["ordered: USER_CURATED_KEYWORDS the user truthfully has first, then PROFILE_EXTRA_SKILLS, max 15"],
-  "education": [
-    { "institution": "string", "degree": "string", "year": "string", "location": "string (optional)", "gpa": "string (optional)" }
-  ],
-  "projects": [
-    { "name": "string", "description": "1-2 lines with measurable outcome", "tech": ["relevant tech"] }
-  ],
-  "ats_score": 72,
-  "matched_keywords": ["literal keywords from USER_CURATED_KEYWORDS that appear in the resume"],
-  "missing_keywords": ["up to 5 keywords from JD_ONLY_SKILLS the user could truthfully add"],
-  "tailored_role": "the exact job title verbatim from the JD",
-  "profile_improvement_tips": [
-    "Specific actionable tip 1",
-    "Specific actionable tip 2",
-    "Specific actionable tip 3"
-  ],
-  "growth_note": "null if good match; otherwise 1 honest sentence about fit."
-}`;
-
-function extractJson(raw: string): string {
-  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenceMatch) return fenceMatch[1].trim();
-  const firstBrace = raw.indexOf("{");
-  const lastBrace = raw.lastIndexOf("}");
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-    return raw.slice(firstBrace, lastBrace + 1);
+/** The stored resume for an attempt that already finished (no charge, no model call). */
+async function replayResponse(store: ReturnType<typeof generationStore>, userId: string, resumeId: string) {
+  const stored = await store.load(userId, resumeId);
+  if (!stored) {
+    return NextResponse.json(
+      { error: "This resume was already generated but is no longer available. Please generate again." },
+      { status: 410 }
+    );
   }
-  return raw.trim();
+  return NextResponse.json({
+    resume_id: stored.id,
+    resume_json: stored.resume_json,
+    is_free_regen: false,
+    regen_of_resume_id: stored.regen_of_resume_id,
+    replayed: true,
+  });
 }
-
-function norm(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9+#.\- ]/g, "").trim();
-}
-
-
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    if (!body || typeof body !== "object" || !("request_key" in body)) {
+      return NextResponse.json(
+        { error: "CLIENT_OUTDATED", message: "Please refresh the page and try again." },
+        { status: 400 }
+      );
+    }
     const parsed = inputSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -180,7 +85,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const { jd_text, jd_url, jd_keywords, template, user_profile, regen_of_resume_id } = parsed.data;
+    const { jd_text, jd_url, jd_keywords, template, user_profile, regen_of_resume_id, request_key } = parsed.data;
     // Auth. getUser() revalidates the JWT with the auth server; getSession()
     // just decodes the cookie, which is forgeable on the server side.
     const supabase = await createClient();
@@ -192,10 +97,10 @@ export async function POST(req: NextRequest) {
     const isCreator = authUser.email === CREATOR_EMAIL;
     // Regeneration lineage.
     //
-    // The client performs the INSERT, so it cannot be trusted to decide what
-    // the parent is — it could name any resume id, including another user's.
-    // Ownership is therefore resolved HERE and only a server-verified id is
-    // echoed back for the client to store.
+    // The client names the parent, so it cannot be trusted — it could name any
+    // resume id, including another user's. Ownership is therefore resolved
+    // HERE, and only this server-verified id is written with the resume
+    // (complete_resume_generation re-checks ownership in the database too).
     //
     // An unowned, deleted or unknown parent is safely IGNORED rather than
     // rejected: it is treated as an ordinary generation with no lineage. That
@@ -257,126 +162,148 @@ export async function POST(req: NextRequest) {
     parsed.data.user_profile.experience = usable.experience;
     parsed.data.user_profile.education = usable.education;
     parsed.data.user_profile.projects = usable.projects;
-    // Determine model based on creator status (tiering placeholder)
-    // Pro users get sonnet, free/basic get haiku. IDs live in lib/models.ts —
-    // an inlined, non-existent ID here broke generation entirely once already.
-    const model = isCreator ? MODEL_RESUME_CREATOR : MODEL_RESUME_STANDARD;
-    // Build the labelled payload that the upgraded SYSTEM_PROMPT expects.
-    const curated = (jd_keywords ?? []).map(k => k.trim()).filter(Boolean);
-    const profileSkills = (p.skills ?? []).map(s => s.trim()).filter(Boolean);
-    const profileSkillsNorm = new Set(profileSkills.map(norm));
-    const curatedNorm = new Set(curated.map(norm));
-    const intersection = curated.filter(k => profileSkillsNorm.has(norm(k)));
-    const jdOnly = curated.filter(k => !profileSkillsNorm.has(norm(k)));
-    const profileExtras = profileSkills.filter(s => !curatedNorm.has(norm(s)));
-    const userPayload = {
-      JD_TEXT: jd_text,
-      JD_URL: jd_url || null,
-      USER_CURATED_KEYWORDS: curated,
-      INTERSECTION_SKILLS: intersection,
-      JD_ONLY_SKILLS: jdOnly,
-      PROFILE_EXTRA_SKILLS: profileExtras,
-      TEMPLATE: template || "modern",
-      USER_PROFILE: user_profile,
-    };
-    // Call Anthropic
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const message = await client.messages.create({
-      model,
-      max_tokens: 4000,
-      // Structured extraction against a fixed JSON contract — not creative
-      // writing. Sampling variance here surfaces as invented detail and
-      // inconsistent formatting.
-      temperature: GENERATION_TEMPERATURE,
-      system: SYSTEM_PROMPT,
-      messages: [
-        { role: "user", content: JSON.stringify(userPayload) },
-        // Prefill the opening brace so the model cannot preamble its way into
-        // unparseable output ("Here is the resume: ```json ...").
-        { role: "assistant", content: "{" },
-      ],
+    // ── Idempotency (migration 013) ──────────────────────────────────────
+    // Before any model call or charge: claim this attempt. An identical
+    // generation already running in another tab or device is refused here,
+    // and a retry of an attempt that already finished gets its resume back.
+    const store = generationStore();
+    const fingerprint = generationFingerprint({
+      jd_text, template, jd_keywords, user_profile: parsed.data.user_profile, regen_of_resume_id: validatedParentId,
     });
-    // The assistant turn was prefilled with "{", so the model's completion
-    // continues from there and the opening brace is not echoed back. Re-add it
-    // before parsing. (extractJson also looks for the first "{", so without
-    // this the object would be truncated at the first nested one.)
-    const completion = message.content[0].type === "text" ? message.content[0].text : "";
-    const rawText = completion.trimStart().startsWith("{") ? completion : `{${completion}`;
-    let resumeJson;
+    let begun;
     try {
-      resumeJson = JSON.parse(extractJson(rawText));
-    } catch {
-      console.error("Failed to parse AI response:", rawText.slice(0, 500));
+      begun = await store.begin(userId, request_key, fingerprint);
+    } catch (err) {
+      // Fail closed: e.g. the migration is not applied yet. Nothing spent.
+      console.error("[generate-resume] begin failed:", err instanceof Error ? err.message : err);
       return NextResponse.json(
-        { error: "We hit a glitch drafting your resume. Please try once more." },
-        { status: 500 }
+        { error: "Resume generation is temporarily unavailable. No credit was used — please try again shortly." },
+        { status: 503 }
+      );
+    }
+    if (begun.outcome === "replay") return replayResponse(store, userId, begun.resumeId);
+    if (begun.outcome === "in_progress") {
+      return NextResponse.json(
+        { error: "GENERATION_IN_PROGRESS", message: "This resume is already being generated in another tab or window. It will appear on your dashboard when it's ready — no extra credit is used." },
+        { status: 409 }
+      );
+    }
+    if (begun.outcome === "key_reused") {
+      return NextResponse.json(
+        { error: "IDEMPOTENCY_KEY_REUSED", message: "Please try again." },
+        { status: 409 }
       );
     }
 
-    // Defence in depth: even with the tightened system prompt, scrub any
-    // fabricated companies, placeholder rows, or invented metrics the model
-    // may still produce. The WHOLE profile is passed, not just experience —
-    // education placeholders and numeric grounding both need it.
-    const sanitised = sanitiseGeneratedResume(resumeJson as ResumeShape, {
-      summary: parsed.data.user_profile.summary,
-      experience: parsed.data.user_profile.experience ?? [],
-      education: parsed.data.user_profile.education ?? [],
-      projects: parsed.data.user_profile.projects ?? [],
-      skills: parsed.data.user_profile.skills ?? [],
-    });
-    resumeJson = sanitised.resume;
-    if (sanitised.warnings.length > 0) {
-      track("generate_resume_sanitised", { user_id: userId, warnings: sanitised.warnings.join(","), warning_count: sanitised.warnings.length });
-      console.warn("[generate-resume] sanitiser warnings:", sanitised.warnings);
-    }
+    // From here the attempt holds the lock: every exit must complete or fail it.
+    let finished = false;
+    const failAttempt = async (reason: string) => {
+      if (finished) return;
+      finished = true;
+      try { await store.fail(userId, request_key, reason); } catch (e) {
+        console.error("[generate-resume] fail() failed (lease will expire):", e instanceof Error ? e.message : e);
+      }
+    };
+    try {
+      // Determine model based on creator status (tiering placeholder)
+      // Pro users get sonnet, free/basic get haiku. IDs live in lib/models.ts —
+      // an inlined, non-existent ID here broke generation entirely once already.
+      const model = isCreator ? MODEL_RESUME_CREATOR : MODEL_RESUME_STANDARD;
+      // Build the labelled payload, call the model and parse the reply — the
+      // same functions the resume-quality eval harness uses.
+      const userPayload = buildGenerationPayload({ jd_text, jd_url, jd_keywords, template, user_profile });
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const message = await client.messages.create(buildModelRequest(model, userPayload));
+      const parsedReply = parseModelReply(message);
+      if (!parsedReply) {
+        const first = message.content[0];
+        const rawText = first && first.type === "text" ? first.text : "";
+        console.error("Failed to parse AI response:", rawText.slice(0, 500));
+        await failAttempt("parse_error");
+        return NextResponse.json(
+          { error: "We hit a glitch drafting your resume. Please try once more." },
+          { status: 500 }
+        );
+      }
 
-    // The client writes ats_score / tailored_role / matched_keywords /
-    // missing_keywords straight into typed columns. A missing field there
-    // becomes a NULL row that renders as a red "0" on the dashboard and an
-    // empty score dial in the preview — silently, and only after the credit
-    // has been spent. Normalise what can be defaulted honestly and refuse the
-    // rest BEFORE consuming the credit.
-    const normalised = normaliseGeneratedResume(
-      resumeJson as ResumeShape,
-      (parsed.data.user_profile.target_roles?.[0] ?? "").trim()
-    );
-    resumeJson = normalised.resume;
-    if (normalised.repaired.length > 0) {
-      console.warn("[generate-resume] repaired missing fields:", normalised.repaired);
-    }
-    if (normalised.fatal.length > 0) {
-      // No credit consumed — the user retries for free.
-      console.error("[generate-resume] contract violation, refusing to save:", normalised.fatal);
-      track("generate_resume_sanitised", {
-        user_id: userId,
-        warnings: `contract_violation:${normalised.fatal.join("/")}`,
-        warning_count: normalised.fatal.length,
-      });
-      return NextResponse.json(
-        { error: "We hit a glitch drafting your resume. Please try once more." },
-        { status: 500 }
-      );
-    }
+      // Sanitiser, then the output contract. ats_score / tailored_role /
+      // matched_keywords / missing_keywords go straight into typed columns; a
+      // missing field would become a NULL that renders as a red "0".
+      // Normalise what can be defaulted honestly and refuse the rest BEFORE
+      // any credit is consumed.
+      const normalised = postProcessResume(parsedReply.json, parsed.data.user_profile);
+      const resumeJson = normalised.resume as Record<string, unknown>;
+      if (normalised.warnings.length > 0) {
+        track("generate_resume_sanitised", { user_id: userId, warnings: normalised.warnings.join(","), warning_count: normalised.warnings.length });
+        console.warn("[generate-resume] sanitiser warnings:", normalised.warnings);
+      }
+      if (normalised.repaired.length > 0) {
+        console.warn("[generate-resume] repaired missing fields:", normalised.repaired);
+      }
+      if (normalised.fatal.length > 0) {
+        // No credit consumed — the user retries for free.
+        console.error("[generate-resume] contract violation, refusing to save:", normalised.fatal);
+        track("generate_resume_sanitised", {
+          user_id: userId,
+          warnings: `contract_violation:${normalised.fatal.join("/")}`,
+          warning_count: normalised.fatal.length,
+        });
+        await failAttempt("contract_violation");
+        return NextResponse.json(
+          { error: "We hit a glitch drafting your resume. Please try once more." },
+          { status: 500 }
+        );
+      }
 
-    // Consume credit only after a successful parse
-    if (!isCreator && !isFreeRegen) {
-      const credited = await consumeCredit(userId);
-      if (!credited) {
+      // One transaction: charge (unless creator / free regeneration), insert
+      // the resume, mark the attempt done. The browser used to insert the row
+      // after this route charged, so two tabs meant two of each.
+      const row: GeneratedResumeRow = {
+        jd_text,
+        resume_json: resumeJson,
+        ats_score: resumeJson.ats_score as number,
+        tailored_role: resumeJson.tailored_role as string,
+        matched_keywords: (resumeJson.matched_keywords as string[]) ?? [],
+        missing_keywords: (resumeJson.missing_keywords as string[]) ?? [],
+        // Contact details frozen as they are now (migration 009).
+        contact_snapshot: {
+          full_name: user_profile.full_name ?? "",
+          email: user_profile.email ?? "",
+          phone: user_profile.phone ?? "",
+          current_city: user_profile.current_city ?? "",
+        },
+        template: template && TEMPLATES.has(template) ? template : null,
+        // Server-verified parent only — never the client's copy.
+        regen_of_resume_id: validatedParentId,
+      };
+      const done = await store.complete(userId, request_key, !isCreator && !isFreeRegen, row);
+      finished = true;
+      if (done.outcome === "payment_required") {
         track("generate_attempt_blocked_free", { user_id: userId, reason: "CREDITS_EXHAUSTED" });
         return NextResponse.json(
           { error: "payment_required", reason: "CREDITS_EXHAUSTED", checkoutUrl: "/pricing" },
           { status: 402 }
         );
       }
+      if (done.outcome === "replay") return replayResponse(store, userId, done.resumeId);
+      if (done.outcome !== "completed") {
+        // The lease ran out (or begin was lost): nothing was charged or saved.
+        return NextResponse.json(
+          { error: "GENERATION_EXPIRED", message: "This generation took too long and was stopped. No credit was used — please try again." },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({
+        resume_id: done.resumeId,
+        resume_json: resumeJson,
+        is_free_regen: isFreeRegen,
+        // Server-verified parent id, or null.
+        regen_of_resume_id: validatedParentId,
+      });
+    } catch (err) {
+      await failAttempt("error");
+      throw err;
     }
-    return NextResponse.json({
-      resume_json: resumeJson,
-      is_free_regen: isFreeRegen,
-      // Server-verified parent id, or null. The client writes THIS value to
-      // resumes.regen_of_resume_id — never its own local copy — so an id the
-      // caller does not own can never reach the column.
-      regen_of_resume_id: validatedParentId,
-    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("Generate resume error:", msg);

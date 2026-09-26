@@ -1,0 +1,24 @@
+{
+  "id": "AMZ-SDE",
+  "company": "Amazon",
+  "title": "Software Development Engineer",
+  "location": "India",
+  "job_id": "2968029",
+  "url": "https://www.amazon.jobs/en/jobs/2968029",
+  "source_status": "OFFICIAL_PARAPHRASE",
+  "source_note": "Paraphrase of the official posting supplied by the project owner after independent verification. Not verbatim: wording is condensed, but every requirement comes from the official source and nothing has been added. Replaces the earlier reconstructed placeholder (the eval environment cannot reach the careers site). The verified posting states no minimum years of experience.",
+  "expected": {
+    "level": "entry (SDE)",
+    "min_years": null,
+    "ground_truth_skills": [
+      "Distributed Systems",
+      "Data Structures",
+      "Algorithms",
+      "Object-Oriented Design",
+      "Real-Time Systems"
+    ]
+  },
+  "text": "Software Development Engineer\nJob ID: 2968029\n\nAbout the role:\nThe role emphasizes scalable distributed systems, data structures and algorithms, object-oriented design and programming, real-time systems, and end-to-end ownership.",
+  "source_verified_by": "Project owner, independently verified against the official posting",
+  "source_verified_date": "2026-09-24"
+}

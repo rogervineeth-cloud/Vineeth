@@ -1,0 +1,1052 @@
+{
+  "labels": [
+    "live-final-2",
+    "live-final-3"
+  ],
+  "rows": [
+    {
+      "scenario": "S01",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": false,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [
+        "[seniority_calibration] ats_score 42 undersells a matching profile"
+      ],
+      "tailoring": {
+        "bullets_final": 0,
+        "bullets_verbatim_source": 0,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 3,
+          "verbatim": 3,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": false
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S01",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": false,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [
+        "[seniority_calibration] ats_score 42 undersells a matching profile"
+      ],
+      "tailoring": {
+        "bullets_final": 0,
+        "bullets_verbatim_source": 0,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 3,
+          "verbatim": 3,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 0,
+          "rewritten_clean": 0,
+          "kept": 0,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 1,
+          "trimmed": 1,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S02",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 0,
+        "bullets_verbatim_source": 0,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 3,
+          "verbatim": 3,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": false
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S02",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 0,
+        "bullets_verbatim_source": 0,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 3,
+          "verbatim": 3,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 0,
+          "rewritten_clean": 0,
+          "kept": 0,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 1,
+          "trimmed": 1,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S03",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 0,
+        "bullets_verbatim_source": 0,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 3,
+          "verbatim": 3,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": false
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S03",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 0,
+        "bullets_verbatim_source": 0,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 3,
+          "verbatim": 3,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 0,
+          "rewritten_clean": 0,
+          "kept": 0,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 1,
+          "trimmed": 1,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S04",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 3,
+        "bullets_verbatim_source": 3,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 1,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": false
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S04",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 3,
+        "bullets_verbatim_source": 3,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 1,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 0,
+          "rewritten_clean": 0,
+          "kept": 0,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 1,
+          "trimmed": 1,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S05",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": false
+      },
+      "defects": [
+        "[advice_fidelity] growth_note says \"8 of the 10 curated keywords\" but lists 9"
+      ],
+      "tailoring": {
+        "bullets_final": 3,
+        "bullets_verbatim_source": 3,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 1,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": false
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S05",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 3,
+        "bullets_verbatim_source": 3,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 1,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 0,
+          "rewritten_clean": 0,
+          "kept": 0,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 1,
+          "trimmed": 1,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S06",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 5,
+        "bullets_verbatim_source": 3,
+        "bullets_tailored_clean": 2,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 0,
+          "verbatim": 0,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": true
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S06",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 5,
+        "bullets_verbatim_source": 3,
+        "bullets_tailored_clean": 2,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 0,
+          "verbatim": 0,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 2,
+          "rewritten_clean": 2,
+          "kept": 2,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 0,
+          "trimmed": 2,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S07",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 5,
+        "bullets_verbatim_source": 3,
+        "bullets_tailored_clean": 2,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 0,
+          "verbatim": 0,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": true
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S07",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 5,
+        "bullets_verbatim_source": 3,
+        "bullets_tailored_clean": 2,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 0,
+          "verbatim": 0,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 2,
+          "rewritten_clean": 2,
+          "kept": 2,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 0,
+          "trimmed": 2,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S08",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 3,
+        "bullets_verbatim_source": 2,
+        "bullets_tailored_clean": 1,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 0,
+          "tailored_clean": 1,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": true
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S08",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 3,
+        "bullets_verbatim_source": 2,
+        "bullets_tailored_clean": 1,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 0,
+          "tailored_clean": 1,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 1,
+          "rewritten_clean": 1,
+          "kept": 1,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 0,
+          "trimmed": 2,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S09",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 3,
+        "bullets_verbatim_source": 3,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 1,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": true
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S09",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 3,
+        "bullets_verbatim_source": 2,
+        "bullets_tailored_clean": 1,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 0,
+          "tailored_clean": 1,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 1,
+          "rewritten_clean": 1,
+          "kept": 1,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 0,
+          "trimmed": 2,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S10",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": false,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [
+        "[seniority_calibration] ats_score 48 undersells a matching profile"
+      ],
+      "tailoring": {
+        "bullets_final": 6,
+        "bullets_verbatim_source": 6,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 1,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": true
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S10",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": false,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [
+        "[seniority_calibration] ats_score 48 undersells a matching profile"
+      ],
+      "tailoring": {
+        "bullets_final": 6,
+        "bullets_verbatim_source": 6,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 1,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 6,
+          "rewritten_clean": 0,
+          "kept": 0,
+          "trimmed": 0,
+          "reverted": 6,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 0,
+          "trimmed": 2,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S11",
+      "set": "live-final-2",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 6,
+        "bullets_verbatim_source": 6,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 1,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "summary_names_target": false,
+        "summary_uses_own_summary": false
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    },
+    {
+      "scenario": "S11",
+      "set": "live-final-3",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "tailoring": {
+        "bullets_final": 6,
+        "bullets_verbatim_source": 6,
+        "bullets_tailored_clean": 0,
+        "bullets_tailored_unclean": 0,
+        "projects": {
+          "final": 1,
+          "verbatim": 1,
+          "tailored_clean": 0,
+          "unclean": 0
+        },
+        "raw": {
+          "rewritten": 0,
+          "rewritten_clean": 0,
+          "kept": 0,
+          "trimmed": 0,
+          "reverted": 0,
+          "dropped": 0
+        },
+        "summary_names_target": true,
+        "summary_uses_own_summary": false,
+        "raw_summary": {
+          "sentences": 2,
+          "kept": 1,
+          "trimmed": 1,
+          "dropped": 0
+        }
+      },
+      "pdf": {
+        "ok": true,
+        "pages": {
+          "classic": 1,
+          "modern": 1,
+          "compact": 1,
+          "executive": 1
+        }
+      }
+    }
+  ]
+}

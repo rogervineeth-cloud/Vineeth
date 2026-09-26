@@ -1,0 +1,82 @@
+{
+  "description": "Profile x JD scenarios for the resume-quality eval. expected_fit is judged from each JD's stated minimum experience (verified official postings, paraphrased) versus the profile's professional (non-internship) experience and domain. 'under' = below the stated level, 'mismatch' = below level and/or off-domain, 'match' = meets it. Where a posting states no minimum (Amazon SDE 2968029), level fit is judged as entry-level.",
+  "scenarios": [
+    {
+      "id": "S01",
+      "profile": "A",
+      "jd": "AMZ-SDE",
+      "expected_fit": "match",
+      "why": "Entry-level SDE; the verified posting states no minimum years. A's evidence is projects only, so domain depth (distributed/real-time systems) is thin, but the level fits."
+    },
+    {
+      "id": "S02",
+      "profile": "A",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "under",
+      "why": "SWE II asks for 1 year of software development in Python, C, C++, Java or JavaScript; A has none."
+    },
+    {
+      "id": "S03",
+      "profile": "A",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "mismatch",
+      "why": "Deliberate seniority mismatch: SDE II asks for 3+ years; A is a fresher."
+    },
+    {
+      "id": "S04",
+      "profile": "B",
+      "jd": "AMZ-SDE",
+      "expected_fit": "match",
+      "why": "Entry-level SDE with no stated minimum years; internship plus DSA fits the level."
+    },
+    {
+      "id": "S05",
+      "profile": "B",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "under",
+      "why": "Internship only against a 1-year experience minimum."
+    },
+    {
+      "id": "S06",
+      "profile": "C",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "match",
+      "why": "3.2 years of professional backend development (as of 2026-09-24) meets 3+ years."
+    },
+    {
+      "id": "S07",
+      "profile": "C",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "match",
+      "why": "Exceeds the 1-year minimum; strong Java/distributed-services overlap."
+    },
+    {
+      "id": "S08",
+      "profile": "D",
+      "jd": "AMZ-SDE",
+      "expected_fit": "mismatch",
+      "why": "Off-domain: 2 years of embedded QA (not software development) plus a current career break, applying to a general SDE role emphasising distributed and real-time systems."
+    },
+    {
+      "id": "S09",
+      "profile": "D",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "mismatch",
+      "why": "Off-domain (embedded QA) for a Cloud software engineering role."
+    },
+    {
+      "id": "S10",
+      "profile": "E",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "match",
+      "why": "About 4.3 years of full-stack development plus 1 year of QA (5.3 professional years in total, as of 2026-09-24); must lead with the development evidence."
+    },
+    {
+      "id": "S11",
+      "profile": "E",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "match",
+      "why": "Exceeds the minimum; broad skills must be narrowed to the relevant ones, not stuffed."
+    }
+  ]
+}

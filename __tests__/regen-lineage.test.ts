@@ -42,6 +42,15 @@ jest.mock("@/lib/plans", () => ({
 const mockTrack: jest.Mock = jest.fn();
 jest.mock("@/lib/analytics", () => ({ track: (e: string, p?: unknown) => mockTrack(e, p) }));
 
+import { randomUUID } from "crypto";
+import { createFakeGenerationStore } from "./helpers/fake-generation-store";
+// Migration 013's store, in memory (same rules as the SQL functions);
+// charges go through this file's credit mock.
+const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+jest.mock("@/lib/generation-idempotency", () => ({
+  ...jest.requireActual("@/lib/generation-idempotency"),
+  generationStore: () => mockGenerationStore,
+}));
 import { POST } from "@/app/api/generate-resume/route";
 
 const PARENT_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
@@ -56,6 +65,7 @@ function request(overrides: Record<string, unknown> = {}): NextRequest {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      request_key: randomUUID(),
       jd_text: JD,
       template: "modern",
       user_profile: {
@@ -80,6 +90,7 @@ const OK = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGenerationStore.reset();
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1", email: "someone@example.com" } } });
   mockCanGenerateResume.mockResolvedValue({ allowed: true });
   mockCanGenerateFreeRegen.mockResolvedValue(false);

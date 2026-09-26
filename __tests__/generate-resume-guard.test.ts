@@ -48,6 +48,15 @@ jest.mock("@/lib/analytics", () => ({
 }));
 
 // Route is imported AFTER the mocks above are registered.
+import { randomUUID } from "crypto";
+import { createFakeGenerationStore } from "./helpers/fake-generation-store";
+// Migration 013's store, in memory (same rules as the SQL functions);
+// charges go through this file's credit mock.
+const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+jest.mock("@/lib/generation-idempotency", () => ({
+  ...jest.requireActual("@/lib/generation-idempotency"),
+  generationStore: () => mockGenerationStore,
+}));
 import { POST } from "@/app/api/generate-resume/route";
 
 const VALID_BODY = {
@@ -86,12 +95,13 @@ function makeRequest(body: unknown): NextRequest {
   return new Request("http://localhost/api/generate-resume", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ request_key: randomUUID(), ...(body as object) }),
   }) as unknown as NextRequest;
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGenerationStore.reset();
   // Default: a non-creator authenticated user.
   mockGetUser.mockResolvedValue({
     data: { user: { id: "user-1", email: "someone@example.com" } },
@@ -124,7 +134,9 @@ describe("/api/generate-resume guard", () => {
   it("returns 200 and calls Anthropic when the caller has entitlement", async () => {
     mockCanGenerateResume.mockResolvedValue({ allowed: true });
     mockMessagesCreate.mockResolvedValue({
-      content: [{ type: "text", text: '{"ats_score":72,"summary":"x"}' }],
+      // A summary that opens with the candidate's identity and adds nothing
+      // the profile lacks, so the evidence guards leave it as written.
+      content: [{ type: "text", text: '{"ats_score":72,"summary":"Backend Engineer working with TypeScript and Node.js on AWS."}' }],
     });
 
     const res = await POST(makeRequest(VALID_BODY));
@@ -132,7 +144,7 @@ describe("/api/generate-resume guard", () => {
 
     const body = await res.json();
     // The model's own fields survive untouched...
-    expect(body.resume_json).toMatchObject({ ats_score: 72, summary: "x" });
+    expect(body.resume_json).toMatchObject({ ats_score: 72, summary: "Backend Engineer working with TypeScript and Node.js on AWS." });
     // ...and normaliseGeneratedResume backfills the columns the client writes
     // into typed DB fields, so they can never land as NULL.
     expect(body.resume_json.matched_keywords).toEqual([]);
@@ -160,14 +172,14 @@ describe("/api/generate-resume guard", () => {
     // latch onto the first NESTED brace and truncate the object.
     mockCanGenerateResume.mockResolvedValue({ allowed: true });
     mockMessagesCreate.mockResolvedValue({
-      content: [{ type: "text", text: '"summary":"x","experience":[{"company":"Acme"}],"ats_score":72}' }],
+      content: [{ type: "text", text: '"summary":"Backend Engineer working with TypeScript and Node.js on AWS.","experience":[{"company":"Acme"}],"ats_score":72}' }],
     });
 
     const res = await POST(makeRequest(VALID_BODY));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.resume_json.ats_score).toBe(72);
-    expect(body.resume_json.summary).toBe("x");
+    expect(body.resume_json.summary).toBe("Backend Engineer working with TypeScript and Node.js on AWS.");
   });
 
   it("sends temperature 0 so output is deterministic", async () => {

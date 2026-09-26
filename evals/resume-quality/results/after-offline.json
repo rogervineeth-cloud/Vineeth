@@ -1,0 +1,243 @@
+{
+  "meta": {
+    "run_id": "results/after-offline",
+    "mode": "offline (no model)",
+    "model": "claude-haiku-4-5-20251001",
+    "jd_sources": "OFFICIAL_PARAPHRASE"
+  },
+  "rows": [
+    {
+      "scenario": "S01",
+      "profile": "A",
+      "jd": "AMZ-SDE",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S02",
+      "profile": "A",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "under",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S03",
+      "profile": "A",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "mismatch",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S04",
+      "profile": "B",
+      "jd": "AMZ-SDE",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S05",
+      "profile": "B",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "under",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S06",
+      "profile": "C",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S07",
+      "profile": "C",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S08",
+      "profile": "D",
+      "jd": "AMZ-SDE",
+      "expected_fit": "mismatch",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S09",
+      "profile": "D",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "mismatch",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 0.667,
+        "attainable_not_licensed": [
+          "C"
+        ],
+        "pass": false
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S10",
+      "profile": "E",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    },
+    {
+      "scenario": "S11",
+      "profile": "E",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "blocked",
+        "reason": "offline run"
+      }
+    }
+  ]
+}

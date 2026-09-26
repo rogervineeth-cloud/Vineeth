@@ -1,0 +1,77 @@
+{
+  "id": "N08",
+  "domain": "customer support to customer success",
+  "expected_fit": "match",
+  "facts": { "professional_years": 5.1, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Farhan Ali (fictional)",
+    "email": "farhan.ali@example.com",
+    "summary": "Customer support team lead for a B2B payments product.",
+    "skills": ["Customer Support", "Zendesk", "Team Leadership", "Escalation Management", "SLA Management", "Excel"],
+    "target_roles": ["Customer Success Manager"],
+    "experience": [
+      {
+        "company": "Paylane Technologies",
+        "role": "Customer Support Team Lead",
+        "duration": "Oct 2023 - Present",
+        "location": "Hyderabad",
+        "bullets": [
+          "Led a team of 9 support agents handling 2,400 tickets a month in Zendesk.",
+          "Raised CSAT from 82% to 91% by rewriting 35 help-centre articles and macros.",
+          "Handled escalations for 40 enterprise merchants within a 4-hour SLA."
+        ]
+      },
+      {
+        "company": "Paylane Technologies",
+        "role": "Customer Support Associate",
+        "duration": "Aug 2021 - Sep 2023",
+        "location": "Hyderabad",
+        "bullets": ["Resolved 70 payment and settlement tickets a day by phone and email."]
+      }
+    ],
+    "education": [{ "institution": "Deccan Arts and Commerce College", "degree": "B.Com", "year": "2018 - 2021", "location": "Hyderabad" }],
+    "projects": []
+  },
+  "jd": {
+    "title": "Customer Success Manager",
+    "text": "Own a book of mid-market and enterprise accounts: onboarding, adoption, QBRs, renewals and expansion. Reduce churn, track health scores, and work with support and product. 3+ years in customer-facing SaaS roles."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education"],
+    "summary": "Customer Support Team Lead with 5+ years of professional experience supporting B2B payments merchants, seeking the Customer Success Manager role. Raised CSAT from 82% to 91% with a proactive, customer-first approach.",
+    "experience": [
+      {
+        "company": "Paylane Technologies",
+        "role": "Customer Support Team Lead",
+        "duration": "Oct 2023 - Present",
+        "bullets": [
+          "Led a team of 9 support agents handling 2,400 tickets a month in Zendesk.",
+          "Raised CSAT from 82% to 91% by rewriting 35 customer-facing macros and help-centre articles.",
+          "Managed escalations for 40 enterprise accounts within a 4-hour SLA."
+        ]
+      },
+      {
+        "company": "Paylane Technologies",
+        "role": "Customer Support Associate",
+        "duration": "Aug 2021 - Sep 2023",
+        "bullets": ["Resolved 70 tickets a day while driving account adoption and renewals."]
+      }
+    ],
+    "skills": ["Customer Support", "Zendesk", "Escalation Management", "SLA Management", "Team Leadership"],
+    "education": [{ "institution": "Deccan Arts and Commerce College", "degree": "B.Com", "year": "2018 - 2021" }],
+    "ats_score": 64,
+    "matched_keywords": ["Escalation Management"],
+    "missing_keywords": ["QBRs", "Renewals", "Health Scores"],
+    "tailored_role": "Customer Success Manager",
+    "profile_improvement_tips": ["Shadow an account manager on renewal calls to gain account-ownership experience."],
+    "growth_note": "You bring 4 of the 5 requirements (enterprise escalations, SLA management, team leadership). Renewals and QBRs are not yet evident in your profile."
+  },
+  "labels": [
+    { "where": "summary", "text": "Customer Support Team Lead with 5+ years of professional experience supporting B2B payments merchants, seeking the Customer Success Manager role.", "kind": "tailored" },
+    { "where": "summary", "text": "Raised CSAT from 82% to 91% with a proactive, customer-first approach.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Led a team of 9 support agents handling 2,400 tickets a month in Zendesk.", "kind": "faithful" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Raised CSAT from 82% to 91% by rewriting 35 customer-facing macros and help-centre articles.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Managed escalations for 40 enterprise accounts within a 4-hour SLA.", "kind": "truthful_unscoped" },
+    { "where": "bullet", "role": 1, "source": 0, "text": "Resolved 70 tickets a day while driving account adoption and renewals.", "kind": "fabricated" }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "id": "C",
+  "label": "Experienced backend engineer (3 years)",
+  "composite_note": "Fictional composite built from common public profile patterns. Metrics are supplied by the (fictional) candidate; generation must not add any.",
+  "facts_as_of": "2026-09-24",
+  "facts": { "professional_years": 3.2, "has_employment": true, "internship_only": false, "career_gap": null },
+  "user_profile": {
+    "full_name": "Chitra Candidate",
+    "email": "chitra.candidate@example.com",
+    "phone": "+91 90000 00003",
+    "current_city": "Bengaluru",
+    "graduation_year": 2023,
+    "target_roles": ["Backend Engineer", "Software Engineer"],
+    "summary": "Backend engineer with 3 years building Java and Spring Boot microservices for payments.",
+    "experience": [
+      {
+        "company": "Tessellate Fintech Pvt Ltd",
+        "role": "Software Engineer",
+        "duration": "Jul 2024 - Present",
+        "location": "Bengaluru",
+        "bullets": [
+          "Reduced p95 latency of the settlement API from 800 ms to 350 ms by adding Redis caching.",
+          "Split the monolithic payouts module into 4 Spring Boot microservices communicating over REST.",
+          "Mentored 2 junior engineers and ran code reviews in 2-week Agile sprints."
+        ]
+      },
+      {
+        "company": "Tessellate Fintech Pvt Ltd",
+        "role": "Associate Software Engineer",
+        "duration": "Jul 2023 - Jun 2024",
+        "location": "Bengaluru",
+        "bullets": [
+          "Implemented JPA/Hibernate repositories and MySQL schema changes for the merchant onboarding service.",
+          "Automated nightly reconciliation reports, saving the operations team 6 hours a week."
+        ]
+      }
+    ],
+    "skills": ["Java", "Spring Boot", "Microservices", "MySQL", "JPA", "Hibernate", "REST APIs", "Agile", "Git", "Jenkins", "JUnit"],
+    "education": [
+      { "institution": "Visvesvaraya Institute of Technology", "degree": "B.E. Computer Science", "year": "2019 - 2023", "location": "Belagavi", "cgpa": "8.4" }
+    ],
+    "projects": []
+  }
+}

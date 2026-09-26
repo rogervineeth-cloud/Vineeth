@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent, RESUME_CONTENT_HINT } from "@/lib/profile-completeness";
 import { parseRegenParam } from "@/lib/regen";
+import { analyzeJd, type JdAnalysis } from "@/lib/jd-keywords";
+import { cleanTargetRoles } from "@/lib/target-roles";
+import { singleFlight } from "@/lib/single-flight";
+import { jdLengthStatus, JD_MIN_CHARS } from "@/lib/jd-length";
+import { shouldRemoveLastChip } from "@/lib/chip-input";
 import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,11 +52,7 @@ type PlanCheck =
   | { allowed: true; remaining: number }
   | { allowed: false; reason: "NO_PLAN" | "CREDITS_EXHAUSTED"; allotted: number };
 
-type JdAnalysis = {
-  detectedRole: string | null;
-  keywords: string[];
-  quality: "weak" | "ok" | "good";
-};
+
 
 type GeneratedResume = {
   ats_score: number;
@@ -64,179 +65,12 @@ type GeneratedResume = {
   section_order?: string[];
 };
 
-// Each entry is the canonical skill name. `aliases` are alternative
-// spellings/synonyms users commonly write in JDs (case-insensitive).
-// Match logic uses a custom boundary so short tokens like "Go" do NOT
-// match inside "go-to-market", and so hyphens/dots inside identifiers
-// (e.g. "Node.js", "C++", "A/B testing") are preserved correctly.
-const TECH_SKILLS: { name: string; aliases?: string[] }[] = [
-    // Languages & runtimes
-  { name: "JavaScript", aliases: ["JS", "ES6", "ECMAScript"] },
-  { name: "TypeScript", aliases: ["TS"] },
-  { name: "Python" },
-  { name: "Java" },
-  { name: "Kotlin" },
-  { name: "Swift" },
-  { name: "Objective-C" },
-  { name: "Go", aliases: ["Golang"] },
-  { name: "Rust" },
-  { name: "C++" },
-  { name: "C#" },
-  { name: "Ruby" },
-  { name: "PHP" },
-  { name: "Scala" },
-    // Web / frontend
-  { name: "React", aliases: ["React.js", "ReactJS"] },
-  { name: "Next.js", aliases: ["NextJS"] },
-  { name: "Angular" },
-  { name: "Vue.js", aliases: ["Vue", "VueJS"] },
-  { name: "Node.js", aliases: ["NodeJS"] },
-  { name: "HTML" },
-  { name: "CSS" },
-  { name: "Tailwind", aliases: ["TailwindCSS", "Tailwind CSS"] },
-    // Mobile
-  { name: "iOS", aliases: ["iPhone", "iPadOS"] },
-  { name: "Android" },
-  { name: "React Native" },
-  { name: "Flutter" },
-    // Backend / APIs
-  { name: "GraphQL" },
-  { name: "REST API", aliases: ["REST", "RESTful API", "RESTful"] },
-  { name: "gRPC" },
-  { name: "Spring Boot" },
-  { name: "Django" },
-  { name: "FastAPI" },
-  { name: "Flask" },
-  { name: "Express", aliases: ["Express.js"] },
-    // Cloud & infra
-  { name: "AWS", aliases: ["Amazon Web Services"] },
-  { name: "Azure", aliases: ["Microsoft Azure"] },
-  { name: "GCP", aliases: ["Google Cloud", "Google Cloud Platform"] },
-  { name: "Docker" },
-  { name: "Kubernetes", aliases: ["K8s"] },
-  { name: "Terraform" },
-  { name: "CI/CD", aliases: ["Continuous Integration", "Continuous Delivery", "Continuous Deployment"] },
-  { name: "Linux" },
-  { name: "Git" },
-    // Data
-  { name: "SQL" },
-  { name: "PostgreSQL", aliases: ["Postgres"] },
-  { name: "MySQL" },
-  { name: "MongoDB" },
-  { name: "Redis" },
-  { name: "Kafka" },
-  { name: "Elasticsearch", aliases: ["Elastic Search", "ELK"] },
-  { name: "Firebase" },
-  { name: "Snowflake" },
-  { name: "BigQuery" },
-  { name: "Airflow" },
-    // Analytics & BI
-  { name: "Excel" },
-  { name: "Power BI" },
-  { name: "Tableau" },
-  { name: "Looker" },
-  { name: "Mixpanel" },
-  { name: "Amplitude" },
-  { name: "Google Analytics", aliases: ["GA4"] },
-  { name: "SQL Server" },
-    // ML / AI
-  { name: "Machine Learning", aliases: ["ML"] },
-  { name: "Deep Learning" },
-  { name: "TensorFlow" },
-  { name: "PyTorch" },
-  { name: "NLP", aliases: ["Natural Language Processing"] },
-  { name: "Computer Vision" },
-  { name: "LLM", aliases: ["Large Language Model", "Large Language Models", "GPT"] },
-  { name: "Data Analysis" },
-    // Process & ways of working
-  { name: "Agile" },
-  { name: "Scrum" },
-  { name: "Kanban" },
-    // Product & design
-  { name: "Product Management" },
-  { name: "Product Strategy" },
-  { name: "Roadmapping", aliases: ["Roadmap"] },
-  { name: "A/B Testing", aliases: ["AB Testing", "Experimentation", "Split Testing"] },
-  { name: "User Research" },
-  { name: "Stakeholder Management" },
-  { name: "Go-to-Market", aliases: ["GTM"] },
-  { name: "OKRs" },
-  { name: "Figma" },
-  { name: "Sketch" },
-  { name: "UI/UX", aliases: ["UX", "UI"] },
-    // Enterprise / SaaS
-  { name: "Salesforce" },
-  { name: "SAP" },
-  { name: "JIRA" },
-  { name: "Confluence" },
-  { name: "Notion" },
-  { name: "Slack" },
-    // Marketing
-  { name: "SEO" },
-  { name: "SEM" },
-  { name: "Performance Marketing" },
-    // Other / misc
-  { name: "Technical Writing" },
-  ];
-
-// Build a flat list of patterns we test against the JD text. Map each
-// match back to the canonical skill name so aliases collapse correctly.
-const TECH_SKILL_PATTERNS: { canonical: string; pattern: string }[] = (() => {
-    const out: { canonical: string; pattern: string }[] = [];
-    for (const s of TECH_SKILLS) {
-          out.push({ canonical: s.name, pattern: s.name });
-          for (const a of s.aliases ?? []) out.push({ canonical: s.name, pattern: a });
-    }
-    return out;
-})();
-
-// Custom word boundary: a "tech token" can include letters, digits,
-// `+`, `#`, `.`, `/`, and `-`. We refuse to match if the character
-// immediately before/after the candidate is one of those — this stops
-// "Go" from matching inside "go-to-market" while still letting
-// "Node.js", "C++", "A/B Testing", "CI/CD" match correctly.
-const SKILL_BOUNDARY_CHARS = "A-Za-z0-9+#./\\-";
-
-function escapeRegex(s: string): string {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function analyzeJd(text: string): JdAnalysis {
-    if (text.length < 100) {
-          return { detectedRole: null, keywords: [], quality: "weak" };
-    }
-    const seen = new Set<string>();
-    const found: string[] = [];
-    for (const p of TECH_SKILL_PATTERNS) {
-          const re = new RegExp(
-                  `(?<![${SKILL_BOUNDARY_CHARS}])${escapeRegex(p.pattern)}(?![${SKILL_BOUNDARY_CHARS}])`,
-                  "i"
-                );
-          if (re.test(text) && !seen.has(p.canonical)) {
-                  seen.add(p.canonical);
-                  found.push(p.canonical);
-          }
-    }
-    const roleMatch = text.match(
-          /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i
-        );
-    const detectedRole = roleMatch ? roleMatch[1].trim().slice(0, 40) : null;
-    // Quality is now driven both by length AND signal density: a long JD
-    // with no recognized skills is still treated as "weak" so we surface
-    // a warning to the user instead of a falsely-confident green tick.
-    let quality: JdAnalysis["quality"];
-    if (text.length < 300 || found.length < 2) quality = "weak";
-    else if (text.length < 800 || found.length < 5) quality = "ok";
-    else quality = "good";
-    return { detectedRole, keywords: found.slice(0, 12), quality };
-}
-
-
 function checkCompleteness(profile: Profile | null): { complete: boolean; missing: string } {
   if (!profile) return { complete: false, missing: "your profile" };
   if (!profile.full_name?.trim()) return { complete: false, missing: "your name" };
   if (!profile.email?.trim()) return { complete: false, missing: "your email" };
-  if (!profile.target_roles?.length) return { complete: false, missing: "your target roles" };
+  // A literal "Other" from the old role picker is not a target role.
+  if (!cleanTargetRoles(profile.target_roles).length) return { complete: false, missing: "your target roles" };
   // Same rule the server enforces (lib/profile-completeness.ts). Checking
   // array length here let a skipped section's blank placeholder row count as
   // content, so the page said "ready" and the server then refused.
@@ -436,6 +270,15 @@ function CreatePageInner() {
   const [genError, setGenError] = useState<string | null>(null);
 
   const [generating, setGenerating] = useState(false);
+  // Synchronous lock: `generating` only disables the button on the next
+  // render, so a double click used to start two generations — two credits and
+  // two saved resumes. See lib/single-flight.ts.
+  const generateFlight = useRef(singleFlight((run: () => Promise<void>) => run()));
+  // Server-side idempotency key (migration 013): new for each attempt, reused
+  // only to retry the IDENTICAL request after a network or server failure, so
+  // a retry of a generation that actually finished returns that resume
+  // instead of charging again.
+  const attemptRef = useRef<{ key: string; signature: string } | null>(null);
   const [genStageIdx, setGenStageIdx] = useState(0);
   const [genProgress, setGenProgress] = useState(0);
   const [tipIdx, setTipIdx] = useState(0);
@@ -514,8 +357,9 @@ function CreatePageInner() {
       setShowMissingPopup(true);
       return;
     }
-    if (jdText.trim().length < 200) {
-      toast.error("Please paste a longer job description (min 200 characters).");
+    const jdStatus = jdLengthStatus(jdText);
+    if (!jdStatus.ready) {
+      toast.error(jdStatus.toast);
       jdRef.current?.focus();
       return;
     }
@@ -554,33 +398,52 @@ function CreatePageInner() {
     const pd = profile!.profile_data ?? {};
     pushUrlStep("resume");
     try {
+      const requestBody = {
+        jd_text: jdText,
+        jd_keywords: effectiveKeywords,
+        template: selectedTemplate,
+        user_profile: {
+          full_name: profile!.full_name,
+          email: profile!.email,
+          phone: profile!.phone,
+          current_city: profile!.current_city,
+          graduation_year: profile!.graduation_year,
+          target_roles: cleanTargetRoles(profile!.target_roles),
+          linkedin_data: profile!.linkedin_data,
+          summary: pd.summary,
+          experience: pd.experience,
+          skills: pd.skills,
+          education: pd.education,
+          projects: pd.projects,
+        },
+        ...(regenParentId ? { regen_of_resume_id: regenParentId } : {}),
+      };
+      const signature = JSON.stringify(requestBody);
+      if (attemptRef.current?.signature !== signature) {
+        attemptRef.current = { key: crypto.randomUUID(), signature };
+      }
       const res = await fetch("/api/generate-resume", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jd_text: jdText,
-          jd_keywords: effectiveKeywords,
-          template: selectedTemplate,
-          user_profile: {
-            full_name: profile!.full_name,
-            email: profile!.email,
-            phone: profile!.phone,
-            current_city: profile!.current_city,
-            graduation_year: profile!.graduation_year,
-            target_roles: profile!.target_roles,
-            linkedin_data: profile!.linkedin_data,
-            summary: pd.summary,
-            experience: pd.experience,
-            skills: pd.skills,
-            education: pd.education,
-            projects: pd.projects,
-          },
-          ...(regenParentId ? { regen_of_resume_id: regenParentId } : {}),
-        }),
+        body: JSON.stringify({ ...requestBody, request_key: attemptRef.current.key }),
       });
 
       timers.forEach(clearTimeout);
+      // A definite answer ends this attempt; after a 5xx the same request may
+      // be retried under the same key.
+      if (res.status < 500) attemptRef.current = null;
       const data = await res.json();
+
+      if (res.status === 409) {
+        // Another tab or device is generating this same resume right now (or
+        // a stale attempt timed out). Nothing was charged.
+        const msg = data.message || "This resume is already being generated. It will appear on your dashboard when it's ready.";
+        setGenError(msg);
+        toast.info(msg, { action: { label: "Dashboard", onClick: () => router.push("/dashboard") }, duration: 8000 });
+        setGenerating(false);
+        setGenProgress(0);
+        return;
+      }
 
       if (res.status === 402) {
         const msg =
@@ -626,55 +489,11 @@ function CreatePageInner() {
       if (data.is_free_regen) toast.success("Free regeneration — no credit used.");
       setGenProgress(100);
 
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Session expired.");
-        router.push("/login");
-        return;
-      }
-
+      // The server saved the resume in the same transaction that charged the
+      // credit (migration 013). The browser no longer inserts it: two tabs
+      // used to mean two rows.
       const resumeJson = data.resume_json;
-      // Freeze the contact details as they are right now. Preview and PDF used
-      // to join to the live profile, so editing your profile silently rewrote
-      // the name/email/phone on resumes you had already generated.
-      const contactSnapshot = {
-        full_name: profile?.full_name ?? "",
-        email: profile?.email ?? "",
-        phone: profile?.phone ?? "",
-        current_city: profile?.current_city ?? "",
-      };
-      const { data: savedResume, error: saveError } = await supabase
-        .from("resumes")
-        .insert({
-          user_id: user.id,
-          jd_text: jdText,
-          resume_json: resumeJson,
-          ats_score: resumeJson.ats_score,
-          tailored_role: resumeJson.tailored_role,
-          matched_keywords: resumeJson.matched_keywords,
-          missing_keywords: resumeJson.missing_keywords,
-          contact_snapshot: contactSnapshot,
-          // Persist the template so the PDF can actually render it. This used
-          // to be sent to the generator as a prompt hint and then thrown away.
-          template: selectedTemplate,
-          // Regeneration lineage. Deliberately the SERVER-VERIFIED id from the
-          // response, not the local variable we sent up: the server confirms
-          // the caller owns the parent and returns null otherwise, so an id
-          // belonging to someone else can never reach the column. Previously
-          // this was never written at all, leaving the column always NULL.
-          regen_of_resume_id: data.regen_of_resume_id ?? null,
-        })
-        .select("id")
-        .single();
-
-      if (saveError) {
-        toast.error("Couldn't save resume: " + saveError.message);
-        setGenerating(false);
-        return;
-      }
+      if (data.replayed) toast.info("This resume was already generated — showing it. No extra credit was used.");
 
       setGeneratedResume({
         ats_score: resumeJson.ats_score,
@@ -686,7 +505,7 @@ function CreatePageInner() {
         growth_note: resumeJson.growth_note ?? null,
         section_order: resumeJson.section_order ?? [],
       });
-      setSavedResumeId(savedResume.id);
+      setSavedResumeId(data.resume_id);
       setShowRevealDone(true);
       setGenerating(false);
     } catch (err) {
@@ -701,6 +520,8 @@ function CreatePageInner() {
   }
 
   async function handleClickGenerate() {
+    // A second click while a generation is running must not start another.
+    if (generateFlight.current.inFlight) return;
     const comp = checkCompleteness(profile);
     if (!comp.complete) {
       setShowMissingPopup(true);
@@ -716,17 +537,20 @@ function CreatePageInner() {
       return;
     }
     setFlowStep(4);
-    handleGenerate();
+    await generateFlight.current(() => handleGenerate());
   }
 
   const completeness = checkCompleteness(profile);
   const isCreator = userEmail === CREATOR_EMAIL;
-  const jdReady = jdText.trim().length >= 200;
-  const effectiveKeywords = useMemo(() => {
+  const jdStatus = jdLengthStatus(jdText);
+  const jdReady = jdStatus.ready;
+  // Plain computation: the React Compiler memoises it. A manual useMemo here
+  // could not be preserved by the compiler (react-hooks/preserve-manual-memoization).
+  const effectiveKeywords = (() => {
     const base = jdAnalysis.keywords.filter((k) => !removedKeywords.has(k.toLowerCase()));
     const extras = extraKeywords.filter((k) => !base.some((b) => b.toLowerCase() === k.toLowerCase()));
     return [...base, ...extras];
-  }, [jdAnalysis.keywords, removedKeywords, extraKeywords]);
+  })();
   const canGenerate =
     jdReady &&
     completeness.complete &&
@@ -799,10 +623,8 @@ function CreatePageInner() {
                 onChange={(e) => setJdText(e.target.value)}
               />
               <div className="flex items-center justify-between mt-1.5">
-                <span className={`text-xs ${jdReady ? "text-[#1f5c3a] font-medium" : "text-[#999]"}`}>
-                  {jdText.length < 200
-                    ? `${jdText.length}/200 characters minimum`
-                    : `${jdText.length} characters ✓`}
+                <span className={`text-xs ${jdReady ? "text-[#1f5c3a] font-medium" : "text-[#999]"}`} aria-live="polite">
+                  {jdStatus.counter}
                 </span>
                 {jdAnalysis.quality === "good" && (
                   <span className="text-xs text-[#1f5c3a]">Detailed JD ✓</span>
@@ -847,7 +669,17 @@ function CreatePageInner() {
                   type="text"
                   value={newSkillInput}
                   onChange={(e) => setNewSkillInput(e.target.value)}
+                  aria-label="Add a skill"
                   onKeyDown={(e) => {
+                    const visible = effectiveKeywords.slice(0, 12);
+                    if (shouldRemoveLastChip({ key: e.key, repeat: e.repeat, isComposing: e.nativeEvent.isComposing, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey }, newSkillInput, visible.length)) {
+                      // Remove the last chip on screen — the same as its × button.
+                      e.preventDefault();
+                      const kw = visible[visible.length - 1];
+                      setRemovedKeywords((prev) => new Set(prev).add(kw.toLowerCase()));
+                      setExtraKeywords((prev) => prev.filter((x) => x.toLowerCase() !== kw.toLowerCase()));
+                      return;
+                    }
                     if (e.key === "Enter" || e.key === ",") {
                       e.preventDefault();
                       const v = newSkillInput.trim().replace(/,$/, "");
@@ -908,7 +740,7 @@ function CreatePageInner() {
               Next — Choose template →
             </Button>
             {!jdReady && (
-              <p className="lg:hidden text-xs text-center text-[#999] mt-2">Paste a job description above to continue</p>
+              <p className="lg:hidden text-xs text-center text-[#999] mt-2">{jdStatus.blocker}</p>
             )}
           </div>
 
@@ -936,9 +768,9 @@ function CreatePageInner() {
                         {completeness.complete ? (
                           <>
                             <p className="text-xs text-[#6b6b6b] mt-0.5">{profile?.email}</p>
-                            {(profile?.target_roles?.length ?? 0) > 0 && (
+                            {cleanTargetRoles(profile?.target_roles).length > 0 && (
                               <p className="text-xs text-[#6b6b6b] mt-0.5">
-                                Targeting: {profile!.target_roles!.slice(0, 2).join(", ")}
+                                Targeting: {cleanTargetRoles(profile!.target_roles).slice(0, 2).join(", ")}
                               </p>
                             )}
                             {planCheck?.allowed && (
@@ -996,7 +828,9 @@ function CreatePageInner() {
                     <FileText className="w-3.5 h-3.5 shrink-0 text-[#1f5c3a]" />
                     {jdReady
                       ? "Profile and job description look good — you're ready to continue."
-                      : "Profile looks good — paste a JD above to continue."}
+                      : jdStatus.state === "empty"
+                        ? "Profile looks good — paste a JD above to continue."
+                        : `Profile looks good — the job description needs at least ${JD_MIN_CHARS} characters (${jdStatus.count} so far).`}
                   </div>
                 )}
               </div>
@@ -1016,9 +850,7 @@ function CreatePageInner() {
                   simply too short. */}
               {!jdReady && (
                 <p className="text-xs text-center text-[#999] mt-2">
-                  {jdText.trim().length === 0
-                    ? "Paste a job description to continue"
-                    : `Needs at least 200 characters (${jdText.trim().length} so far)`}
+                  {jdStatus.blocker}
                 </p>
               )}
             </div>
@@ -1106,9 +938,9 @@ function CreatePageInner() {
                 <p className="text-sm font-semibold text-[#1a1a1a]">{profile?.full_name}</p>
               </div>
               <p className="text-xs text-[#6b6b6b]">{profile?.email}</p>
-              {(profile?.target_roles?.length ?? 0) > 0 && (
+              {cleanTargetRoles(profile?.target_roles).length > 0 && (
                 <p className="text-xs text-[#6b6b6b] mt-0.5">
-                  Targeting: {profile!.target_roles!.slice(0, 2).join(", ")}
+                  Targeting: {cleanTargetRoles(profile!.target_roles).slice(0, 2).join(", ")}
                 </p>
               )}
               {planCheck?.allowed && (
@@ -1191,8 +1023,8 @@ function CreatePageInner() {
                   {profile.current_city && !profile.current_city.startsWith("e.g.") && (
                     <span className="text-[#6b6b6b]">{profile.current_city}</span>
                   )}
-                  {(profile.target_roles?.length ?? 0) > 0 && (
-                    <span className="text-[#6b6b6b] mt-0.5">Targeting: {profile.target_roles!.join(", ")}</span>
+                  {cleanTargetRoles(profile.target_roles).length > 0 && (
+                    <span className="text-[#6b6b6b] mt-0.5">Targeting: {cleanTargetRoles(profile.target_roles).join(", ")}</span>
                   )}
                 </div>
               </div>

@@ -1,0 +1,63 @@
+{
+  "id": "N12",
+  "domain": "manufacturing quality (non-software engineering)",
+  "expected_fit": "match",
+  "facts": { "professional_years": 4.2, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Suresh Babu (fictional)",
+    "email": "suresh.babu@example.com",
+    "summary": "Quality engineer in automotive component manufacturing.",
+    "skills": ["Quality Control", "Root Cause Analysis", "8D", "PPAP", "SPC", "Minitab", "ISO 9001"],
+    "target_roles": ["Quality Engineer"],
+    "experience": [
+      {
+        "company": "Kaveri Auto Components Pvt Ltd",
+        "role": "Quality Engineer",
+        "duration": "Jul 2022 - Present",
+        "location": "Hosur",
+        "bullets": [
+          "Cut customer complaints on brake housings from 14 to 4 a quarter using 8D root cause analysis.",
+          "Ran SPC on 3 machining lines in Minitab and flagged drifting processes to the shift supervisors.",
+          "Prepared PPAP files for 9 new parts for a two-wheeler customer."
+        ]
+      }
+    ],
+    "education": [{ "institution": "Hosur Institute of Engineering", "degree": "B.E. Mechanical", "year": "2018 - 2022", "location": "Hosur" }],
+    "projects": []
+  },
+  "jd": {
+    "title": "Quality Engineer",
+    "text": "Own supplier and in-process quality for machined components: 8D and root cause analysis, SPC, PPAP and APQP documentation, audits to IATF 16949, and customer complaint resolution. 3+ years in automotive quality."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education"],
+    "summary": "Quality Engineer with 4+ years of professional experience in automotive component manufacturing, seeking the Quality Engineer role. Reduced customer complaints from 14 to 4 a quarter using 8D root cause analysis, ensuring IATF 16949 compliance.",
+    "experience": [
+      {
+        "company": "Kaveri Auto Components Pvt Ltd",
+        "role": "Quality Engineer",
+        "duration": "Jul 2022 - Present",
+        "bullets": [
+          "Reduced customer complaints on brake housings from 14 to 4 a quarter using 8D root cause analysis.",
+          "Ran SPC on 3 machining lines in Minitab and flagged drifting processes to the shift supervisors, preventing costly scrap.",
+          "Prepared PPAP and APQP files for 9 new parts for a two-wheeler customer."
+        ]
+      }
+    ],
+    "skills": ["Root Cause Analysis", "8D", "SPC", "PPAP", "Minitab", "Quality Control", "ISO 9001"],
+    "education": [{ "institution": "Hosur Institute of Engineering", "degree": "B.E. Mechanical", "year": "2018 - 2022" }],
+    "ats_score": 74,
+    "matched_keywords": ["8D", "SPC", "PPAP"],
+    "missing_keywords": ["APQP", "IATF 16949"],
+    "tailored_role": "Quality Engineer",
+    "profile_improvement_tips": ["Take an IATF 16949 internal auditor course."],
+    "growth_note": "You cover 3 of the 5 core tools (8D, SPC, PPAP). APQP and IATF 16949 audits are not yet evident."
+  },
+  "labels": [
+    { "where": "summary", "text": "Quality Engineer with 4+ years of professional experience in automotive component manufacturing, seeking the Quality Engineer role.", "kind": "tailored" },
+    { "where": "summary", "text": "Reduced customer complaints from 14 to 4 a quarter using 8D root cause analysis, ensuring IATF 16949 compliance.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Reduced customer complaints on brake housings from 14 to 4 a quarter using 8D root cause analysis.", "kind": "tailored" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Ran SPC on 3 machining lines in Minitab and flagged drifting processes to the shift supervisors, preventing costly scrap.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Prepared PPAP and APQP files for 9 new parts for a two-wheeler customer.", "kind": "one_unsupported", "note": "unsupported coordinated noun ('and APQP'): expected to be reverted, not trimmed (measured limitation)" }
+  ]
+}

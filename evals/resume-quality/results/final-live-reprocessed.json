@@ -1,0 +1,559 @@
+{
+  "meta": {
+    "run_id": "results/final-live-reprocessed",
+    "mode": "live model (captured from preview: live-final, re-post-processed with current code)",
+    "model": "claude-haiku-4-5-20251001",
+    "jd_sources": "OFFICIAL_PARAPHRASE"
+  },
+  "rows": [
+    {
+      "scenario": "S01",
+      "profile": "A",
+      "jd": "AMZ-SDE",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 38,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": false,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[seniority_calibration] ats_score 38 undersells a matching profile"
+        ],
+        "interview_chance": "adequate",
+        "sanitiser_warnings": [
+          "reverted_project_description_unsupported_detail:ensuring|robust|error|handling|management",
+          "reverted_project_description_unsupported_detail:designed|eliminating|transactional|consistency",
+          "reverted_project_description_unsupported_detail:containerised|deployment",
+          "dropped_summary_sentence_unsupported_detail:proficient|demonstrates|strong|problem|solving|attention|detail|scalable|backend|responsive"
+        ]
+      }
+    },
+    {
+      "scenario": "S02",
+      "profile": "A",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "under",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 48,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [],
+        "interview_chance": "strong",
+        "sanitiser_warnings": [
+          "reverted_project_description_unsupported_skill:Microservices",
+          "dropped_summary_sentence_unsupported_skill:GCP",
+          "reverted_project_description_unsupported_detail:designed|users|gateway|handling|transaction|reliability|full|stack|application|consistent|deployment",
+          "reverted_project_description_unsupported_detail:display|real|time|updates|containerised|testing",
+          "dropped_summary_sentence_unsupported_detail:proficient|demonstrated|ability|design|scalable|user|interfaces",
+          "dropped_summary_sentence_unsupported_detail:strong|problem|solver|attention|code|quality|system|reliability",
+          "summary_fell_back_to_profile_summary"
+        ]
+      }
+    },
+    {
+      "scenario": "S03",
+      "profile": "A",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "mismatch",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 38,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [],
+        "interview_chance": "strong",
+        "sanitiser_warnings": [
+          "reverted_project_description_unsupported_skill:Unit Testing",
+          "reverted_project_description_unsupported_skill:Microservices",
+          "dropped_summary_sentence_unsupported_skill:System Design|Distributed Systems",
+          "reverted_project_description_unsupported_detail:single|page|application|display|real|time|updates|deployed|reproducible|testing|environments",
+          "dropped_summary_sentence_unsupported_detail:proficient|demonstrated|ability|design|scalable|comprehensive|suites"
+        ]
+      }
+    },
+    {
+      "scenario": "S04",
+      "profile": "B",
+      "jd": "AMZ-SDE",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 58,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [],
+        "interview_chance": "adequate",
+        "sanitiser_warnings": [
+          "reverted_bullet_unsupported_detail:enabling|seamless|processing",
+          "reverted_bullet_unsupported_detail:improving|code|reliability",
+          "reverted_bullet_unsupported_detail:demonstrating|strong|debugging|problem|solving|skills",
+          "reverted_project_description_unsupported_detail:architected|features|demonstrating|full|stack|integration|cloud",
+          "dropped_summary_sentence_unsupported_detail:scalable",
+          "dropped_summary_sentence_unsupported_detail:proficient|expertise",
+          "dropped_summary_sentence_unsupported_detail:problem|solving|collaborative|skills|distributed|grade|systems",
+          "summary_fell_back_to_profile_summary"
+        ]
+      }
+    },
+    {
+      "scenario": "S05",
+      "profile": "B",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "under",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 42,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [],
+        "interview_chance": "adequate",
+        "sanitiser_warnings": [
+          "dropped_summary_sentence_unsupported_skill:GCP",
+          "reverted_bullet_unsupported_detail:enabling|seamless|processing",
+          "reverted_bullet_unsupported_detail:improving|code|reliability",
+          "reverted_bullet_unsupported_detail:debugged|issues|demonstrating|strong|troubleshooting|root|cause|analysis|skills",
+          "reverted_project_description_unsupported_detail:architected|full|stack|platform|frontend|integrating|transactional|data|storage|features|management|workflow|retrieval",
+          "dropped_summary_sentence_unsupported_detail:scalable|demonstrating|problem|solving|ability|attention|code|quality|rigorous|resolution",
+          "summary_fell_back_to_profile_summary"
+        ]
+      }
+    },
+    {
+      "scenario": "S06",
+      "profile": "C",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 68,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [],
+        "interview_chance": "strong",
+        "sanitiser_warnings": [
+          "reverted_bullet_unverifiable_metric:10000",
+          "reverted_bullet_unsupported_skill:Design Patterns",
+          "dropped_summary_sentence_unsupported_skill:System Design",
+          "reverted_bullet_unsupported_detail:optimising|query|patterns",
+          "reverted_bullet_unsupported_detail:architected|migration|independent|improving|deployment|velocity|system|resilience",
+          "reverted_bullet_unsupported_detail:spring|boot|batch|jobs|manual|overhead",
+          "dropped_summary_sentence_unsupported_detail:scalable",
+          "summary_fell_back_to_profile_summary"
+        ]
+      }
+    },
+    {
+      "scenario": "S07",
+      "profile": "C",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 58,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [],
+        "interview_chance": "strong",
+        "sanitiser_warnings": [
+          "reverted_bullet_unverifiable_metric:40",
+          "dropped_summary_sentence_unsupported_skill:Distributed Systems|GCP",
+          "dropped_summary_sentence_unsupported_skill:System Design",
+          "reverted_bullet_unsupported_detail:improving|system|performance|high|throughput|payment|processing",
+          "reverted_bullet_unsupported_detail:architected|deployed|replace|enabling|independent|scaling|faster|feature|delivery",
+          "reverted_bullet_unsupported_detail:ensuring|quality|knowledge|sharing",
+          "reverted_bullet_unsupported_detail:java|batch|processing",
+          "dropped_summary_sentence_years:understated:1+ year",
+          "summary_fell_back_to_profile_summary"
+        ]
+      }
+    },
+    {
+      "scenario": "S08",
+      "profile": "D",
+      "jd": "AMZ-SDE",
+      "expected_fit": "mismatch",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 38,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [],
+        "interview_chance": "adequate",
+        "sanitiser_warnings": [
+          "reverted_project_description_unsupported_skill:System Design",
+          "reverted_bullet_unsupported_detail:ensuring|protocol|compliance|reliability",
+          "reverted_bullet_unsupported_detail:time|improving|release|velocity",
+          "reverted_bullet_unsupported_detail:maintaining|quality|standards",
+          "dropped_summary_sentence_unsupported_detail:systems|strong|problem|solving|attention|detail|scalable",
+          "dropped_summary_sentence_unsupported_detail:proficient|solid|foundation",
+          "summary_fell_back_to_profile_summary"
+        ]
+      }
+    },
+    {
+      "scenario": "S09",
+      "profile": "D",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "mismatch",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 0.667,
+        "attainable_not_licensed": [
+          "C"
+        ],
+        "pass": false
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 48,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [],
+        "interview_chance": "strong",
+        "sanitiser_warnings": [
+          "reverted_project_description_unsupported_skill:System Design",
+          "dropped_summary_sentence_unsupported_skill:GCP",
+          "dropped_summary_sentence_unsupported_skill:Distributed Systems",
+          "reverted_bullet_unsupported_detail:ensuring|protocol|compliance|reliability",
+          "reverted_bullet_unsupported_detail:time|enabling|faster|release",
+          "reverted_bullet_unsupported_detail:tracked|ensuring|timely|resolution|quality",
+          "dropped_summary_sentence_unsupported_detail:proficient|strong|attention|detail|collaborative|problem|solving|skills",
+          "summary_fell_back_to_profile_summary"
+        ]
+      }
+    },
+    {
+      "scenario": "S10",
+      "profile": "E",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 48,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": false,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[seniority_calibration] ats_score 48 undersells a matching profile"
+        ],
+        "interview_chance": "adequate",
+        "sanitiser_warnings": [
+          "reverted_bullet_unverifiable_metric:60",
+          "reverted_bullet_unverifiable_metric:40",
+          "reverted_bullet_unverifiable_metric:5",
+          "reverted_bullet_unsupported_skill:Microservices|Distributed Systems",
+          "reverted_bullet_unsupported_skill:Code Review",
+          "reverted_project_description_unsupported_skill:Accessibility",
+          "dropped_summary_sentence_unsupported_skill:Distributed Systems|Design Patterns",
+          "dropped_summary_sentence_unsupported_skill:Code Review",
+          "reverted_bullet_unsupported_detail:frontend|preventing|reaching|production|establishing|best|practices",
+          "dropped_summary_sentence_years:understated:3 years",
+          "summary_fell_back_to_profile_summary",
+          "dropped_growth_note_sentence:years_understated:3 years",
+          "dropped_growth_note_sentence:credits_unevidenced:Distributed Systems|Code Review",
+          "dropped_growth_note_sentence:presupposes_unevidenced:System Design",
+          "dropped_tip:credits_unevidenced:Code Review"
+        ]
+      }
+    },
+    {
+      "scenario": "S11",
+      "profile": "E",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 68,
+        "unsupported_claim_rate": 0,
+        "keyword_precision": 1,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": true,
+          "ats_keywords": true,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "detail_fidelity": true,
+          "summary_framing": true,
+          "advice_fidelity": true,
+          "structural_validity": true
+        },
+        "defects": [],
+        "interview_chance": "adequate",
+        "sanitiser_warnings": [
+          "reverted_bullet_unsupported_skill:Distributed Systems",
+          "reverted_bullet_unsupported_skill:UI/UX",
+          "reverted_bullet_unsupported_skill:Microservices",
+          "reverted_project_description_unsupported_skill:Accessibility",
+          "dropped_summary_sentence_unsupported_skill:GCP",
+          "dropped_summary_sentence_unsupported_skill:System Design|Distributed Systems|Code Review",
+          "reverted_bullet_unsupported_detail:designed|ensuring|code|quality|rigorous",
+          "reverted_bullet_unsupported_detail:manual|effort|improving|confidence",
+          "reverted_bullet_unsupported_detail:high|traffic|validating|system|performance|peak|conditions",
+          "dropped_growth_note_sentence:credits_unevidenced:Microservices|Distributed Systems",
+          "dropped_growth_note_sentence:dangling_reference",
+          "growth_note_replaced",
+          "dropped_tip:presupposes_unevidenced:System Design",
+          "dropped_tip:resume_edit_unevidenced:Code Review"
+        ]
+      }
+    }
+  ]
+}

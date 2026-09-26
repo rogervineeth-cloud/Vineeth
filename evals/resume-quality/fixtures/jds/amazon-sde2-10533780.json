@@ -1,0 +1,27 @@
+{
+  "id": "AMZ-SDE2",
+  "company": "Amazon",
+  "title": "Software Development Engineer II",
+  "location": "Bengaluru, Karnataka, India",
+  "job_id": "10533780",
+  "url": "https://www.amazon.jobs/en/jobs/10533780/software-development-engineer-ii",
+  "source_status": "OFFICIAL_PARAPHRASE",
+  "source_note": "Paraphrase of the official posting supplied by the project owner after independent verification. Not verbatim: wording is condensed, but every requirement comes from the official source and nothing has been added. Replaces the earlier reconstructed placeholder (the eval environment cannot reach the careers site).",
+  "expected": {
+    "level": "mid (SDE II)",
+    "min_years": 3,
+    "ground_truth_skills": [
+      "Distributed Systems",
+      "Algorithms",
+      "Design Patterns",
+      "System Design",
+      "Code Review",
+      "Source Control",
+      "Testing",
+      "Operations"
+    ]
+  },
+  "text": "Software Development Engineer II\nJob ID: 10533780 | Bengaluru, Karnataka, India\n\nAbout the role:\nThe role emphasizes distributed systems, algorithms, scalable transactional backends and APIs, ownership, and operational excellence.\n\nBasic qualifications:\n- 3+ years of non-internship professional software development experience.\n- 2+ years of non-internship design or architecture of new and existing systems, including design patterns, reliability and scaling.\n- Experience programming with at least one software programming language.\n\nPreferred qualifications:\n- Experience across the full software development life cycle, including coding standards, code reviews, source control, build, testing and operations.\n- Bachelor's degree in computer science or equivalent.",
+  "source_verified_by": "Project owner, independently verified against the official posting",
+  "source_verified_date": "2026-09-24"
+}

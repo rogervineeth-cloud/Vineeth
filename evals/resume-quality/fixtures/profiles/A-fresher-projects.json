@@ -1,0 +1,38 @@
+{
+  "id": "A",
+  "label": "Project-heavy fresher (no employment)",
+  "composite_note": "Fictional composite built from common public profile patterns for Indian CS freshers. No real person, name, contact or verbatim text.",
+  "facts_as_of": "2026-09-24",
+  "facts": { "professional_years": 0, "has_employment": false, "internship_only": false, "career_gap": null },
+  "user_profile": {
+    "full_name": "Aarav Candidate",
+    "email": "aarav.candidate@example.com",
+    "phone": "+91 90000 00001",
+    "current_city": "Pune",
+    "graduation_year": 2025,
+    "target_roles": ["Software Engineer"],
+    "summary": "Computer Science graduate who builds full-stack web applications with Java, Spring Boot and React.",
+    "experience": [],
+    "skills": ["Java", "Spring Boot", "SQL", "MySQL", "REST APIs", "React.js", "TypeScript", "Docker", "Git", "JUnit"],
+    "education": [
+      { "institution": "Pune Institute of Technology", "degree": "B.Tech Computer Science and Engineering", "year": "2021 - 2025", "location": "Pune", "cgpa": "8.1" }
+    ],
+    "projects": [
+      {
+        "name": "PaySplit - Group Expense Settlement",
+        "description": "Built a Spring Boot REST API and React TypeScript frontend to split shared expenses. Integrated Razorpay test-mode payments with webhooks for created, captured and refunded states. Wrote 40 JUnit tests and containerised the app with Docker.",
+        "tech": ["Java", "Spring Boot", "MySQL", "React", "TypeScript", "Docker", "Razorpay"]
+      },
+      {
+        "name": "Campus Library Reservations",
+        "description": "Java and Spring Boot service with a MySQL schema for booking study rooms; piloted for 2 weeks with 120 students and removed double bookings.",
+        "tech": ["Java", "Spring Boot", "MySQL", "SQL"]
+      },
+      {
+        "name": "Order Tracker Dashboard",
+        "description": "React and TypeScript dashboard consuming a REST API to track order status, run locally with Docker Compose.",
+        "tech": ["React", "TypeScript", "REST", "Docker"]
+      }
+    ]
+  }
+}

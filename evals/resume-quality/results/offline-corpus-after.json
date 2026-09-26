@@ -1,0 +1,1102 @@
+{
+  "label": "offline-corpus-after",
+  "aggregate": {
+    "cases": 12,
+    "items": 67,
+    "byKind": {
+      "faithful": {
+        "n": 7,
+        "kept": 7,
+        "trimmed": 0,
+        "reverted": 0,
+        "dropped": 0,
+        "leaks": 0,
+        "retained": 0,
+        "achievements_kept": 7
+      },
+      "tailored": {
+        "n": 17,
+        "kept": 17,
+        "trimmed": 0,
+        "reverted": 0,
+        "dropped": 0,
+        "leaks": 0,
+        "retained": 17,
+        "achievements_kept": 5
+      },
+      "verb_swap": {
+        "n": 2,
+        "kept": 0,
+        "trimmed": 1,
+        "reverted": 1,
+        "dropped": 0,
+        "leaks": 0,
+        "retained": 1,
+        "achievements_kept": 2
+      },
+      "truthful_unscoped": {
+        "n": 4,
+        "kept": 0,
+        "trimmed": 0,
+        "reverted": 4,
+        "dropped": 0,
+        "leaks": 0,
+        "retained": 0,
+        "achievements_kept": 4
+      },
+      "one_unsupported": {
+        "n": 22,
+        "kept": 0,
+        "trimmed": 16,
+        "reverted": 6,
+        "dropped": 0,
+        "leaks": 0,
+        "retained": 16,
+        "achievements_kept": 17
+      },
+      "fabricated": {
+        "n": 15,
+        "kept": 0,
+        "trimmed": 0,
+        "reverted": 8,
+        "dropped": 7,
+        "leaks": 0,
+        "retained": 0,
+        "achievements_kept": 7
+      }
+    },
+    "gates": {
+      "factual_fidelity": 12,
+      "ats_keywords": 12,
+      "seniority_calibration": 11,
+      "section_completeness": 12,
+      "readability": 12,
+      "career_gap": 12,
+      "projects_vs_employment": 12,
+      "detail_fidelity": 12,
+      "summary_framing": 12,
+      "advice_fidelity": 12
+    },
+    "summary_names_target": 12,
+    "summary_fell_back": 0,
+    "source_achievements_preserved": 12,
+    "over_reverted": 11
+  },
+  "cases": [
+    {
+      "id": "N01",
+      "domain": "digital marketing",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "Digital Marketing Executive with 3+ years of professional experience running Google Ads and Meta Ads campaigns for D2C brands, seeking the Performance Marketing Manager role. Cut cost per acquisition from Rs 640 to Rs 410 through creative testing.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N01",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Digital Marketing Executive with 3+ years of professional experience running Google Ads and Meta Ads campaigns for D2C brands, seeking the Performance Marketing Manager role.",
+          "final": "Digital Marketing Executive with 3+ years of professional experience running Google Ads and Meta Ads campaigns for D2C brands, seeking the Performance Marketing Manager role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N01",
+          "where": "summary",
+          "kind": "one_unsupported",
+          "input": "Cut cost per acquisition from Rs 640 to Rs 410 through data-driven creative testing.",
+          "final": "Cut cost per acquisition from Rs 640 to Rs 410 through creative testing.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N01",
+          "where": "bullet",
+          "kind": "tailored",
+          "input": "Ran Google Ads and Meta Ads campaigns for 3 skincare brands with a monthly budget of Rs 12 lakh.",
+          "final": "Ran Google Ads and Meta Ads campaigns for 3 skincare brands with a monthly budget of Rs 12 lakh.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N01",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Reduced cost per acquisition from Rs 640 to Rs 410 by testing 25 creatives and restructuring ad sets, improving overall ROAS.",
+          "final": "Reduced cost per acquisition from Rs 640 to Rs 410 by testing 25 creatives and restructuring ad sets.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N01",
+          "where": "bullet",
+          "kind": "verb_swap",
+          "input": "Prepared weekly ROAS reports in Google Analytics and Excel for the founders.",
+          "final": "Built weekly ROAS reports in Google Analytics and Excel for the founders.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N01",
+          "where": "bullet",
+          "kind": "fabricated",
+          "input": "Led a content team to produce 40 SEO blog posts using HubSpot, growing organic sessions from 8,000 to 21,000 a month.",
+          "final": "Wrote 40 SEO blog posts and grew organic sessions from 8,000 to 21,000 a month.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        }
+      ]
+    },
+    {
+      "id": "N02",
+      "domain": "finance / chartered accountant",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "Finance Executive with 5+ years of professional experience in month-end close, GST and Ind AS reporting, seeking the Financial Analyst (FP&A) role.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N02",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Finance Executive with 5+ years of professional experience in month-end close, GST and Ind AS reporting, seeking the Financial Analyst (FP&A) role.",
+          "final": "Finance Executive with 5+ years of professional experience in month-end close, GST and Ind AS reporting, seeking the Financial Analyst (FP&A) role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N02",
+          "where": "summary",
+          "kind": "fabricated",
+          "input": "Strong analytical skills with hands-on Excel and SAP FICO expertise.",
+          "final": "",
+          "outcome": "dropped",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N02",
+          "where": "bullet",
+          "kind": "faithful",
+          "input": "Owned the month-end close for 2 plants, cutting close time from 9 days to 6 days.",
+          "final": "Owned the month-end close for 2 plants, cutting close time from 9 days to 6 days.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N02",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Reconciled 14 bank accounts and vendor ledgers monthly in SAP FICO with zero audit exceptions.",
+          "final": "Reconciled 14 bank accounts and vendor ledgers monthly in SAP FICO.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N02",
+          "where": "bullet",
+          "kind": "fabricated",
+          "input": "Led variance analysis and forecasting for the Ind AS financial statements, driving budget accuracy.",
+          "final": "Prepared GST returns and supported the Ind AS financial statements audit.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N02",
+          "where": "bullet",
+          "kind": "truthful_unscoped",
+          "input": "Performed statutory audits of 11 mid-size manufacturing companies.",
+          "final": "Audited 11 mid-size manufacturing clients under statutory audit engagements.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        }
+      ]
+    },
+    {
+      "id": "N03",
+      "domain": "HR / recruitment",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "HR Recruiter with 3+ years of professional experience hiring for technology and operations roles, seeking the Talent Acquisition Specialist role. Closed 85 hires in 2024 through sourcing on LinkedIn Recruiter and Naukri.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N03",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "HR Recruiter with 3+ years of professional experience hiring for technology and operations roles, seeking the Talent Acquisition Specialist role.",
+          "final": "HR Recruiter with 3+ years of professional experience hiring for technology and operations roles, seeking the Talent Acquisition Specialist role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N03",
+          "where": "summary",
+          "kind": "one_unsupported",
+          "input": "Closed 85 hires in 2024 through strategic sourcing on LinkedIn Recruiter and Naukri.",
+          "final": "Closed 85 hires in 2024 through sourcing on LinkedIn Recruiter and Naukri.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N03",
+          "where": "bullet",
+          "kind": "tailored",
+          "input": "Closed 85 tech and operations hires in 2024 with an average time-to-hire of 28 days.",
+          "final": "Closed 85 tech and operations hires in 2024 with an average time-to-hire of 28 days.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N03",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Sourced candidates on LinkedIn Recruiter and Naukri, screening 60 profiles a week and partnering with hiring managers.",
+          "final": "Sourced candidates on LinkedIn Recruiter and Naukri, screening 60 profiles a week.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N03",
+          "where": "bullet",
+          "kind": "fabricated",
+          "input": "Designed and implemented a structured onboarding program for 120 new joiners, improving 90-day retention.",
+          "final": "Coordinated onboarding for 120 new joiners with the payroll team.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        }
+      ]
+    },
+    {
+      "id": "N04",
+      "domain": "B2B sales",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "Inside Sales Executive with 2+ years of professional experience selling SaaS subscriptions to SMBs, seeking the Account Executive (Mid-Market) role. Achieved 118% of the annual quota in 2025.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N04",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Inside Sales Executive with 2+ years of professional experience selling SaaS subscriptions to SMBs, seeking the Account Executive (Mid-Market) role.",
+          "final": "Inside Sales Executive with 2+ years of professional experience selling SaaS subscriptions to SMBs, seeking the Account Executive (Mid-Market) role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N04",
+          "where": "summary",
+          "kind": "one_unsupported",
+          "input": "Achieved 118% of the annual quota in 2025 as a consistent top performer.",
+          "final": "Achieved 118% of the annual quota in 2025.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N04",
+          "where": "bullet",
+          "kind": "faithful",
+          "input": "Achieved 118% of the annual quota in 2025, closing Rs 96 lakh in new SaaS subscriptions.",
+          "final": "Achieved 118% of the annual quota in 2025, closing Rs 96 lakh in new SaaS subscriptions.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N04",
+          "where": "bullet",
+          "kind": "truthful_unscoped",
+          "input": "Made 60 outbound prospecting calls a day and qualified leads in Salesforce for 2 account executives.",
+          "final": "Made 60 cold calls a day and qualified leads in Salesforce for 2 account executives.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N04",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Negotiated renewal discounts with 30 SMB SaaS customers, protecting recurring revenue.",
+          "final": "Negotiated renewal discounts with 30 SMB SaaS customers.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N04",
+          "where": "bullet",
+          "kind": "fabricated",
+          "input": "Exceeded broadband sales targets by selling 210 connections in Pune through consultative selling.",
+          "final": "Sold 210 broadband connections door to door in Pune.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        }
+      ]
+    },
+    {
+      "id": "N05",
+      "domain": "warehouse / supply-chain operations",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "Operations Executive with 4+ years of professional experience running inbound and dispatch for an FMCG distributor, seeking the Operations Manager - Fulfilment role.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N05",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Operations Executive with 4+ years of professional experience running inbound and dispatch for an FMCG distributor, seeking the Operations Manager - Fulfilment role.",
+          "final": "Operations Executive with 4+ years of professional experience running inbound and dispatch for an FMCG distributor, seeking the Operations Manager - Fulfilment role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N05",
+          "where": "summary",
+          "kind": "fabricated",
+          "input": "Proven leader in Lean and Six Sigma continuous improvement.",
+          "final": "",
+          "outcome": "dropped",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N05",
+          "where": "bullet",
+          "kind": "tailored",
+          "input": "Supervised 18 pickers and loaders across 2 shifts.",
+          "final": "Supervised 18 pickers and loaders across 2 shifts.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N05",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Reduced dispatch errors from 3.2% to 0.9% by introducing automated barcode scanning at packing.",
+          "final": "Reduced dispatch errors from 3.2% to 0.9% by introducing barcode scanning at packing.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N05",
+          "where": "bullet",
+          "kind": "fabricated",
+          "input": "Improved inventory accuracy to 99.5% through Lean and Six Sigma cycle counts in SAP MM for 4,500 SKUs.",
+          "final": "Ran monthly cycle counts in SAP MM for 4,500 SKUs.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N05",
+          "where": "bullet",
+          "kind": "faithful",
+          "input": "Negotiated freight rates with 6 transport vendors, saving Rs 18 lakh a year.",
+          "final": "Negotiated freight rates with 6 transport vendors, saving Rs 18 lakh a year.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        }
+      ]
+    },
+    {
+      "id": "N06",
+      "domain": "data / business analysis",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "Data Analyst with 2+ years of professional experience building Power BI dashboards with SQL, seeking the Business Analyst role.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N06",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Data Analyst with 2+ years of professional experience building Power BI dashboards with SQL, seeking the Business Analyst role.",
+          "final": "Data Analyst with 2+ years of professional experience building Power BI dashboards with SQL, seeking the Business Analyst role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N06",
+          "where": "summary",
+          "kind": "fabricated",
+          "input": "Skilled at translating business questions into SQL analysis.",
+          "final": "",
+          "outcome": "dropped",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N06",
+          "where": "bullet",
+          "kind": "tailored",
+          "input": "Built 12 Power BI dashboards for regional managers on sales and inventory.",
+          "final": "Built 12 Power BI dashboards for regional managers on sales and inventory.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N06",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Automated a weekly margin report with SQL queries, saving 5 hours a week and enabling faster decisions.",
+          "final": "Automated a weekly margin report with SQL queries, saving 5 hours a week.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N06",
+          "where": "bullet",
+          "kind": "verb_swap",
+          "input": "Prepared 3 years of POS data in Pandas and Python for a pricing study.",
+          "final": "Cleaned 3 years of POS data in Pandas and Python for a pricing study.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N06",
+          "where": "project",
+          "kind": "one_unsupported",
+          "input": "Pandas and Python analysis of 10,000 telecom customers identifying 4 key churn drivers.",
+          "final": "Pandas and Python analysis of 10,000 telecom customers identifying 4 churn drivers.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        }
+      ]
+    },
+    {
+      "id": "N07",
+      "domain": "education (career switch to instructional design)",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "Science Teacher with 6+ years of professional experience designing lesson plans and digital quizzes, seeking the Instructional Designer role.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N07",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Science Teacher with 6+ years of professional experience designing lesson plans and digital quizzes, seeking the Instructional Designer role.",
+          "final": "Science Teacher with 6+ years of professional experience designing lesson plans and digital quizzes, seeking the Instructional Designer role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N07",
+          "where": "summary",
+          "kind": "fabricated",
+          "input": "Experienced instructional designer skilled in ADDIE and storyboarding.",
+          "final": "",
+          "outcome": "dropped",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N07",
+          "where": "bullet",
+          "kind": "faithful",
+          "input": "Taught physics and chemistry to 4 sections of Grade 9 and 10, about 160 students.",
+          "final": "Taught physics and chemistry to 4 sections of Grade 9 and 10, about 160 students.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N07",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Designed 30 lesson plans and Google Classroom quizzes aligned to the CBSE syllabus using the ADDIE model.",
+          "final": "Designed 30 lesson plans and Google Classroom quizzes aligned to the CBSE syllabus.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N07",
+          "where": "bullet",
+          "kind": "fabricated",
+          "input": "Built interactive e-learning modules in Articulate Storyline that raised the pass rate from 82% to 94%.",
+          "final": "Raised the Grade 10 science pass rate from 82% to 94% over 2 years.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        }
+      ]
+    },
+    {
+      "id": "N08",
+      "domain": "customer support to customer success",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "Customer Support Team Lead with 5+ years of professional experience supporting B2B payments merchants, seeking the Customer Success Manager role. Raised CSAT from 82% to 91%.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N08",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Customer Support Team Lead with 5+ years of professional experience supporting B2B payments merchants, seeking the Customer Success Manager role.",
+          "final": "Customer Support Team Lead with 5+ years of professional experience supporting B2B payments merchants, seeking the Customer Success Manager role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N08",
+          "where": "summary",
+          "kind": "one_unsupported",
+          "input": "Raised CSAT from 82% to 91% with a proactive, customer-first approach.",
+          "final": "Raised CSAT from 82% to 91%.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N08",
+          "where": "bullet",
+          "kind": "faithful",
+          "input": "Led a team of 9 support agents handling 2,400 tickets a month in Zendesk.",
+          "final": "Led a team of 9 support agents handling 2,400 tickets a month in Zendesk.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N08",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Raised CSAT from 82% to 91% by rewriting 35 customer-facing macros and help-centre articles.",
+          "final": "Raised CSAT from 82% to 91% by rewriting 35 macros and help-centre articles.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N08",
+          "where": "bullet",
+          "kind": "truthful_unscoped",
+          "input": "Managed escalations for 40 enterprise accounts within a 4-hour SLA.",
+          "final": "Handled escalations for 40 enterprise merchants within a 4-hour SLA.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N08",
+          "where": "bullet",
+          "kind": "fabricated",
+          "input": "Resolved 70 tickets a day while driving account adoption and renewals.",
+          "final": "Resolved 70 payment and settlement tickets a day by phone and email.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        }
+      ]
+    },
+    {
+      "id": "N09",
+      "domain": "healthcare (nursing to clinical research)",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": false,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [
+        "[seniority_calibration] no growth_note explaining the level gap"
+      ],
+      "summary": "Staff Nurse with 4+ years of professional experience in cardiology wards, seeking the Clinical Research Coordinator role.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N09",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Staff Nurse with 4+ years of professional experience in cardiology wards, seeking the Clinical Research Coordinator role.",
+          "final": "Staff Nurse with 4+ years of professional experience in cardiology wards, seeking the Clinical Research Coordinator role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N09",
+          "where": "summary",
+          "kind": "fabricated",
+          "input": "GCP-certified professional experienced in trial coordination.",
+          "final": "",
+          "outcome": "dropped",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N09",
+          "where": "bullet",
+          "kind": "truthful_unscoped",
+          "input": "Cared for 6 to 8 cardiac patients per shift in a 30-bed cardiology ward.",
+          "final": "Cared for 6 to 8 cardiac patients per shift in a 30-bed ward.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N09",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Recorded medication and vitals in the electronic health record every shift, ensuring GCP-level documentation.",
+          "final": "Recorded medication and vitals in the electronic health record every shift.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N09",
+          "where": "bullet",
+          "kind": "fabricated",
+          "input": "Screened and enrolled 5 patients into clinical trials after obtaining informed consent.",
+          "final": "Cared for 6 to 8 cardiac patients per shift in a 30-bed ward.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": false,
+          "tailoring_retained": false
+        }
+      ]
+    },
+    {
+      "id": "N10",
+      "domain": "accounting fresher",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "B.Com graduate (2025) with an accounts internship in Tally Prime, seeking the Accounts Executive role.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N10",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "B.Com graduate (2025) with an accounts internship in Tally Prime, seeking the Accounts Executive role.",
+          "final": "B.Com graduate (2025) with an accounts internship in Tally Prime, seeking the Accounts Executive role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N10",
+          "where": "summary",
+          "kind": "fabricated",
+          "input": "Detail-oriented and proficient in GST filing.",
+          "final": "",
+          "outcome": "dropped",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N10",
+          "where": "bullet",
+          "kind": "faithful",
+          "input": "Entered 600 purchase and sales vouchers in Tally Prime.",
+          "final": "Entered 600 purchase and sales vouchers in Tally Prime.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N10",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Prepared 3 bank reconciliation statements monthly for the proprietor, ensuring timely closing.",
+          "final": "Prepared 3 bank reconciliation statements monthly for the proprietor.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N10",
+          "where": "project",
+          "kind": "one_unsupported",
+          "input": "Excel workbook that flags mismatches and automatically tracks GST on 150 sample invoices.",
+          "final": "Excel workbook that flags mismatches and tracks GST on 150 sample invoices.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        }
+      ]
+    },
+    {
+      "id": "N11",
+      "domain": "graphic design to UI/UX",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "Graphic Designer with 3+ years of professional experience in social media, packaging and brand identity design, seeking the UI/UX Designer role.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N11",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Graphic Designer with 3+ years of professional experience in social media, packaging and brand identity design, seeking the UI/UX Designer role.",
+          "final": "Graphic Designer with 3+ years of professional experience in social media, packaging and brand identity design, seeking the UI/UX Designer role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N11",
+          "where": "summary",
+          "kind": "fabricated",
+          "input": "Passionate about user-centred design and design systems.",
+          "final": "",
+          "outcome": "dropped",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N11",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Designed 20 social media creatives and landing pages a week for 5 retail clients in Illustrator and Photoshop.",
+          "final": "Designed 20 social media creatives a week for 5 retail clients in Illustrator and Photoshop.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N11",
+          "where": "bullet",
+          "kind": "faithful",
+          "input": "Created packaging for 12 snack products, from concept sketches to print-ready files.",
+          "final": "Created packaging for 12 snack products, from concept sketches to print-ready files.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N11",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Rebuilt a jewellery client's brand identity, including logo, typography and colour palette, following a user-centred design process.",
+          "final": "Rebuilt a jewellery client's brand identity, including logo, typography and colour palette.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N11",
+          "where": "project",
+          "kind": "one_unsupported",
+          "input": "High-fidelity Figma prototype of a 6-screen bus pass app, tested with 8 classmates.",
+          "final": "Figma prototype of a 6-screen bus pass app, tested with 8 classmates.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        }
+      ]
+    },
+    {
+      "id": "N12",
+      "domain": "manufacturing quality (non-software engineering)",
+      "gates": {
+        "factual_fidelity": true,
+        "ats_keywords": true,
+        "seniority_calibration": true,
+        "section_completeness": true,
+        "readability": true,
+        "career_gap": true,
+        "projects_vs_employment": true,
+        "detail_fidelity": true,
+        "summary_framing": true,
+        "advice_fidelity": true
+      },
+      "defects": [],
+      "summary": "Quality Engineer with 4+ years of professional experience in automotive component manufacturing, seeking the Quality Engineer role. Reduced customer complaints from 14 to 4 a quarter using 8D root cause analysis.",
+      "summary_names_target": true,
+      "summary_fell_back": false,
+      "source_achievements_preserved": true,
+      "items": [
+        {
+          "case": "N12",
+          "where": "summary",
+          "kind": "tailored",
+          "input": "Quality Engineer with 4+ years of professional experience in automotive component manufacturing, seeking the Quality Engineer role.",
+          "final": "Quality Engineer with 4+ years of professional experience in automotive component manufacturing, seeking the Quality Engineer role.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N12",
+          "where": "summary",
+          "kind": "one_unsupported",
+          "input": "Reduced customer complaints from 14 to 4 a quarter using 8D root cause analysis, ensuring IATF 16949 compliance.",
+          "final": "Reduced customer complaints from 14 to 4 a quarter using 8D root cause analysis.",
+          "outcome": "trimmed",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N12",
+          "where": "bullet",
+          "kind": "tailored",
+          "input": "Reduced customer complaints on brake housings from 14 to 4 a quarter using 8D root cause analysis.",
+          "final": "Reduced customer complaints on brake housings from 14 to 4 a quarter using 8D root cause analysis.",
+          "outcome": "kept",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": true
+        },
+        {
+          "case": "N12",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Ran SPC on 3 machining lines in Minitab and flagged drifting processes to the shift supervisors, preventing costly scrap.",
+          "final": "Ran SPC on 3 machining lines in Minitab and flagged drifting processes to the shift supervisors.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        },
+        {
+          "case": "N12",
+          "where": "bullet",
+          "kind": "one_unsupported",
+          "input": "Prepared PPAP and APQP files for 9 new parts for a two-wheeler customer.",
+          "final": "Prepared PPAP files for 9 new parts for a two-wheeler customer.",
+          "outcome": "reverted",
+          "clean": true,
+          "achievements_kept": true,
+          "tailoring_retained": false
+        }
+      ]
+    }
+  ]
+}

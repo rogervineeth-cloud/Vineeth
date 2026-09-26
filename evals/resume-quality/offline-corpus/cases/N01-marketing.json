@@ -1,0 +1,77 @@
+{
+  "id": "N01",
+  "domain": "digital marketing",
+  "expected_fit": "match",
+  "facts": { "professional_years": 3.1, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Aditi Rao (fictional)",
+    "email": "aditi.rao@example.com",
+    "summary": "Digital marketing executive running Google Ads and Meta Ads campaigns for D2C brands.",
+    "skills": ["Google Ads", "Meta Ads", "Google Analytics", "SEO", "Excel", "Canva"],
+    "target_roles": ["Performance Marketing Manager"],
+    "experience": [
+      {
+        "company": "Brightleaf D2C Pvt Ltd",
+        "role": "Digital Marketing Executive",
+        "duration": "Aug 2023 - Present",
+        "location": "Mumbai",
+        "bullets": [
+          "Ran Google Ads and Meta Ads campaigns with a monthly budget of Rs 12 lakh for 3 skincare brands.",
+          "Cut cost per acquisition from Rs 640 to Rs 410 by restructuring ad sets and testing 25 creatives.",
+          "Built weekly ROAS reports in Google Analytics and Excel for the founders."
+        ]
+      },
+      {
+        "company": "Kinetic Media Agency",
+        "role": "Marketing Intern",
+        "duration": "Jan 2023 - Jul 2023",
+        "location": "Mumbai",
+        "bullets": ["Wrote 40 SEO blog posts and grew organic sessions from 8,000 to 21,000 a month."]
+      }
+    ],
+    "education": [{ "institution": "Harbourline College of Commerce", "degree": "BMS Marketing", "year": "2019 - 2022", "location": "Mumbai" }],
+    "projects": []
+  },
+  "jd": {
+    "title": "Performance Marketing Manager",
+    "text": "We are hiring a Performance Marketing Manager to own paid acquisition across Google Ads and Meta Ads. You will manage budgets, optimise CPA and ROAS, run creative testing, build dashboards and report to leadership. 3+ years of performance marketing experience required. Experience with marketing automation, CRM and attribution tools is a plus."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education"],
+    "summary": "Digital Marketing Executive with 3+ years of professional experience running Google Ads and Meta Ads campaigns for D2C brands, seeking the Performance Marketing Manager role. Cut cost per acquisition from Rs 640 to Rs 410 through data-driven creative testing.",
+    "experience": [
+      {
+        "company": "Brightleaf D2C Pvt Ltd",
+        "role": "Digital Marketing Executive",
+        "duration": "Aug 2023 - Present",
+        "bullets": [
+          "Ran Google Ads and Meta Ads campaigns for 3 skincare brands with a monthly budget of Rs 12 lakh.",
+          "Reduced cost per acquisition from Rs 640 to Rs 410 by testing 25 creatives and restructuring ad sets, improving overall ROAS.",
+          "Prepared weekly ROAS reports in Google Analytics and Excel for the founders."
+        ]
+      },
+      {
+        "company": "Kinetic Media Agency",
+        "role": "Marketing Intern",
+        "duration": "Jan 2023 - Jul 2023",
+        "bullets": ["Led a content team to produce 40 SEO blog posts using HubSpot, growing organic sessions from 8,000 to 21,000 a month."]
+      }
+    ],
+    "skills": ["Google Ads", "Meta Ads", "Google Analytics", "Excel", "SEO"],
+    "education": [{ "institution": "Harbourline College of Commerce", "degree": "BMS Marketing", "year": "2019 - 2022" }],
+    "ats_score": 70,
+    "matched_keywords": ["Google Ads", "Meta Ads"],
+    "missing_keywords": ["Marketing Automation", "CRM", "Attribution"],
+    "tailored_role": "Performance Marketing Manager",
+    "profile_improvement_tips": ["Gain hands-on experience with a marketing automation or CRM tool before applying to senior roles."],
+    "growth_note": "You match 3 of the 5 key requirements (Google Ads, Meta Ads, ROAS, dashboards). Gaining experience with marketing automation and attribution tools would strengthen your application."
+  },
+  "labels": [
+    { "where": "summary", "text": "Digital Marketing Executive with 3+ years of professional experience running Google Ads and Meta Ads campaigns for D2C brands, seeking the Performance Marketing Manager role.", "kind": "tailored" },
+    { "where": "summary", "text": "Cut cost per acquisition from Rs 640 to Rs 410 through data-driven creative testing.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Ran Google Ads and Meta Ads campaigns for 3 skincare brands with a monthly budget of Rs 12 lakh.", "kind": "tailored" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Reduced cost per acquisition from Rs 640 to Rs 410 by testing 25 creatives and restructuring ad sets, improving overall ROAS.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Prepared weekly ROAS reports in Google Analytics and Excel for the founders.", "kind": "verb_swap" },
+    { "where": "bullet", "role": 1, "source": 0, "text": "Led a content team to produce 40 SEO blog posts using HubSpot, growing organic sessions from 8,000 to 21,000 a month.", "kind": "fabricated" }
+  ]
+}
