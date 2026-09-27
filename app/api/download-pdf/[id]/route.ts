@@ -22,8 +22,11 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const allowed = await canDownloadResume(authUser.id, id);
-    if (!allowed) {
+    const decision = await canDownloadResume(authUser.id, id);
+    if (decision === "not_found") {
+      return NextResponse.json({ error: "Resume not found" }, { status: 404 });
+    }
+    if (decision !== "allowed") {
       return NextResponse.json(
         { error: "PAYMENT_REQUIRED", message: "A paid plan is required to download.", upgrade_url: "/pricing" },
         { status: 402 }

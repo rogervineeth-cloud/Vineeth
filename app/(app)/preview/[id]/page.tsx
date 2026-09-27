@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Download, Loader2, Lock } from "lucide-react";
 import { PLANS } from "@/lib/plan-config";
+import { resumeDownloadAllowed } from "@/lib/download-entitlement";
 
 // Derived from PLANS so this can never drift from the pricing page again —
 // the unlock button used to hardcode ₹100 while the cheapest plan was ₹99.
@@ -134,8 +135,10 @@ export default function PreviewPage() {
       const [resumeRes, profileRes, plansRes] = await Promise.all([
         supabase.from("resumes").select("*").eq("id", id).eq("user_id", user.id).single(),
         supabase.from("profiles").select("full_name,email,phone,current_city").eq("user_id", user.id).single(),
-        supabase.from("user_plans").select("resumes_used,resumes_allotted,expires_at")
-          .eq("user_id", user.id).gt("expires_at", new Date().toISOString()),
+        // All plans, not only unexpired ones: a plan held when this resume was
+        // created entitles its download even after it is exhausted or expired.
+        supabase.from("user_plans").select("resumes_used,resumes_allotted,expires_at,purchased_at")
+          .eq("user_id", user.id),
       ]);
 
       if (resumeRes.error || !resumeRes.data) {
@@ -156,8 +159,8 @@ export default function PreviewPage() {
         setProfile(profileRes.data as Profile);
       }
 
-      const hasPlan = plansRes.data?.some((p) => p.resumes_used < p.resumes_allotted) ?? false;
-      setCanDownload(hasPlan || !!r.downloaded_at);
+      // Same rule the download route enforces.
+      setCanDownload(resumeDownloadAllowed(r, plansRes.data ?? []));
       setLoading(false);
     }
     load();
