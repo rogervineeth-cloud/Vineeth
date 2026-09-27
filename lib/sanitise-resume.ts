@@ -159,6 +159,13 @@ export function resolveProfileName(name: string, profileNames: string[]): string
 
 const numbersKey = (s: string) => [...extractNumbers(s ?? "")].sort().join(" ");
 
+/**
+ * A degree compared on its letters and digits only, so "B.Tech", "B. Tech"
+ * and "BTech" are the same degree. Wording changes ("in", "Bachelor of
+ * Technology") are not: the degree must be the candidate's.
+ */
+const degreeKey = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+
 /** Numeric tokens in a blob of text, with thousands separators removed. */
 export function extractNumbers(text: string): Set<string> {
   const out = new Set<string>();
@@ -381,37 +388,39 @@ export function sanitiseGeneratedResume(
         warnings.push(`dropped_placeholder_institution:${inst}`);
         return false;
       }
-      // Institution, degree and year are the candidate's own facts: an entry
-      // must be one of theirs, and is shown with their spelling. It is matched
-      // by institution name (exact or near miss) or, failing that, by the same
-      // degree and years; an entry that matches nothing is fabricated.
+      // Factual fidelity. Institution, degree and year are the candidate's own
+      // facts, and the model has altered them (PR #38 live QA: "Deccan" came
+      // back as "Declan"). An entry is identified by its DEGREE AND YEAR — the
+      // institution name is the field that gets misspelt, so it is not trusted
+      // to identify anything. When exactly one profile entry has the same
+      // degree and year, the entry is shown with that profile entry's
+      // institution, degree and year, verbatim. Otherwise — degree or year
+      // changed, no profile education at all, or an ambiguous match — the
+      // entry is dropped: nothing is invented and nothing is guessed.
       const profileEdu = profile.education ?? [];
-      if (profileEdu.length === 0) return true;
-      const name = resolveProfileName(inst, profileEdu.map((p) => p.institution));
-      const byName = name ? profileEdu.filter((p) => norm(p.institution) === norm(name)) : [];
-      const byDegree = profileEdu.filter(
-        (p) => norm(p.degree) === norm(ed.degree ?? "") && numbersKey(p.year) === numbersKey(ed.year ?? "")
+      const sameDegreeAndYear = profileEdu.filter(
+        (p) => degreeKey(p.degree) === degreeKey(ed.degree ?? "") && numbersKey(p.year ?? "") === numbersKey(ed.year ?? "")
       );
+      // Two profile entries with the same degree and year (rare): the model's
+      // institution name, if it is a near miss of exactly one, decides.
+      const named = sameDegreeAndYear.length > 1 ? resolveProfileName(inst, sameDegreeAndYear.map((p) => p.institution)) : null;
       const src =
-        (byName.length === 1 ? byName[0] : null) ??
-        byName.find((p) => norm(p.degree) === norm(ed.degree ?? "")) ??
-        (byDegree.length === 1 ? byDegree[0] : null);
+        sameDegreeAndYear.length === 1 ? sameDegreeAndYear[0]
+        : named ? sameDegreeAndYear.find((p) => norm(p.institution) === norm(named))!
+        : null;
       if (!src) {
-        warnings.push(`dropped_fabricated_institution:${inst}`);
+        warnings.push(
+          profileEdu.some((p) => resolveProfileName(inst, [p.institution]))
+            ? `dropped_education_degree_or_year_mismatch:${inst}`
+            : `dropped_fabricated_institution:${inst}`
+        );
         return false;
       }
-      if (norm(src.institution) !== norm(inst)) {
-        warnings.push(`restored_institution:${inst}->${src.institution}`);
-        ed.institution = src.institution;
-      }
-      if (typeof ed.degree === "string" && norm(ed.degree) !== norm(src.degree)) {
-        warnings.push(`restored_degree:${ed.degree}->${src.degree}`);
-        ed.degree = src.degree;
-      }
-      if (typeof ed.year === "string" && src.year && numbersKey(ed.year) !== numbersKey(src.year)) {
-        warnings.push(`restored_education_year:${ed.year}->${src.year}`);
-        ed.year = src.year;
-      }
+      if (norm(src.institution) !== norm(inst)) warnings.push(`restored_institution:${inst}->${src.institution}`);
+      // Same degree and year by key; all three shown with the candidate's own text.
+      ed.institution = src.institution;
+      ed.degree = src.degree;
+      ed.year = src.year;
       return true;
     });
     if (cleanedEdu.length === 0) {

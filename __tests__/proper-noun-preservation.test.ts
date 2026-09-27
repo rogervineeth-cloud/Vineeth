@@ -106,16 +106,21 @@ describe("education: the candidate's institution, degree and years", () => {
     expect(warnings).toContain("restored_institution:Indian Institute of Technology, Madras->IIT Madras");
   });
 
-  it("an inflated degree or shifted years on a matched institution are restored", () => {
-    const { resume } = sanitise({ education: [{ institution: "Deccan College of Engineering", degree: "M.Tech Information Technology", year: "2017 - 2021" }] });
-    expect(resume.education).toEqual([{ institution: "Deccan College of Engineering", degree: "B.Tech Information Technology", year: "2016 - 2020" }]);
+  it("an inflated degree or shifted years are NOT rewritten onto a matched institution: the entry is dropped", () => {
+    // Previously restored from the institution-name match. The degree and year
+    // are what identify the entry; when they changed, nothing is guessed.
+    const { resume, warnings } = sanitise({ education: [{ institution: "Deccan College of Engineering", degree: "M.Tech Information Technology", year: "2017 - 2021" }] });
+    expect(resume.education).toBeUndefined();
+    expect(warnings).toContain("dropped_education_degree_or_year_mismatch:Deccan College of Engineering");
   });
 
-  it("a verbatim entry is untouched; placeholders are still dropped; no profile education means no check", () => {
+  it("a verbatim entry is untouched; placeholders are still dropped; with no profile education, model education is dropped", () => {
     const ok = { institution: "IIT Madras", degree: "M.Tech CSE", year: "2020 - 2022" };
     expect(sanitise({ education: [ok] }).resume.education).toEqual([ok]);
     expect(sanitise({ education: [{ institution: "Institution Name", degree: "B.Tech", year: "2020" }] }).warnings).toContain("dropped_placeholder_institution:Institution Name");
-    expect(sanitiseGeneratedResume({ education: [ok] }, { experience: [] }).resume.education).toEqual([ok]);
+    const none = sanitiseGeneratedResume({ education: [ok] }, { experience: [] });
+    expect(none.resume.education).toBeUndefined();
+    expect(none.warnings).toContain("dropped_fabricated_institution:IIT Madras");
   });
 });
 
@@ -145,5 +150,84 @@ describe("employer: the candidate's spelling (analogous to S04)", () => {
     const { resume, warnings } = sanitise({ experience: [exp("Globex Corporation", "Staff Engineer", "2019 - 2020")] });
     expect(resume.experience).toBeUndefined();
     expect(warnings).toContain("dropped_fabricated_company:Globex Corporation");
+  });
+});
+
+// PR #38 release blocker: the model altered an institution name ("Deccan" ->
+// "Declan") and the runtime did not correct it. Rule: the institution is
+// preserved/restored from the profile ONLY when the entry's degree and year
+// match a profile entry; otherwise the model's entry is dropped.
+describe("factual fidelity guard: degree + year identify the education entry", () => {
+  const DECCAN = { institution: "Deccan College of Engineering", degree: "B.Tech Information Technology", year: "2016 - 2020" };
+  const edu = (over: Partial<typeof DECCAN>) => sanitise({ education: [{ ...DECCAN, ...over }] });
+
+  it("Declan with the candidate's degree and year → restored to Deccan, verbatim", () => {
+    const { resume, warnings } = edu({ institution: "Declan College of Engineering" });
+    expect(resume.education).toEqual([DECCAN]);
+    expect(warnings).toContain("restored_institution:Declan College of Engineering->Deccan College of Engineering");
+  });
+
+  it("any altered institution name is replaced when degree and year match (not only near misses)", () => {
+    expect(edu({ institution: "Deccan Engg. College, Hyderabad" }).resume.education).toEqual([DECCAN]);
+  });
+
+  it.each([
+    ["degree changed", { institution: "Declan College of Engineering", degree: "B.E. Information Technology" }],
+    ["degree inflated", { institution: "Declan College of Engineering", degree: "M.Tech Information Technology" }],
+    ["year shifted", { institution: "Declan College of Engineering", year: "2017 - 2021" }],
+    ["year missing", { institution: "Declan College of Engineering", year: "" }],
+    ["exact institution, year shifted", { year: "2016 - 2021" }],
+  ])("%s → the entry is dropped, not restored and not invented", (_label, over) => {
+    const { resume, warnings } = edu(over);
+    expect(resume.education).toBeUndefined();
+    expect(JSON.stringify(resume)).not.toMatch(/Declan|Deccan/);
+    expect(warnings.some((w) => w.startsWith("dropped_education_degree_or_year_mismatch:"))).toBe(true);
+  });
+
+  it("degree punctuation/spacing and year formatting differences still match, and show the candidate's text", () => {
+    const { resume } = edu({ institution: "Declan College of Engineering", degree: "B. Tech  Information-Technology", year: "2016–2020" });
+    expect(resume.education).toEqual([DECCAN]);
+  });
+
+  it("an unknown institution with an unknown degree/year is dropped as fabricated", () => {
+    const { resume, warnings } = sanitise({ education: [{ institution: "Stanford University", degree: "MS CS", year: "2023" }] });
+    expect(resume.education).toBeUndefined();
+    expect(warnings).toContain("dropped_fabricated_institution:Stanford University");
+  });
+
+  it("two profile entries with the same degree and year: a near-miss name picks one; an unrelated name drops the entry", () => {
+    const twin: SanitiseProfile = { experience: [], education: [
+      { institution: "Deccan College of Engineering", degree: "Diploma", year: "2020" },
+      { institution: "Osmania University", degree: "Diploma", year: "2020" },
+    ] };
+    expect(sanitiseGeneratedResume({ education: [{ institution: "Osmaina University", degree: "Diploma", year: "2020" }] }, twin).resume.education)
+      .toEqual([{ institution: "Osmania University", degree: "Diploma", year: "2020" }]);
+    expect(sanitiseGeneratedResume({ education: [{ institution: "JNTU", degree: "Diploma", year: "2020" }] }, twin).resume.education).toBeUndefined();
+  });
+
+  it("only the bad entry is dropped; the other education stays; an emptied section leaves section_order", () => {
+    const { resume } = sanitise({
+      section_order: ["summary", "education", "skills"],
+      education: [{ ...DECCAN, institution: "Declan College of Engineering" }, { institution: "IIT Madras", degree: "M.Tech CSE", year: "2021 - 2023" }],
+    });
+    expect(resume.education).toEqual([DECCAN]);
+    const gone = sanitise({ section_order: ["summary", "education", "skills"], education: [{ ...DECCAN, year: "2015 - 2019" }] }).resume;
+    expect(gone.education).toBeUndefined();
+    expect(gone.section_order).toEqual(["summary", "skills"]);
+  });
+
+  it("end to end through postProcessResume (the route's path): no 'Declan' reaches the saved resume", () => {
+    const profile = {
+      full_name: "Aarav Menon", email: "aarav@example.com",
+      education: [{ ...DECCAN, location: "Hyderabad" }],
+      experience: [], projects: [{ name: "Ledger", description: "Built a ledger app.", tech: ["Python"] }], skills: ["Python"],
+    };
+    const raw = { summary: "Graduate.", ats_score: 60, tailored_role: "Data Analyst", matched_keywords: [], missing_keywords: [],
+      section_order: ["summary", "education", "projects", "skills"], skills: ["Python"],
+      projects: [{ name: "Ledger", description: "Built a ledger app.", tech: ["Python"] }],
+      education: [{ institution: "Declan College of Engineering", degree: "B.Tech Information Technology", year: "2016 - 2020", location: "Hyderabad" }] };
+    const out = postProcessResume(raw, profile, { now: NOW });
+    expect(JSON.stringify(out.resume)).not.toMatch(/Declan/);
+    expect((out.resume as GeneratedResume).education?.[0]).toMatchObject(DECCAN);
   });
 });
