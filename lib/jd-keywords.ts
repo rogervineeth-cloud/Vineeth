@@ -248,3 +248,17 @@ export function effectiveJdKeywords(
   const added = extras.filter((k) => !base.some((b) => b.toLowerCase() === k.toLowerCase()));
   return [...base, ...added];
 }
+
+/**
+ * Removing one keyword chip (its × button, or Backspace in the empty "+ add
+ * skill" input for the LAST chip): a detected keyword is remembered as
+ * removed, and a hand-added one is dropped. Returns new values.
+ */
+export function withoutKeyword(
+  removed: ReadonlySet<string>,
+  extras: readonly string[],
+  keyword: string
+): { removed: Set<string>; extras: string[] } {
+  const k = keyword.toLowerCase();
+  return { removed: new Set(removed).add(k), extras: extras.filter((x) => x.toLowerCase() !== k) };
+}

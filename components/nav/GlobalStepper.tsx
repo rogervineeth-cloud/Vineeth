@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { cleanTargetRoles } from "@/lib/target-roles";
 import { loadSignedInProfile } from "@/lib/profile-hydration";
 import { TEMPLATE_STORAGE_KEY } from "@/lib/templates";
+import { JD_MIN_CHARS } from "@/lib/jd-length";
+import { createStepFromParam, createStepHref, type CreateStep } from "@/lib/create-steps";
 
 const STEPS = [
   { key: "basics",     label: "Basics",    route: "/profile", subStep: "basics",     optional: false },
@@ -24,12 +26,8 @@ type StepKey = typeof STEPS[number]["key"];
 
 function getActiveStep(pathname: string, stepParam: string | null): number {
   if (pathname.startsWith("/preview")) return 8;
-  if (pathname.startsWith("/create")) {
-    if (stepParam === "resume") return 8;
-    if (stepParam === "review") return 7;
-    if (stepParam === "template") return 6;
-    return 5;
-  }
+  // Same mapping the create page uses, so both always show the same step.
+  if (pathname.startsWith("/create")) return 4 + createStepFromParam(stepParam);
   if (pathname.startsWith("/profile")) {
     const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4 };
     if (stepParam && stepParam in map) return map[stepParam];
@@ -106,9 +104,9 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
           education: eduSkipped || edu.some((e) => e.institution?.trim()),
           // Projects: complete if skipped OR has at least one entry with name
           projects: projSkipped || projects.some((pr) => pr.name?.trim()),
-          jd: jd.trim().length >= 200,
+          jd: jd.trim().length >= JD_MIN_CHARS,
           template: !!template,
-          review: !!(jd.trim().length >= 200 && template),
+          review: !!(jd.trim().length >= JD_MIN_CHARS && template),
           resume: !!resumeId,
         });
         setSkipped({
@@ -160,7 +158,11 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
             const isCompleted = i !== active && (completion[step.key] || (isPast && step.optional && !isSkipped));
             const isActive = i === active;
             const lastResumeHref = step.key === "resume" && latestResumeId ? "/preview/" + latestResumeId : null;
-            const baseHref = step.route + (step.subStep ? "?step=" + step.subStep : "");
+            // /create steps keep the current query (e.g. ?regen=<id>) so a
+            // regeneration does not lose its parent when navigated this way.
+            const baseHref = step.route === "/create" && pathname.startsWith("/create")
+              ? createStepHref(searchParams.toString(), (i - 4) as CreateStep)
+              : step.route + (step.subStep ? "?step=" + step.subStep : "");
             const href = lastResumeHref || baseHref;
             const clickable = isPast && !isActive;
 

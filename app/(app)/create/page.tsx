@@ -7,8 +7,10 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent, RESUME_CONTENT_HINT } from "@/lib/profile-completeness";
 import { parseRegenParam } from "@/lib/regen";
-import { analyzeJd, effectiveJdKeywords, type JdAnalysis } from "@/lib/jd-keywords";
+import { analyzeJd, effectiveJdKeywords, withoutKeyword, type JdAnalysis } from "@/lib/jd-keywords";
 import { storedTemplate, TEMPLATE_STORAGE_KEY, type TemplateId } from "@/lib/templates";
+import { createStepFromParam, type CreateStep } from "@/lib/create-steps";
+import { isAlreadyGenerating, ALREADY_GENERATING } from "@/lib/generation-feedback";
 import { cleanTargetRoles } from "@/lib/target-roles";
 import { singleFlight } from "@/lib/single-flight";
 import { jdLengthStatus, JD_MIN_CHARS } from "@/lib/jd-length";
@@ -244,14 +246,19 @@ function CreatePageInner() {
   const router = useRouter();
   const jdRef = useRef<HTMLTextAreaElement>(null);
 
-  const [flowStep, setFlowStep] = useState<1 | 2 | 3 | 4>(() => {
-    if (typeof window === "undefined") return 1;
-    const step = new URLSearchParams(window.location.search).get("step");
-    if (step === "template") return 2;
-    if (step === "review") return 3;
-    if (step === "resume") return 4;
-    return 1;
-  });
+  const searchParams = useSearchParams();
+  // The step follows ?step= — including when only the URL changes, as when a
+  // GlobalStepper link or the browser's Back button is used. It used to be
+  // read once on mount, so the stepper could show "Job Desc" while the page
+  // stayed on Template. (Adjusting state during render is React's pattern for
+  // "reset state when a prop changes"; no effect, no extra paint.)
+  const stepParam = searchParams.get("step");
+  const [flowStep, setFlowStep] = useState<CreateStep>(() => createStepFromParam(stepParam));
+  const [syncedStepParam, setSyncedStepParam] = useState(stepParam);
+  if (stepParam !== syncedStepParam) {
+    setSyncedStepParam(stepParam);
+    setFlowStep(createStepFromParam(stepParam));
+  }
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -267,7 +274,7 @@ function CreatePageInner() {
   // still holds the previous page's URL during the first render. Reading it
   // there returned null in production: ?regen= was in the address bar, never
   // in the request, and a same-JD regeneration was charged.
-  const regenParentId = parseRegenParam(useSearchParams().toString());
+  const regenParentId = parseRegenParam(searchParams.toString());
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -305,6 +312,8 @@ function CreatePageInner() {
   });
   const [newSkillInput, setNewSkillInput] = useState("");
   const [genError, setGenError] = useState<string | null>(null);
+  // A 409 GENERATION_IN_PROGRESS: benign, shown as its own state.
+  const [alreadyGenerating, setAlreadyGenerating] = useState(false);
 
   const [generating, setGenerating] = useState(false);
   // Synchronous lock: `generating` only disables the button on the next
@@ -424,6 +433,7 @@ function CreatePageInner() {
 
     setGenerating(true);
     setGenError(null);
+    setAlreadyGenerating(false);
     setGenStageIdx(0);
     setGenProgress(3);
     setGeneratedResume(null);
@@ -480,12 +490,21 @@ function CreatePageInner() {
       if (res.status < 500) attemptRef.current = null;
       const data = await res.json();
 
+      if (isAlreadyGenerating(res.status, data)) {
+        // Another tab or device is generating this resume right now. Nothing
+        // was charged and nothing went wrong: say so, and offer the dashboard
+        // (where it will appear) — not a red "Something went wrong".
+        setAlreadyGenerating(true);
+        setGenerating(false);
+        setGenProgress(0);
+        return;
+      }
+
       if (res.status === 409) {
-        // Another tab or device is generating this same resume right now (or
-        // a stale attempt timed out). Nothing was charged.
-        const msg = data.message || "This resume is already being generated. It will appear on your dashboard when it's ready.";
+        // e.g. the attempt timed out (GENERATION_EXPIRED). Nothing was charged.
+        const msg = data.message || "Please try again.";
         setGenError(msg);
-        toast.info(msg, { action: { label: "Dashboard", onClick: () => router.push("/dashboard") }, duration: 8000 });
+        toast.error(msg);
         setGenerating(false);
         setGenProgress(0);
         return;
@@ -593,6 +612,11 @@ function CreatePageInner() {
   // Plain computation: the React Compiler memoises it. A manual useMemo here
   // could not be preserved by the compiler (react-hooks/preserve-manual-memoization).
   const effectiveKeywords = effectiveJdKeywords(jdAnalysis.keywords, removedKeywords, extraKeywords);
+  const removeKeyword = (kw: string) => {
+    const next = withoutKeyword(removedKeywords, extraKeywords, kw);
+    setRemovedKeywords(next.removed);
+    setExtraKeywords(next.extras);
+  };
   const canGenerate =
     jdReady &&
     completeness.complete &&
@@ -684,42 +708,32 @@ function CreatePageInner() {
                           {(effectiveKeywords.length > 0 || jdReady) && (
               <div className="mt-3 flex flex-wrap gap-1.5 items-center">
                 <span className="text-xs text-[#6b6b6b]">Detected skills:</span>
-                {effectiveKeywords.slice(0, 12).map((kw) => (
+                {/* Every chip is shown: with a cap, a skill added by hand could sit
+                    hidden behind "+N more", and Backspace removed a different,
+                    visible chip while the next hidden one slid into its place. */}
+                {effectiveKeywords.map((kw) => (
                   <span key={kw} className="text-xs bg-white border border-[#1f5c3a]/25 text-[#1f5c3a] pl-2 pr-1 py-0.5 rounded-full inline-flex items-center gap-1">
                     {kw}
                     <button
                       type="button"
                       aria-label={`Remove ${kw}`}
-                      onClick={() => {
-                        setRemovedKeywords((prev) => {
-                          const next = new Set(prev);
-                          next.add(kw.toLowerCase());
-                          return next;
-                        });
-                        setExtraKeywords((prev) => prev.filter((x) => x.toLowerCase() !== kw.toLowerCase()));
-                      }}
+                      onClick={() => removeKeyword(kw)}
                       className="text-[#1f5c3a]/60 hover:text-[#1f5c3a] hover:bg-[#1f5c3a]/10 rounded-full w-4 h-4 inline-flex items-center justify-center leading-none"
                     >
                       ×
                     </button>
                   </span>
                 ))}
-                {effectiveKeywords.length > 12 && (
-                  <span className="text-xs text-[#999]">+{effectiveKeywords.length - 12} more</span>
-                )}
                 <input
                   type="text"
                   value={newSkillInput}
                   onChange={(e) => setNewSkillInput(e.target.value)}
                   aria-label="Add a skill"
                   onKeyDown={(e) => {
-                    const visible = effectiveKeywords.slice(0, 12);
-                    if (shouldRemoveLastChip({ key: e.key, repeat: e.repeat, isComposing: e.nativeEvent.isComposing, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey }, newSkillInput, visible.length)) {
-                      // Remove the last chip on screen — the same as its × button.
+                    if (shouldRemoveLastChip({ key: e.key, repeat: e.repeat, isComposing: e.nativeEvent.isComposing, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey }, newSkillInput, effectiveKeywords.length)) {
+                      // Remove the last chip (the most recently added) — the same as its × button.
                       e.preventDefault();
-                      const kw = visible[visible.length - 1];
-                      setRemovedKeywords((prev) => new Set(prev).add(kw.toLowerCase()));
-                      setExtraKeywords((prev) => prev.filter((x) => x.toLowerCase() !== kw.toLowerCase()));
+                      removeKeyword(effectiveKeywords[effectiveKeywords.length - 1]);
                       return;
                     }
                     if (e.key === "Enter" || e.key === ",") {
@@ -1353,6 +1367,20 @@ function CreatePageInner() {
                     }}
                   >
                     Start over
+                  </Button>
+                </div>
+              </div>
+            ) : alreadyGenerating ? (
+              <div className="text-center" role="status">
+                <div className="w-12 h-12 rounded-full bg-[#1f5c3a]/10 flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-6 h-6 text-[#1f5c3a]" />
+                </div>
+                <p className="text-sm font-semibold text-[#1a1a1a] mb-1">{ALREADY_GENERATING.title}</p>
+                <p className="text-sm text-[#6b6b6b] mb-5">{ALREADY_GENERATING.message}</p>
+                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                  <Button onClick={() => router.push("/dashboard")}>Go to dashboard</Button>
+                  <Button variant="outline" onClick={() => { setAlreadyGenerating(false); pushUrlStep("review"); setFlowStep(3); }}>
+                    ← Back to review
                   </Button>
                 </div>
               </div>

@@ -97,7 +97,7 @@ const OTHER_USER = "11111111-2222-4333-8444-555555555555";
 const PARENT = "dc25fa97-77a6-4ceb-9761-16429dccec2c";
 const JD =
   "We are hiring a Software Engineer to build TypeScript and Node.js services on AWS. " +
-  "You will design REST APIs, work with PostgreSQL, and write tests. Freshers welcome.";
+  "You will design REST APIs, work with PostgreSQL, and write tests. Freshers welcome. Requirements: 3+ years of professional experience, clear written communication, and ownership of production systems end to end.";
 const OTHER_JD = JD.replace("Software Engineer", "Data Analyst");
 const EDU = { institution: "College of Engineering Trivandrum", degree: "B.Tech", year: "2025", location: "Kerala" };
 
@@ -314,7 +314,7 @@ describe("client wiring carries the parent from preview to the API", () => {
   });
 
   it("create: reads ?regen= from the router and sends it as regen_of_resume_id", () => {
-    expect(create).toMatch(/const regenParentId = parseRegenParam\(useSearchParams\(\)\.toString\(\)\)/);
+    expect(create).toMatch(/const searchParams = useSearchParams\(\);[\s\S]*const regenParentId = parseRegenParam\(searchParams\.toString\(\)\)/);
     expect(create).toMatch(/\.\.\.\(regenParentId \? \{ regen_of_resume_id: regenParentId \} : \{\}\)/);
   });
 

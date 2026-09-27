@@ -58,7 +58,7 @@ const OTHER_USERS_RESUME = "9c858901-8a57-4791-81fe-4c455b099bc9";
 
 const JD =
   "We are hiring a Backend Engineer to build TypeScript and Node.js services on AWS. " +
-  "You will design REST APIs, work with PostgreSQL and Redis at scale, and own reliability.";
+  "You will design REST APIs, work with PostgreSQL and Redis at scale, and own reliability. Requirements: 3+ years of professional experience, clear written communication, and ownership of production systems end to end.";
 
 function request(overrides: Record<string, unknown> = {}): NextRequest {
   return new Request("http://localhost/api/generate-resume", {

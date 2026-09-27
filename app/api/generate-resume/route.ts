@@ -8,6 +8,7 @@ import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD } from "@/lib/models";
 import { buildGenerationPayload, buildModelRequest, parseModelReply, postProcessResume } from "@/lib/resume-generation";
 import { usableSections, hasResumeContent, MISSING_RESUME_CONTENT } from "@/lib/profile-completeness";
 import { cleanTargetRoles } from "@/lib/target-roles";
+import { JD_MIN_CHARS } from "@/lib/jd-length";
 import { generationStore, generationFingerprint, type GeneratedResumeRow } from "@/lib/generation-idempotency";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
@@ -18,7 +19,12 @@ const inputSchema = z.object({
   // (migration 013). Required: a client too old to send one would also
   // insert the resume itself, duplicating the row the server now writes.
   request_key: z.string().uuid(),
-  jd_text: z.string().min(100, "Job description too short (min 100 chars)"),
+  // Same rule and wording as the page (lib/jd-length.ts): at least 200
+  // characters, ignoring surrounding whitespace. It used to be 100 here, so
+  // the two disagreed about what "too short" meant.
+  jd_text: z.string().refine((t) => t.trim().length >= JD_MIN_CHARS, {
+    message: `A job description needs at least ${JD_MIN_CHARS} characters. Paste the full responsibilities and requirements.`,
+  }),
   jd_url: z.string().url().optional().or(z.literal("")),
   jd_keywords: z.array(z.string()).optional(),
   template: z.string().optional(),

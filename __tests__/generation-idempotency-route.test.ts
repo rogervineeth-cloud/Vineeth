@@ -45,8 +45,8 @@ jest.mock("@/lib/generation-idempotency", () => ({
 import { POST } from "@/app/api/generate-resume/route";
 import { generationFingerprint } from "@/lib/generation-idempotency";
 
-const JD_A = "We are hiring a Backend Engineer to build TypeScript and Node.js services on AWS. You will design REST APIs, work with PostgreSQL and Redis at scale, and own service reliability.";
-const JD_B = "We are hiring a Platform Engineer to run Kubernetes on AWS, automate CI/CD with GitHub Actions, and keep Node.js services reliable. You will own observability and on-call tooling end to end.";
+const JD_A = "We are hiring a Backend Engineer to build TypeScript and Node.js services on AWS. You will design REST APIs, work with PostgreSQL and Redis at scale, and own service reliability. Requirements: 3+ years of professional experience, clear written communication, and ownership of production systems end to end.";
+const JD_B = "We are hiring a Platform Engineer to run Kubernetes on AWS, automate CI/CD with GitHub Actions, and keep Node.js services reliable. You will own observability and on-call tooling end to end. Requirements: 3+ years of professional experience, clear written communication, and ownership of production systems end to end.";
 const PROFILE = {
   full_name: "Priya Sharma", email: "priya@example.com", phone: "+91 98765 43210", current_city: "Bengaluru",
   target_roles: ["Backend Engineer"],

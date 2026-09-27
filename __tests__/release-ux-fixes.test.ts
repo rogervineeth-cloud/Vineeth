@@ -202,7 +202,7 @@ describe("4. Backspace in an empty chip input", () => {
   it("both chip inputs use it (profile Skills, create '+ add skill')", () => {
     expect(PROFILE_PAGE).toMatch(/shouldRemoveLastChip\(\{[^}]*\}, skillInput, skills\.length\)/);
     expect(PROFILE_PAGE).toMatch(/setSkills\(\(prev\) => withoutLastChip\(prev\)\)/);
-    expect(CREATE_PAGE).toMatch(/shouldRemoveLastChip\(\{[^}]*\}, newSkillInput, visible\.length\)/);
+    expect(CREATE_PAGE).toMatch(/shouldRemoveLastChip\(\{[^}]*\}, newSkillInput, effectiveKeywords\.length\)/);
   });
 });
 

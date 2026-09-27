@@ -37,7 +37,9 @@ const completeSql = (user: string, key: string, charge: boolean, row = resumeJso
 d("migration 013 on PostgreSQL", () => {
   beforeAll(() => {
     pg!.start();
-    for (const f of fs.readdirSync(MIGRATIONS).filter((f) => /^\d{3}_.*\.sql$/.test(f)).sort()) pg!.psqlFile(path.join(MIGRATIONS, f));
+    // 001-013 only: this suite is 013 as it was applied, before 014 removed
+    // the browser INSERT (see migration-014-sql.test.ts for 014 on top).
+    for (const f of fs.readdirSync(MIGRATIONS).filter((f) => /^\d{3}_.*\.sql$/.test(f) && Number(f.slice(0, 3)) <= 13).sort()) pg!.psqlFile(path.join(MIGRATIONS, f));
     pg!.psql(`insert into auth.users values ('${U1}'), ('${U2}'), ('${U3}')`);
     pg!.psql(`insert into public.user_plans (user_id, plan_type, resumes_allotted, resumes_used, expires_at)
               values ('${U1}', 'job_hunter', 10, 0, now() + interval '30 days'),

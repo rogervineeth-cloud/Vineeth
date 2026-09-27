@@ -22,13 +22,13 @@ const db: { user: { id: string } | null; resumes: Row[]; user_plans: Row[]; prof
   user: null, resumes: [], user_plans: [], profiles: [], updates: [],
 };
 
-function query(table: "resumes" | "user_plans" | "profiles") {
+function query(table: "resumes" | "user_plans" | "profiles", service = false) {
   const filters: [string, unknown][] = [];
   const after: [string, string][] = [];
   let update: Row | null = null;
   const rows = () =>
     db[table]
-      .filter((r) => db.user && r.user_id === db.user.id) // RLS: own rows only
+      .filter((r) => service || (db.user && r.user_id === db.user.id)) // RLS: own rows only (service role bypasses)
       .filter((r) => filters.every(([c, v]) => r[c] === v))
       .filter((r) => after.every(([c, v]) => String(r[c]) > v));
   const q = {
@@ -45,7 +45,7 @@ function query(table: "resumes" | "user_plans" | "profiles") {
     },
     then: (resolve: (v: { data: Row[]; error: null }) => unknown) => {
       if (update) {
-        for (const r of rows()) db.updates.push({ table, id: r.id, ...update });
+        for (const r of rows()) db.updates.push({ table, id: r.id, service, ...update });
       }
       return Promise.resolve({ data: rows(), error: null }).then(resolve);
     },
@@ -58,7 +58,9 @@ jest.mock("@/lib/supabase/server", () => ({
     auth: { getUser: async () => ({ data: { user: db.user } }) },
     from: (t: "resumes" | "user_plans" | "profiles") => query(t),
   })),
-  createServiceClient: jest.fn(async () => ({})),
+  // The server's own client: bypasses RLS (as service_role does). Since
+  // migration 014 the browser role cannot update resumes at all.
+  createServiceClient: jest.fn(async () => ({ from: (t: "resumes" | "user_plans" | "profiles") => query(t, true) })),
 }));
 
 const mockRender = jest.fn(async () => new Uint8Array([37, 80, 68, 70]));
@@ -134,8 +136,14 @@ describe("GET /api/download-pdf/[id]", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/pdf");
     expect(mockRender).toHaveBeenCalledTimes(1);
-    await new Promise((r) => setImmediate(r));
-    expect(db.updates).toEqual([expect.objectContaining({ table: "resumes", id: RESUME, downloaded_at: expect.any(String) })]);
+    // Marked by the server (service role), scoped to the owner — not by the user's own session.
+    expect(db.updates).toEqual([expect.objectContaining({ table: "resumes", id: RESUME, service: true, downloaded_at: expect.any(String) })]);
+  });
+
+  it("a re-download of an already-downloaded resume does not rewrite downloaded_at", async () => {
+    db.resumes = [resume({ downloaded_at: T1 })];
+    expect((await call()).status).toBe(200);
+    expect(db.updates).toEqual([]);
   });
 
   it("owner with no plan ever and not downloaded → 402, nothing rendered", async () => {
