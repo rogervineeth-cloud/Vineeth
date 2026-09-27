@@ -8,7 +8,7 @@ import { cleanTargetRoles } from "@/lib/target-roles";
 import { loadSignedInProfile } from "@/lib/profile-hydration";
 import { TEMPLATE_STORAGE_KEY } from "@/lib/templates";
 import { JD_MIN_CHARS } from "@/lib/jd-length";
-import { createStepFromParam, createStepHref, type CreateStep } from "@/lib/create-steps";
+import { createStepFromParam, createStepHref, handleStepClickInPage, type CreateStep } from "@/lib/create-steps";
 
 const STEPS = [
   { key: "basics",     label: "Basics",    route: "/profile", subStep: "basics",     optional: false },
@@ -203,7 +203,19 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
             return (
               <div key={step.key} className="flex items-center min-w-0 shrink">
                 {clickable ? (
-                  <Link href={href} className="flex items-center gap-1 hover:opacity-75 transition-opacity">
+                  <Link
+                    href={href}
+                    className="flex items-center gap-1 hover:opacity-75 transition-opacity"
+                    onClick={(e) => {
+                      // /create → /create step: shallow pushState, not a router
+                      // navigation (which was a no-op after a direct load of a
+                      // later step). See lib/create-steps.ts.
+                      if (step.route === "/create" && handleStepClickInPage(e, pathname)) {
+                        e.preventDefault();
+                        window.history.pushState(null, "", href);
+                      }
+                    }}
+                  >
                     {inner}
                   </Link>
                 ) : inner}

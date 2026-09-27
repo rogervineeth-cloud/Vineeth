@@ -30,3 +30,34 @@ export function createStepHref(currentSearch: string, step: CreateStep): string 
   const qs = params.toString();
   return qs ? `/create?${qs}` : "/create";
 }
+
+/** The parts of a click event that decide whether to handle it in-page. */
+export type StepClick = {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  defaultPrevented: boolean;
+};
+
+/**
+ * Whether a click on a stepper link to another /create step should be handled
+ * in-page. Only a plain left click on /create; modified clicks (new tab or
+ * window) keep the browser's default.
+ *
+ * Why in-page: after a direct load of /create?step=template (a reload or a
+ * pasted URL), a Next <Link> to the Job Desc step did nothing: no request, no
+ * history entry, the page stayed on Template (reproduced in Chromium with both
+ * a real and a programmatic click). A shallow history.pushState — what the
+ * page's own step buttons use, and which Next's router picks up for
+ * useSearchParams — switches the step reliably, and the page follows ?step=.
+ */
+export function handleStepClickInPage(e: StepClick, currentPathname: string): boolean {
+  return (
+    currentPathname.startsWith("/create") &&
+    !e.defaultPrevented &&
+    e.button === 0 &&
+    !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
+  );
+}
