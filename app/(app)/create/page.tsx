@@ -12,6 +12,7 @@ import { cleanTargetRoles } from "@/lib/target-roles";
 import { singleFlight } from "@/lib/single-flight";
 import { jdLengthStatus, JD_MIN_CHARS } from "@/lib/jd-length";
 import { shouldRemoveLastChip } from "@/lib/chip-input";
+import { loadSignedInProfile, withRetry } from "@/lib/profile-hydration";
 import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -76,6 +77,42 @@ function checkCompleteness(profile: Profile | null): { complete: boolean; missin
   // content, so the page said "ready" and the server then refused.
   if (!hasResumeContent(profile.profile_data)) return { complete: false, missing: RESUME_CONTENT_HINT };
   return { complete: true, missing: "" };
+}
+
+type CreateContext =
+  | { status: "ready"; email: string | null; profile: Profile | null; planCheck: PlanCheck }
+  | { status: "signed_out" }
+  | { status: "error"; message: string; userMessage: string };
+
+/** The signed-in user's profile and plan for this page, with retries. */
+async function fetchCreateContext(): Promise<CreateContext> {
+  const supabase = createClient();
+  const res = await loadSignedInProfile<Profile>(supabase, "*");
+  if (res.status !== "ready") {
+    return res.status === "error" ? { status: "error", message: res.message, userMessage: "We couldn't load your profile." } : res;
+  }
+  let plans: { resumes_used: number; resumes_allotted: number; expires_at: string }[];
+  try {
+    plans = await withRetry(async () => {
+      const { data, error } = await supabase
+        .from("user_plans")
+        .select("resumes_used,resumes_allotted,expires_at")
+        .eq("user_id", res.user.id)
+        .gt("expires_at", new Date().toISOString());
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    });
+  } catch (err) {
+    // A failed plan query is not "no plan": that would block Generate too.
+    return { status: "error", message: err instanceof Error ? err.message : String(err), userMessage: "We couldn't load your plan." };
+  }
+  const active = plans.find((p) => p.resumes_used < p.resumes_allotted);
+  const planCheck: PlanCheck = active
+    ? { allowed: true, remaining: active.resumes_allotted - active.resumes_used }
+    : plans.length > 0
+      ? { allowed: false, reason: "CREDITS_EXHAUSTED", allotted: plans[0].resumes_allotted }
+      : { allowed: false, reason: "NO_PLAN", allotted: 0 };
+  return { status: "ready", email: res.user.email, profile: res.profile, planCheck };
 }
 
 type TemplateId = "classic" | "modern" | "compact" | "executive";
@@ -233,6 +270,7 @@ function CreatePageInner() {
   // in the request, and a same-JD regeneration was charged.
   const regenParentId = parseRegenParam(useSearchParams().toString());
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [jdText, setJdText] = useState<string>(() =>
     typeof window === "undefined" ? "" : (localStorage.getItem("ndrs_jd") ?? "")
@@ -295,32 +333,37 @@ function CreatePageInner() {
     return () => clearTimeout(t);
   }, [showRevealDone]);
 
+  // Profile + plans, retried; a failure is shown as a failure (with Retry),
+  // never as an incomplete profile. See lib/profile-hydration.ts.
+  const [reloadTick, setReloadTick] = useState(0);
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return;
-      setUserEmail(user.email ?? null);
-      const [profileRes, plansRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", user.id).single(),
-        supabase
-          .from("user_plans")
-          .select("resumes_used,resumes_allotted,expires_at")
-          .eq("user_id", user.id)
-          .gt("expires_at", new Date().toISOString()),
-      ]);
-      if (profileRes.data) setProfile(profileRes.data as Profile);
-      const plans = plansRes.data ?? [];
-      const active = plans.find((p) => p.resumes_used < p.resumes_allotted);
-      if (active) {
-        setPlanCheck({ allowed: true, remaining: active.resumes_allotted - active.resumes_used });
-      } else if (plans.length > 0) {
-        setPlanCheck({ allowed: false, reason: "CREDITS_EXHAUSTED", allotted: plans[0].resumes_allotted });
-      } else {
-        setPlanCheck({ allowed: false, reason: "NO_PLAN", allotted: 0 });
+    let cancelled = false;
+    (async () => {
+      const ctx = await fetchCreateContext();
+      if (cancelled || ctx.status === "signed_out") return; // middleware sends signed-out visitors to /login
+      if (ctx.status === "error") {
+        console.error("[create] load failed:", ctx.message);
+        setLoadError(ctx.userMessage);
+        return;
       }
+      setLoadError(null);
+      setUserEmail(ctx.email);
+      setProfile(ctx.profile);
+      setPlanCheck(ctx.planCheck);
       setLoaded(true);
-    });
-  }, []);
+    })();
+    return () => { cancelled = true; };
+  }, [reloadTick]);
+
+  const retryLoad = () => { setLoadError(null); setReloadTick((n) => n + 1); };
+
+  // A tab whose load failed tries again when the user comes back to it.
+  useEffect(() => {
+    if (loaded || !loadError) return;
+    const onFocus = () => setReloadTick((n) => n + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loaded, loadError]);
 
   useEffect(() => {
     localStorage.setItem("ndrs_jd", jdText);
@@ -749,7 +792,14 @@ function CreatePageInner() {
             <p className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-4">Your Profile</p>
             {!loaded ? (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-sm text-[#9b9080]">Loading...</p>
+                {loadError ? (
+                  <p className="text-sm text-amber-700">
+                    {loadError}{" "}
+                    <button type="button" onClick={retryLoad} className="underline">Retry</button>
+                  </p>
+                ) : (
+                  <p className="text-sm text-[#9b9080]">Loading...</p>
+                )}
               </div>
             ) : (
               <div className="flex flex-col gap-4">
@@ -988,7 +1038,14 @@ function CreatePageInner() {
               Next — Review →
             </Button>
 
-            {!completeness.complete && (
+            {loadError ? (
+              <p className="text-xs text-center text-amber-700 mt-2">
+                {loadError}{" "}
+                <button type="button" onClick={retryLoad} className="underline">Retry</button>
+              </p>
+            ) : !loaded ? (
+              <p className="text-xs text-center text-[#9b9080] mt-2">Loading your profile…</p>
+            ) : !completeness.complete && (
               <p className="text-xs text-center text-amber-700 mt-2">
                 Profile incomplete.{" "}
                 <Link href="/profile" className="underline">Fix it first →</Link>
@@ -1152,7 +1209,14 @@ function CreatePageInner() {
                 Generate my resume →
               </Button>
             </div>
-            {!completeness.complete && (
+            {loadError ? (
+              <p className="text-xs text-center text-amber-700 mt-3">
+                {loadError}{" "}
+                <button type="button" onClick={retryLoad} className="underline">Retry</button>
+              </p>
+            ) : !loaded ? (
+              <p className="text-xs text-center text-[#9b9080] mt-3">Loading your profile…</p>
+            ) : !completeness.complete && (
               <p className="text-xs text-center text-amber-700 mt-3">
                 Profile incomplete.{" "}
                 <Link href="/profile" className="underline">Fix it first →</Link>

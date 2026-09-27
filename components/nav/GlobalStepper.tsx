@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cleanTargetRoles } from "@/lib/target-roles";
+import { loadSignedInProfile } from "@/lib/profile-hydration";
 
 const STEPS = [
   { key: "basics",     label: "Basics",    route: "/profile", subStep: "basics",     optional: false },
@@ -55,6 +56,10 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
   type SkipKey = "experience" | "education" | "projects";
   const [skipped, setSkipped] = useState<Record<SkipKey, boolean>>({ experience: false, education: false, projects: false });
 
+  // Bumped to reload after a failed load (on window focus).
+  const [reloadTick, setReloadTick] = useState(0);
+  const [loadFailed, setLoadFailed] = useState(false);
+
   useEffect(() => {
     // Not a stepper page: nothing to load. (The redirect effect below also
     // returns for active < 1, so `loaded` is not needed here.)
@@ -63,10 +68,17 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
     let cancelled = false;
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || cancelled) { setLoaded(true); return; }
-        const { data: p } = await supabase.from("profiles").select("full_name, email, target_roles, profile_data").eq("user_id", user.id).single();
+        // Retried; a failed load is NOT "all steps incomplete" — that used to
+        // grey out Basics/Roles in a fresh tab and could redirect to Basics.
+        // See lib/profile-hydration.ts.
+        const res = await loadSignedInProfile<{ full_name?: string; email?: string; target_roles?: string[] | null; profile_data?: unknown }>(
+          supabase, "full_name, email, target_roles, profile_data"
+        );
         if (cancelled) return;
+        if (res.status === "error") { setLoadFailed(true); return; } // keep `loaded` false: no redirect
+        setLoadFailed(false);
+        if (res.status === "signed_out") { setLoaded(true); return; }
+        const p = res.profile;
         const pd = (p?.profile_data ?? {}) as Record<string, unknown>;
         
         // ONLY check profile_data (user-confirmed data), NEVER fall back to linkedin_data
@@ -104,10 +116,17 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
           projects:   !!pd?.projSkipped,
         });
         setLoaded(true);
-      } catch { setLoaded(true); }
+      } catch { if (!cancelled) setLoadFailed(true); }
     })();
     return () => { cancelled = true; };
-  }, [active, pathname, latestResumeId]);
+  }, [active, pathname, latestResumeId, reloadTick]);
+
+  useEffect(() => {
+    if (!loadFailed) return;
+    const onFocus = () => setReloadTick((n) => n + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loadFailed]);
 
   // Forward-only enforcement: redirect to basics if incomplete
   useEffect(() => {
