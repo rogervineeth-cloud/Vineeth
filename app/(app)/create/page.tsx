@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent, RESUME_CONTENT_HINT } from "@/lib/profile-completeness";
 import { parseRegenParam } from "@/lib/regen";
-import { analyzeJd, type JdAnalysis } from "@/lib/jd-keywords";
+import { analyzeJd, effectiveJdKeywords, type JdAnalysis } from "@/lib/jd-keywords";
+import { storedTemplate, TEMPLATE_STORAGE_KEY, type TemplateId } from "@/lib/templates";
 import { cleanTargetRoles } from "@/lib/target-roles";
 import { singleFlight } from "@/lib/single-flight";
 import { jdLengthStatus, JD_MIN_CHARS } from "@/lib/jd-length";
@@ -114,8 +115,6 @@ async function fetchCreateContext(): Promise<CreateContext> {
       : { allowed: false, reason: "NO_PLAN", allotted: 0 };
   return { status: "ready", email: res.user.email, profile: res.profile, planCheck };
 }
-
-type TemplateId = "classic" | "modern" | "compact" | "executive";
 
 const TEMPLATES: { id: TemplateId; label: string; description: string; svg: React.ReactNode }[] = [
   {
@@ -325,7 +324,11 @@ function CreatePageInner() {
   const [generatedResume, setGeneratedResume] = useState<GeneratedResume | null>(null);
   const [savedResumeId, setSavedResumeId] = useState<string | null>(null);
 
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("classic");
+  // Restored like the JD text: the choice was saved on click but never read
+  // back, so it reverted to Classic on the next visit and in Review.
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>(() =>
+    typeof window === "undefined" ? "classic" : storedTemplate(localStorage.getItem(TEMPLATE_STORAGE_KEY))
+  );
 
   useEffect(() => {
     if (!showRevealDone) return;
@@ -589,11 +592,7 @@ function CreatePageInner() {
   const jdReady = jdStatus.ready;
   // Plain computation: the React Compiler memoises it. A manual useMemo here
   // could not be preserved by the compiler (react-hooks/preserve-manual-memoization).
-  const effectiveKeywords = (() => {
-    const base = jdAnalysis.keywords.filter((k) => !removedKeywords.has(k.toLowerCase()));
-    const extras = extraKeywords.filter((k) => !base.some((b) => b.toLowerCase() === k.toLowerCase()));
-    return [...base, ...extras];
-  })();
+  const effectiveKeywords = effectiveJdKeywords(jdAnalysis.keywords, removedKeywords, extraKeywords);
   const canGenerate =
     jdReady &&
     completeness.complete &&
@@ -932,7 +931,7 @@ function CreatePageInner() {
                 <button
                   key={tpl.id}
                   type="button"
-                  onClick={() => { setSelectedTemplate(tpl.id); if (typeof window !== "undefined") localStorage.setItem("ndrs_template", tpl.id); }}
+                  onClick={() => { setSelectedTemplate(tpl.id); if (typeof window !== "undefined") localStorage.setItem(TEMPLATE_STORAGE_KEY, tpl.id); }}
                   className={`rounded-xl border-2 overflow-hidden text-left transition-all focus:outline-none ${
                     selectedTemplate === tpl.id
                       ? "border-[#1f5c3a] shadow-md"
@@ -1006,13 +1005,16 @@ function CreatePageInner() {
               {jdAnalysis.detectedRole && (
                 <p className="text-xs text-[#1f5c3a] mt-0.5">📌 {jdAnalysis.detectedRole}</p>
               )}
-              {jdAnalysis.keywords.length > 0 && (
+              {effectiveKeywords.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {jdAnalysis.keywords.slice(0, 5).map((kw) => (
+                  {effectiveKeywords.slice(0, 5).map((kw) => (
                     <span key={kw} className="text-xs bg-white border border-[#1f5c3a]/25 text-[#1f5c3a] px-1.5 py-0.5 rounded-full">
                       {kw}
                     </span>
                   ))}
+                  {effectiveKeywords.length > 5 && (
+                    <span className="text-xs text-[#999]">+{effectiveKeywords.length - 5} more</span>
+                  )}
                 </div>
               )}
             </div>
@@ -1176,9 +1178,10 @@ function CreatePageInner() {
               </div>
               <p className="text-xs text-[#6b6b6b]">{jdText.length} characters</p>
               {jdAnalysis.detectedRole && <p className="text-sm font-medium text-[#1a1a1a] mt-1">📌 {jdAnalysis.detectedRole}</p>}
-              {jdAnalysis.keywords.length > 0 && (
+              {/* Every keyword the generation will use, including ones added by hand. */}
+              {effectiveKeywords.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {jdAnalysis.keywords.slice(0, 8).map((kw) => (
+                  {effectiveKeywords.map((kw) => (
                     <span key={kw} className="text-xs bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full border border-[#1f5c3a]/20">{kw}</span>
                   ))}
                 </div>

@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cleanTargetRoles } from "@/lib/target-roles";
 import { loadSignedInProfile } from "@/lib/profile-hydration";
+import { TEMPLATE_STORAGE_KEY } from "@/lib/templates";
 
 const STEPS = [
   { key: "basics",     label: "Basics",    route: "/profile", subStep: "basics",     optional: false },
@@ -92,7 +93,7 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
         const projSkipped = !!pd.projSkipped;
         
         const jd = typeof window !== "undefined" ? (localStorage.getItem("ndrs_jd") ?? "") : "";
-        const template = typeof window !== "undefined" ? (localStorage.getItem("ndrs_template") ?? "") : "";
+        const template = typeof window !== "undefined" ? (localStorage.getItem(TEMPLATE_STORAGE_KEY) ?? "") : "";
         const resumeId = latestResumeId ?? (typeof window !== "undefined" ? (localStorage.getItem("ndrs_latest_resume_id") ?? "") : "");
         if (cancelled) return;
         

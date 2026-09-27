@@ -232,3 +232,19 @@ export function analyzeJd(text: string): JdAnalysis {
     else quality = "good";
     return { detectedRole, keywords: found.slice(0, 12), quality };
 }
+
+/**
+ * The keywords a generation uses, and what Review shows: the detected ones the
+ * user did not remove, then the user's own additions (case-insensitively
+ * de-duplicated against the detected ones). One function for both, so Review
+ * can never show a different list from the one that is sent.
+ */
+export function effectiveJdKeywords(
+  detected: readonly string[],
+  removed: ReadonlySet<string>,
+  extras: readonly string[]
+): string[] {
+  const base = detected.filter((k) => !removed.has(k.toLowerCase()));
+  const added = extras.filter((k) => !base.some((b) => b.toLowerCase() === k.toLowerCase()));
+  return [...base, ...added];
+}
