@@ -36,8 +36,11 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100">
-        <X className="h-4 w-4" />
+      {/* Icon-only, so it needs a text name: without one, screen readers
+          announced an unnamed button in every dialog (e.g. the dashboard's
+          delete confirmation). */}
+      <DialogClose aria-label="Close" className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f5c3a]/50">
+        <X className="h-4 w-4" aria-hidden="true" />
       </DialogClose>
     </DialogPrimitive.Content>
   </DialogPortal>

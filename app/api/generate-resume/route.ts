@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { canGenerateResume, canGenerateFreeRegen, userOwnsResume } from "@/lib/plans";
+import { ensureBetaCredits } from "@/lib/beta";
 import { track } from "@/lib/analytics";
 import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD } from "@/lib/models";
 import { buildGenerationPayload, buildModelRequest, parseModelReply, postProcessResume } from "@/lib/resume-generation";
@@ -135,6 +136,10 @@ export async function POST(req: NextRequest) {
       }
     }
     if (!isCreator && !isFreeRegen) {
+      // Free Beta (migration 015): an account that has never had its 3 free
+      // generations gets them now, once. Idempotent; a failure changes
+      // nothing (the check below then answers as before).
+      await ensureBetaCredits(userId);
       const { allowed, reason } = await canGenerateResume(userId);
       if (!allowed) {
         track("generate_attempt_blocked_free", { user_id: userId, reason: reason ?? "NO_PLAN" });

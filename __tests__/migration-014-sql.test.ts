@@ -42,9 +42,9 @@ d("migration 014 on PostgreSQL", () => {
 
   const count = (user: string) => Number(pg!.psql(`select count(*) from public.resumes where user_id = '${user}'`));
 
-  it("014 is the last migration and is in the list the suites apply", () => {
+  it("014 is in the list the suites apply", () => {
     const files = fs.readdirSync(MIGRATIONS).filter((f) => /^\d{3}_.*\.sql$/.test(f)).sort();
-    expect(files[files.length - 1]).toBe("014_resumes_server_writes_only.sql");
+    expect(files).toContain("014_resumes_server_writes_only.sql");
   });
 
   it.each(["authenticated", "anon"])("%s cannot INSERT a resume (not even their own)", (role) => {

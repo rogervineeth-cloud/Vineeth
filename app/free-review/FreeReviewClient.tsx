@@ -101,7 +101,7 @@ export default function FreeReviewPage() {
             Neduresume
           </Link>
           <Link href="/pricing" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors">
-            Pricing
+            Free Beta
           </Link>
         </div>
       </header>
@@ -137,10 +137,10 @@ export default function FreeReviewPage() {
           <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
             <div>
               <p className="text-sm font-semibold text-[#1a1a1a]">You&apos;ve used your free preview</p>
-              <p className="text-xs text-[#6b6b6b] mt-1">Generate a tailored, ATS-pass resume from ₹99 — see plans on the pricing page.</p>
+              <p className="text-xs text-[#6b6b6b] mt-1">During the free beta you can generate 3 AI-tailored resumes — no card needed.</p>
             </div>
             <Button asChild className="bg-[#1f5c3a] hover:bg-[#174d30]">
-              <Link href="/pricing">See plans</Link>
+              <Link href="/create">Generate a tailored resume →</Link>
             </Button>
           </div>
         )}
@@ -194,7 +194,7 @@ export default function FreeReviewPage() {
                 </p>
                 <p className="text-xs text-[#6b6b6b] mt-1">
                   This is a free deterministic score. To generate an AI-tailored resume
-                  for this JD, upgrade below.
+                  for this JD, use one of your 3 free beta generations below.
                 </p>
               </div>
             </div>
@@ -258,7 +258,7 @@ export default function FreeReviewPage() {
                 Want an AI-tailored resume for this JD?
               </p>
               <Button asChild size="sm" className="bg-[#1f5c3a] hover:bg-[#174d30]">
-                <Link href="/pricing">Generate ATS-tailored resume — ₹99</Link>
+                <Link href="/create">Generate a tailored resume — free in beta →</Link>
               </Button>
             </div>
           </div>

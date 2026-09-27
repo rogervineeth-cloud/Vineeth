@@ -6,16 +6,16 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
 import { Download, Loader2, Lock } from "lucide-react";
-import { PLANS } from "@/lib/plan-config";
 import { resumeDownloadAllowed } from "@/lib/download-entitlement";
 
-// Derived from PLANS so this can never drift from the pricing page again —
-// the unlock button used to hardcode ₹100 while the cheapest plan was ₹99.
-const CHEAPEST_PLAN_INR = Math.min(...PLANS.map((p) => p.priceInr));
+// Free Beta: nothing is for sale, so a resume that cannot be downloaded says
+// so plainly — no plan cards, prices or "unlock" purchase button. Resumes
+// generated with beta credits are always downloadable
+// (lib/download-entitlement.ts), so this only affects resumes created
+// without any plan.
+const NOT_DOWNLOADABLE =
+  "This resume can't be downloaded on your account. Resumes you generate with your free beta generations can always be downloaded.";
 
 type ResumeJson = {
   summary: string;
@@ -68,54 +68,6 @@ function ATSRing({ score }: { score: number }) {
   );
 }
 
-function UpgradeModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="font-serif italic text-2xl">Unlock your resume</DialogTitle>
-          <DialogDescription>
-            Choose a plan to download your ATS-optimised PDF. No subscription — pay once.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-          {PLANS.map((plan) => {
-            const isPopular = plan.badge === "Most popular";
-            return (
-              <div key={plan.type}
-                className={`relative rounded-xl border p-5 flex flex-col gap-3 ${
-                  isPopular ? "border-[#1f5c3a] bg-[#1f5c3a] text-white" : "border-stone-200 bg-white"
-                }`}
-              >
-                {plan.badge && (
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
-                    {plan.badge}
-                  </span>
-                )}
-                <div>
-                  <p className={`text-xs font-medium mb-0.5 ${isPopular ? "text-white/70" : "text-[#6b6b6b]"}`}>{plan.name}</p>
-                  <p className="text-2xl font-bold">₹{plan.priceInr}</p>
-                  <p className={`text-xs ${isPopular ? "text-white/70" : "text-[#6b6b6b]"}`}>
-                    {plan.aiGenerations} AI-tailored resume{plan.aiGenerations !== 1 ? "s" : ""}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant={isPopular ? "secondary" : "outline"}
-                  className={isPopular ? "bg-white text-[#1f5c3a] hover:bg-white/90 text-xs" : "text-xs"}
-                  asChild
-                >
-                  <Link href="/pricing" onClick={onClose}>View plans →</Link>
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function PreviewPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -124,7 +76,6 @@ export default function PreviewPage() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [canDownload, setCanDownload] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -167,15 +118,12 @@ export default function PreviewPage() {
   }, [id, router]);
 
   async function handleDownload() {
-    if (!canDownload) { setUpgradeOpen(true); return; }
+    if (!canDownload) { toast.error(NOT_DOWNLOADABLE); return; }
     setDownloading(true);
     try {
       const res = await fetch(`/api/download-pdf/${id}`);
       if (res.status === 402) {
-        toast.error("A paid plan is required to download.", {
-          action: { label: "View plans", onClick: () => router.push("/pricing") },
-          duration: 6000,
-        });
+        toast.error(NOT_DOWNLOADABLE, { duration: 6000 });
         setCanDownload(false);
         return;
       }
@@ -217,7 +165,6 @@ export default function PreviewPage() {
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
       
-      <UpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
 
       <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
         {/* Resume preview with watermark */}
@@ -331,10 +278,10 @@ export default function PreviewPage() {
                   : <><Download className="w-4 h-4 mr-2" />Download PDF</>}
               </Button>
             ) : (
-              <Button size="lg" className="w-full mb-6 bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setUpgradeOpen(true)}>
-                <Lock className="w-4 h-4 mr-2" />
-                Unlock Download — from ₹{CHEAPEST_PLAN_INR}
-              </Button>
+              <p className="w-full mb-6 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-[#6b6b6b] flex items-start gap-2">
+                <Lock className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{NOT_DOWNLOADABLE}</span>
+              </p>
             )}
 
             {resume.matched_keywords?.length > 0 && (

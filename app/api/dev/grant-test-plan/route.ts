@@ -8,7 +8,7 @@ import { grantTestAddon, type AddonId } from "@/lib/addons";
 // "free" is implicit — never materialized as a user_plans row.
 type PaidPlan = Exclude<PlanType, "free">;
 const VALID_PLANS = (Object.keys(PLAN_ALLOTMENTS) as PlanType[]).filter(
-    (p): p is PaidPlan => p !== "free"
+    (p): p is PaidPlan => p !== "free" && p !== "beta" // beta is granted only by grant_beta_credits (migration 015)
   );
 const VALID_ADDONS: AddonId[] = ["linkedin_rewrite"];
 

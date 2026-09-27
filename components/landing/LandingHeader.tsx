@@ -26,7 +26,7 @@ export function LandingHeader() {
             }}
             className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors hidden sm:block"
           >
-            Pricing
+            Free Beta
           </a>
           <Link href="/login" className="text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors hidden sm:inline">Sign in</Link>
           <Button size="sm" asChild className="text-sm bg-[#1f5c3a] hover:bg-[#174d30] px-3 sm:px-4">

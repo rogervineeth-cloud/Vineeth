@@ -9,11 +9,17 @@
 //   job_hunter   — 12 AI-tailored resumes
 //   career       — 25 AI-tailored resumes (Best value)
 //
+//   beta         — FREE BETA (until payments launch): 3 AI-tailored resumes
+//                  per account, granted once by the server (migration 015,
+//                  lib/beta.ts). The paid SKUs below are kept for later but not
+//                  offered anywhere in the UI while FREE_BETA is on.
+//
 // Each AI-tailored resume can be re-downloaded as a PDF unlimited times.
-export type PlanType = "free" | "single" | "fresher" | "job_hunter" | "career";
+export type PlanType = "free" | "beta" | "single" | "fresher" | "job_hunter" | "career";
 
 export const PLAN_LABELS: Record<PlanType, string> = {
   free: "Free",
+  beta: "Free Beta",
   single: "Single",
   fresher: "Fresher",
   job_hunter: "Job Hunter",
@@ -22,6 +28,7 @@ export const PLAN_LABELS: Record<PlanType, string> = {
 
 export const PLAN_ALLOTMENTS: Record<PlanType, number> = {
   free: 0,
+  beta: 3,
   single: 1,
   fresher: 5,
   job_hunter: 12,
@@ -58,3 +65,14 @@ export const ADDONS: readonly Addon[] = [
     bundlePriceInr: 399,
   },
 ];
+
+/**
+ * Free Beta: paid plans and checkout are hidden everywhere until payments
+ * (Razorpay) are integrated. Every account gets BETA_CREDITS generations once.
+ */
+export const FREE_BETA = true;
+export const BETA_CREDITS = 3;
+export const FREE_BETA_LABEL = "Free Beta · 3 resume generations";
+/** Shown when an account has used its beta credits. No purchase is offered. */
+export const BETA_EXHAUSTED_MESSAGE =
+  "You've used your 3 free beta resume generations. Paid plans aren't available yet — we'll let you know when they are.";

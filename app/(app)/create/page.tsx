@@ -11,6 +11,8 @@ import { analyzeJd, effectiveJdKeywords, withoutKeyword, type JdAnalysis } from 
 import { storedTemplate, TEMPLATE_STORAGE_KEY, type TemplateId } from "@/lib/templates";
 import { createStepFromParam, type CreateStep } from "@/lib/create-steps";
 import { isAlreadyGenerating, ALREADY_GENERATING } from "@/lib/generation-feedback";
+import { loadPlansEnsuringBeta, summarisePlans, type PlanRow } from "@/lib/beta-client";
+import { BETA_EXHAUSTED_MESSAGE } from "@/lib/plan-config";
 import { cleanTargetRoles } from "@/lib/target-roles";
 import { singleFlight } from "@/lib/single-flight";
 import { jdLengthStatus, JD_MIN_CHARS } from "@/lib/jd-length";
@@ -56,6 +58,16 @@ type PlanCheck =
   | { allowed: true; remaining: number }
   | { allowed: false; reason: "NO_PLAN" | "CREDITS_EXHAUSTED"; allotted: number };
 
+/**
+ * Free Beta: why Generate is unavailable, with nothing to buy. NO_PLAN means
+ * the beta grant could not be made or read (an error, not a paywall).
+ */
+function noCreditsMessage(reason: "NO_PLAN" | "CREDITS_EXHAUSTED"): string {
+  return reason === "CREDITS_EXHAUSTED"
+    ? BETA_EXHAUSTED_MESSAGE
+    : "We couldn't load your free beta generations. Please refresh the page and try again.";
+}
+
 
 
 type GeneratedResume = {
@@ -94,27 +106,20 @@ async function fetchCreateContext(): Promise<CreateContext> {
   if (res.status !== "ready") {
     return res.status === "error" ? { status: "error", message: res.message, userMessage: "We couldn't load your profile." } : res;
   }
-  let plans: { resumes_used: number; resumes_allotted: number; expires_at: string }[];
+  let plans: PlanRow[];
   try {
-    plans = await withRetry(async () => {
-      const { data, error } = await supabase
-        .from("user_plans")
-        .select("resumes_used,resumes_allotted,expires_at")
-        .eq("user_id", res.user.id)
-        .gt("expires_at", new Date().toISOString());
-      if (error) throw new Error(error.message);
-      return data ?? [];
-    });
+    // All plans, granting the Free Beta credits first if this account has
+    // never had them (so a new account sees its 3 generations right away).
+    plans = await withRetry(() => loadPlansEnsuringBeta(supabase, res.user.id));
   } catch (err) {
     // A failed plan query is not "no plan": that would block Generate too.
     return { status: "error", message: err instanceof Error ? err.message : String(err), userMessage: "We couldn't load your plan." };
   }
-  const active = plans.find((p) => p.resumes_used < p.resumes_allotted);
-  const planCheck: PlanCheck = active
-    ? { allowed: true, remaining: active.resumes_allotted - active.resumes_used }
-    : plans.length > 0
-      ? { allowed: false, reason: "CREDITS_EXHAUSTED", allotted: plans[0].resumes_allotted }
-      : { allowed: false, reason: "NO_PLAN", allotted: 0 };
+  const summary = summarisePlans(plans);
+  const planCheck: PlanCheck =
+    summary.state === "active" ? { allowed: true, remaining: summary.remaining }
+    : summary.state === "exhausted" ? { allowed: false, reason: "CREDITS_EXHAUSTED", allotted: summary.allotted }
+    : { allowed: false, reason: "NO_PLAN", allotted: 0 };
   return { status: "ready", email: res.user.email, profile: res.profile, planCheck };
 }
 
@@ -419,15 +424,7 @@ function CreatePageInner() {
       return;
     }
     if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed && !regenParentId) {
-      toast.error(
-        planCheck.reason === "NO_PLAN"
-          ? "You need a paid plan to generate a resume."
-          : "You've used all credits in your current plan.",
-        {
-          action: { label: "View plans", onClick: () => router.push("/pricing") },
-          duration: 5000,
-        }
-      );
+      toast.error(noCreditsMessage(planCheck.reason), { duration: 6000 });
       return;
     }
 
@@ -511,14 +508,9 @@ function CreatePageInner() {
       }
 
       if (res.status === 402) {
-        const msg =
-          data.reason === "CREDITS_EXHAUSTED"
-            ? "You've used all credits in your plan."
-            : "You need a paid plan to generate a resume.";
+        const msg = noCreditsMessage(data.reason === "CREDITS_EXHAUSTED" ? "CREDITS_EXHAUSTED" : "NO_PLAN");
         setGenError(msg);
-        toast.error(msg, {
-          action: { label: "View plans", onClick: () => router.push("/pricing") },
-        });
+        toast.error(msg);
         setGenerating(false);
         setGenProgress(0);
         return;
@@ -593,12 +585,7 @@ function CreatePageInner() {
       return;
     }
     if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed && !regenParentId) {
-      toast.error(
-        planCheck.reason === "NO_PLAN"
-          ? "You need a paid plan to generate a resume."
-          : "You've used all credits in your current plan.",
-        { action: { label: "View plans", onClick: () => router.push("/pricing") }, duration: 5000 }
-      );
+      toast.error(noCreditsMessage(planCheck.reason), { duration: 6000 });
       return;
     }
     setFlowStep(4);
@@ -981,8 +968,7 @@ function CreatePageInner() {
             <div className="lg:hidden mt-auto pt-6">
               {planCheck && !planCheck.allowed && !isCreator && !regenParentId && (
                 <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800 flex items-center justify-between gap-2">
-                  <span>{planCheck.reason === "NO_PLAN" ? "You need a paid plan." : `All ${planCheck.allotted} credits used.`}</span>
-                  <Link href="/pricing" className="font-semibold underline whitespace-nowrap">{planCheck.reason === "NO_PLAN" ? "View plans →" : "Buy more →"}</Link>
+                  <span>{noCreditsMessage(planCheck.reason)}</span>
                 </div>
               )}
               <Button size="lg" onClick={() => { pushUrlStep("review"); setFlowStep(3); }} disabled={!canGenerate} className="w-full text-base py-6 rounded-xl font-semibold">
@@ -1037,11 +1023,7 @@ function CreatePageInner() {
 
             {planCheck && !planCheck.allowed && !isCreator && !regenParentId && (
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
-                <span>{planCheck.reason === "NO_PLAN" ? "You need a paid plan to generate." : `All ${planCheck.allotted} credits used.`}</span>
-                {" "}
-                <Link href="/pricing" className="font-semibold underline">
-                  {planCheck.reason === "NO_PLAN" ? "View plans →" : "Buy more →"}
-                </Link>
+                <span>{noCreditsMessage(planCheck.reason)}</span>
               </div>
             )}
 

@@ -106,7 +106,9 @@ describe("wiring (source)", () => {
     expect(page).toMatch(/loadSignedInProfile<Profile>\(supabase, "\*"\)/);
     expect(page).not.toMatch(/auth\.getUser\(\)\.then/);
     expect(page).not.toMatch(/from\("profiles"\)\.select\("\*"\)\.eq\("user_id", user\.id\)\.single\(\)/);
-    expect(page).toMatch(/if \(error\) throw new Error\(error\.message\);/);
+    // The plans read (now with the Free Beta claim) throws on a failed query and is retried.
+    expect(page).toMatch(/plans = await withRetry\(\(\) => loadPlansEnsuringBeta\(supabase, res\.user\.id\)\);/);
+    expect(read("lib", "beta-client.ts")).toMatch(/if \(error\) throw new Error\(error\.message\);/);
   });
 
   it("create page never says 'Profile incomplete' before the profile has loaded; a failure offers Retry", () => {
