@@ -61,25 +61,29 @@ export function stableStringify(value: unknown): string {
 }
 
 /**
- * What makes two generation requests "the same": the JD (whitespace
- * normalised), template, keywords, the profile as sent, and the regeneration
- * parent. Computed on the server from the validated request — never supplied
- * by the client.
+ * What makes two generation requests "the same" for the in-flight lock: the
+ * job description, whitespace- and case-normalised. Nothing else. Computed on
+ * the server — never supplied by the client.
+ *
+ * It used to hash the whole request (template, keyword chips, the profile as
+ * the tab loaded it, the regeneration parent from the URL, and the JD). Each
+ * tab holds its own copy of all of those, so two tabs pasting the same JD
+ * rarely sent byte-identical requests: a different template, one removed
+ * keyword chip, a tab opened from a "Regenerate" link, or a profile loaded
+ * before an edit gave a different fingerprint, the partial unique index never
+ * saw a conflict, and both tabs were generated and charged. Found in live QA:
+ * two tabs, same Junior Data Analyst JD, two credits, two resumes.
+ *
+ * One generation per JD in flight per user is the intent the lock protects. A
+ * deliberate second generation of the same JD (another template, say) is
+ * still allowed once the first finishes; only a concurrent one gets 409.
+ *
+ * The same value backs the "key reused for a different request" check, which
+ * is now per JD. The browser reuses a request_key only for a byte-identical
+ * retry, so that check loses nothing it relied on.
  */
-export function generationFingerprint(input: {
-  jd_text: string;
-  template?: string | null;
-  jd_keywords?: string[] | null;
-  user_profile: unknown;
-  regen_of_resume_id?: string | null;
-}): string {
-  const canonical = stableStringify({
-    jd: normaliseJd(input.jd_text),
-    template: input.template ?? null,
-    keywords: [...(input.jd_keywords ?? [])].map((k) => k.trim().toLowerCase()).sort(),
-    profile: input.user_profile,
-    regen: input.regen_of_resume_id ?? null,
-  });
+export function generationFingerprint(jdText: string): string {
+  const canonical = stableStringify({ v: 2, jd: normaliseJd(jdText).toLowerCase() });
   return createHash("sha256").update(canonical).digest("hex");
 }
 

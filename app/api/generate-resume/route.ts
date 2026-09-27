@@ -163,13 +163,12 @@ export async function POST(req: NextRequest) {
     parsed.data.user_profile.education = usable.education;
     parsed.data.user_profile.projects = usable.projects;
     // ── Idempotency (migration 013) ──────────────────────────────────────
-    // Before any model call or charge: claim this attempt. An identical
-    // generation already running in another tab or device is refused here,
-    // and a retry of an attempt that already finished gets its resume back.
+    // Before any model call or charge: claim this attempt. A generation for
+    // the same JD already running in another tab or device is refused here
+    // (whatever template, keywords or profile that tab sent), and a retry of
+    // an attempt that already finished gets its resume back.
     const store = generationStore();
-    const fingerprint = generationFingerprint({
-      jd_text, template, jd_keywords, user_profile: parsed.data.user_profile, regen_of_resume_id: validatedParentId,
-    });
+    const fingerprint = generationFingerprint(jd_text);
     let begun;
     try {
       begun = await store.begin(userId, request_key, fingerprint);

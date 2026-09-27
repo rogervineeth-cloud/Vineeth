@@ -10,6 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
 import { LocalPostgres } from "./helpers/local-postgres";
+import { generationFingerprint } from "@/lib/generation-idempotency";
 
 const pg = LocalPostgres.create();
 const d = pg ? describe : describe.skip;
@@ -172,6 +173,35 @@ d("migration 013 on PostgreSQL", () => {
     const req = pg!.psql(`select id from public.generation_requests where status = 'completed' limit 1`);
     expect(() => pg!.psql(`insert into public.resumes (user_id, jd_text, resume_json, generation_request_id) values ('${U1}', 'jd', '{}', '${req}')`))
       .toThrow(/duplicate key value violates unique constraint "resumes_generation_request_id_key"/);
+  });
+
+  // Live QA regression, end to end in SQL with the route's real fingerprint:
+  // two tabs with the same JD but different template / keyword chips /
+  // profile snapshot / regen link used to hash differently, so both started
+  // and both were charged.
+  it("two tabs, same JD, different tab-local state, at once: one started, one charge, one resume", async () => {
+    const U4 = "44444444-4444-4444-8444-444444444444";
+    pg!.psql(`insert into auth.users values ('${U4}')`);
+    pg!.psql(`insert into public.user_plans (user_id, plan_type, resumes_allotted, resumes_used, expires_at)
+              values ('${U4}', 'single', 3, 1, now() + interval '2 days')`);
+    const JD = "Junior Data Analyst. Clean and analyse data in SQL and Python, build Excel and Power BI dashboards, and present findings to stakeholders.";
+    // What each tab's request reduces to (template, keywords, profile and regen
+    // parent are no longer part of it — see generationFingerprint).
+    const tab1 = generationFingerprint(JD);
+    const tab2 = generationFingerprint(`  ${JD.toUpperCase().replace(/ /g, "  ")}\n`);
+    const [k1, k2] = [randomUUID(), randomUUID()];
+    const began = await pg!.concurrently([beginSql(U4, k1, tab1), beginSql(U4, k2, tab2)]);
+    const outcomes = began.map((r) => r.out.split("|")[0]);
+    expect(outcomes.sort()).toEqual(["in_progress", "started"]);
+    const winner = began[0].out.startsWith("started") ? k1 : k2;
+    const loser = winner === k1 ? k2 : k1;
+    // The refused tab never reaches the model, so only the winner completes;
+    // a stray completion for the refused key must write nothing.
+    const done = await pg!.concurrently([completeSql(U4, winner, true), completeSql(U4, loser, true)]);
+    expect(done.map((r) => r.out.split("|")[0]).sort()).toEqual(["completed", "unknown_request"]);
+    expect(used(U4)).toBe(2);
+    expect(resumes(U4)).toBe(1);
+    expect(Number(pg!.psql(`select count(*) from public.generation_requests where user_id = '${U4}' and charged`))).toBe(1);
   });
 
   it("rollback removes 013 cleanly and keeps every resume", () => {

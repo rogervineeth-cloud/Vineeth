@@ -127,6 +127,49 @@ describe("two tabs / devices at once", () => {
   });
 });
 
+// Live QA regression: two tabs primed with the same Junior Data Analyst JD
+// were submitted seconds apart; both generated and both were charged. The
+// tabs' requests were not byte-identical — each tab holds its own template,
+// keyword chips, profile snapshot and URL — and the lock hashed all of it.
+describe("two tabs, same JD, different tab-local state (live QA regression)", () => {
+  const JD_TAB2 = `\n${JD_A.toUpperCase().replace(/ /g, "   ")}  `;
+  const variants: [string, Record<string, unknown>][] = [
+    ["a different template", { template: "classic" }],
+    ["different keyword chips", { jd_keywords: ["AWS"] }],
+    ["a profile loaded before an edit", { user_profile: { ...PROFILE, skills: ["TypeScript", "Node.js", "AWS", "Redis"] } }],
+    ["a stale Regenerate link (regen parent in the URL)", { regen_of_resume_id: randomUUID() }],
+    ["whitespace/case differences in the pasted JD", { jd_text: JD_TAB2 }],
+    ["all of the above at once", { template: "classic", jd_keywords: ["AWS"], regen_of_resume_id: randomUUID(), jd_text: JD_TAB2, user_profile: { ...PROFILE, summary: "edited" } }],
+  ];
+
+  it.each(variants)("second tab with %s: one generation, one charge, one resume; the other gets 409", async (_label, tab2Over) => {
+    const model = holdModel();
+    const tab1 = POST(req({ jd_keywords: ["AWS", "TypeScript"] }));
+    await until(() => model.calls() === 1);
+    const tab2 = await POST(req(tab2Over));
+    expect(tab2.status).toBe(409);
+    expect((await tab2.json()).error).toBe("GENERATION_IN_PROGRESS");
+    model.release();
+    expect((await tab1).status).toBe(200);
+    expect(model.calls()).toBe(1);
+    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(mockGenerationStore.resumes).toHaveLength(1);
+    expect(mockGenerationStore.attempts.filter((a) => a.status === "completed")).toHaveLength(1);
+  });
+
+  it("both tabs submitted in the same instant (neither has reached the model yet): exactly one charge", async () => {
+    const model = holdModel();
+    const both = Promise.all([POST(req({ template: "modern" })), POST(req({ template: "classic", jd_keywords: ["AWS"] }))]);
+    await until(() => model.calls() === 1);
+    model.release();
+    const statuses = (await both).map((r) => r.status).sort();
+    expect(statuses).toEqual([200, 409]);
+    expect(model.calls()).toBe(1);
+    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(mockGenerationStore.resumes).toHaveLength(1);
+  });
+});
+
 describe("double submits and retries", () => {
   it("the same attempt sent twice at once: one generation; a later retry replays it without charging", async () => {
     const key = randomUUID();
@@ -237,19 +280,14 @@ describe("what the server stores", () => {
   });
 });
 
-describe("generationFingerprint", () => {
-  const base = { jd_text: JD_A, template: "modern", jd_keywords: ["AWS", "TypeScript"], user_profile: PROFILE, regen_of_resume_id: null };
-  it("is stable under whitespace, key order and keyword order", () => {
-    const fp = generationFingerprint(base);
+describe("generationFingerprint (the in-flight lock identity)", () => {
+  it("is the JD only, stable under whitespace and case", () => {
+    const fp = generationFingerprint(JD_A);
     expect(fp).toMatch(/^[0-9a-f]{64}$/);
-    expect(generationFingerprint({ ...base, jd_text: `  ${JD_A.replace(/ /g, "  ")}\n` })).toBe(fp);
-    expect(generationFingerprint({ ...base, jd_keywords: ["typescript", "aws"] })).toBe(fp);
-    expect(generationFingerprint({ ...base, user_profile: Object.fromEntries(Object.entries(PROFILE).reverse()) })).toBe(fp);
+    expect(generationFingerprint(`  ${JD_A.replace(/ /g, "  ")}\n`)).toBe(fp);
+    expect(generationFingerprint(JD_A.toUpperCase())).toBe(fp);
   });
-  it("changes with anything that changes the resume", () => {
-    const fp = generationFingerprint(base);
-    for (const over of [{ jd_text: JD_B }, { template: "classic" }, { jd_keywords: ["AWS"] }, { regen_of_resume_id: randomUUID() }, { user_profile: { ...PROFILE, skills: ["Go"] } }]) {
-      expect(generationFingerprint({ ...base, ...over })).not.toBe(fp);
-    }
+  it("differs for a different JD", () => {
+    expect(generationFingerprint(JD_B)).not.toBe(generationFingerprint(JD_A));
   });
 });
