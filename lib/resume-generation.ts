@@ -9,13 +9,14 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { GENERATION_TEMPERATURE } from "@/lib/models";
 import { detectTechSkills, TECH_SKILLS } from "@/lib/jd-keywords";
-import { computeFacts, yearsProblems, type CandidateFacts } from "@/lib/profile-facts";
+import { computeFacts, durationMonths, yearsProblems, INTERN, type CandidateFacts } from "@/lib/profile-facts";
 import { Evidence, novelDetail, trimToEvidence, contentTokens, LIST_FRAGMENT } from "@/lib/detail-evidence";
 
 const KNOWN_SKILLS = new Set(TECH_SKILLS.map((s) => s.name));
 import {
   sanitiseGeneratedResume,
   normaliseGeneratedResume,
+  extractNumbers,
   type ResumeShape,
 } from "@/lib/sanitise-resume";
 
@@ -74,8 +75,16 @@ K. ADVICE IS EVIDENCE-ONLY TOO. growth_note and profile_improvement_tips may cre
 3. INDIAN MARKET FIT. Indian English spelling; \u20B9 for salaries; recognise Indian companies (Reliance, Infosys, TCS, Flipkart, Wipro, HCL, Zomato) and qualifications (B.Tech, B.E., MBA, CA, M.Com, BCA, MCA, B.Sc) as-is.
 4. JD-DRIVEN INJECTION. Name the exact JD job title in the summary as the role being sought (rule I). Of the top 3 hard skills, those the candidate truthfully has (INTERSECTION_SKILLS) appear in skills, and in a bullet only where that bullet's source already describes them (rule J); the rest go only to missing_keywords (rule H). Do not claim soft skills or qualities ("strong problem-solver", "scalable", "proficient") the profile does not show.
 
+## EARLY-CAREER CANDIDATES (CANDIDATE_FACTS.early_career is true)
+A fresher's resume is judged on its projects and internships, so present them fully \u2014 from their own source text only.
+1. SUMMARY: 3 sentences, 45-75 words. (1) CANDIDATE_FACTS.summary_opening, then the JD job title as the role being sought (rule I). (2) Name the most JD-relevant project or internship from USER_PROFILE and what it did, with a number only if that project's or role's own text has one. (3) The INTERSECTION_SKILLS the candidate used, said where they used them (which project or internship). No qualities the profile does not state ("passionate", "quick learner", "strong", "eager").
+2. PROJECT DESCRIPTIONS: 2-3 short sentences. Each opens with a strong action verb and carries one distinct fact from THAT project's own description or tech. Keep every number, tool, integration and result the source gives \u2014 never drop or merge one away \u2014 and add nothing (rule J).
+3. INTERNSHIP BULLETS: one bullet per source bullet, in the same order. Keep every number and tool the source bullet names; sharpen only the verb and word order.
+4. Never pad: no extra sections, no coursework, certifications, achievements or activities USER_PROFILE does not contain.
+
 ## SECTION ORDER
 - FRESHER (0-1 yr or no experience): section_order = ["summary", "education", "projects", "skills", "experience"]
+- FRESHER WITH AN INTERNSHIP: section_order = ["summary", "education", "experience", "projects", "skills"]
 - EXPERIENCED (2+ yrs): section_order = ["summary", "experience", "skills", "education", "projects"]
 
 ## BULLET FORMULA
@@ -123,7 +132,7 @@ No preamble. No closing remarks. No markdown fences. If you cannot produce valid
   ],
   "skills": ["only skills evidenced in USER_PROFILE: INTERSECTION_SKILLS first, then PROFILE_EXTRA_SKILLS, max 15"],
   "education": [
-    { "institution": "string", "degree": "string", "year": "string", "location": "string (optional)", "gpa": "string (optional)" }
+    { "institution": "string", "degree": "string", "year": "string", "location": "string (optional)", "cgpa": "string (optional; only exactly as USER_PROFILE gives it)" }
   ],
   "projects": [
     { "name": "string", "description": "1-2 lines with measurable outcome", "tech": ["relevant tech"] }
@@ -246,6 +255,7 @@ export function buildGenerationPayload(input: GenerationInput) {
       current_title: facts.current_title,
       employer_years: facts.employer_months.map((e) => ({ company: e.company, years: Math.floor((e.months / 12) * 10) / 10 })),
       summary_opening: facts.identity,
+      early_career: isEarlyCareer(facts),
     },
     TEMPLATE: input.template || "modern",
     USER_PROFILE: input.user_profile,
@@ -308,15 +318,19 @@ export function postProcessResume(resumeJson: unknown, profile: GenerationProfil
   const evidenced = enforceSkillEvidence(sanitised.resume, profile);
   const detailed = enforceDetailEvidence(evidenced.resume, profile);
   const facts = computeFacts(profile, opts.now ?? new Date());
-  const summarised = enforceSummaryFacts(detailed.resume, profile, facts);
-  const advised = enforceAdviceEvidence(summarised.resume, profile, facts);
+  const covered = enforceSourceCoverage(detailed.resume, profile, facts);
+  const summarised = enforceSummaryFacts(covered.resume, profile, facts);
+  const enriched = enrichEarlyCareerSummary(orderEarlyCareerSections(summarised.resume, facts), profile, facts);
+  const advised = enforceAdviceEvidence(enriched.resume, profile, facts);
+  const headlined = { ...advised.resume, headline: buildHeadline(advised.resume, profile, facts) } as ResumeShape;
+  if (!headlined.headline) delete headlined.headline;
   const normalised = normaliseGeneratedResume(
-    advised.resume,
+    headlined,
     (profile.target_roles?.[0] ?? "").trim()
   );
   return {
     resume: normalised.resume,
-    warnings: [...sanitised.warnings, ...evidenced.warnings, ...detailed.warnings, ...summarised.warnings, ...advised.warnings],
+    warnings: [...sanitised.warnings, ...evidenced.warnings, ...detailed.warnings, ...covered.warnings, ...summarised.warnings, ...enriched.warnings, ...advised.warnings],
     repaired: normalised.repaired,
     fatal: normalised.fatal,
   };
@@ -676,19 +690,24 @@ export function opensWithIdentity(summary: string): boolean {
   return IDENTITY_NOUN.test(maskSoughtRole(first, ""));
 }
 
+/** What a summary sentence may draw on: the whole profile, the role sought and the computed opening. */
+function summaryEvidence(resume: ResumeShape, profile: GenerationProfile, facts: CandidateFacts): Evidence {
+  return new Evidence(
+    profile.summary ?? "",
+    profileEvidence(profile),
+    ...(profile.experience ?? []).map((e) => e.company),
+    ...(profile.education ?? []).flatMap((e) => [e.degree, e.institution]),
+    typeof resume.tailored_role === "string" ? resume.tailored_role : "",
+    facts.identity
+  );
+}
+
 export function enforceSummaryFacts(resume: ResumeShape, profile: GenerationProfile, facts: CandidateFacts) {
   const warnings: string[] = [];
   const out = { ...resume } as ResumeShape & Record<string, unknown>;
   if (typeof out.summary !== "string") return { resume: out as ResumeShape, warnings };
 
-  const evidence = new Evidence(
-    profile.summary ?? "",
-    profileEvidence(profile),
-    ...(profile.experience ?? []).map((e) => e.company),
-    ...(profile.education ?? []).flatMap((e) => [e.degree, e.institution]),
-    typeof out.tailored_role === "string" ? out.tailored_role : "",
-    facts.identity
-  );
+  const evidence = summaryEvidence(out, profile, facts);
   const kept = out.summary.trim().split(SENTENCE_SPLIT).flatMap((sn) => {
     if (!sn.trim()) return [];
     const years = yearsProblems(sn, facts);
@@ -931,4 +950,238 @@ export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationPr
   }
 
   return { resume: out as ResumeShape, warnings };
+}
+
+// ── Early career: keep every source fact, frame it well ────────────────────
+//
+// The guards above stop a rewrite ADDING detail; nothing stopped it LOSING
+// detail. A fresher's resume is its projects and internship, and a truthful
+// but sparse one ("ATS-safe and truthful yet visually sparse") had shed
+// numbers, tools and whole bullets the candidate wrote. Nothing here writes
+// new content: it restores the candidate's own text, or composes a sentence
+// only from their own titles, employers, project names and tech, and every
+// composed sentence must still pass the summary evidence check.
+
+/** Under a year of professional (non-internship) experience. */
+export function isEarlyCareer(facts: CandidateFacts): boolean {
+  return facts.professional_months < 12;
+}
+
+/**
+ * A rewrite that lost a number or a named tool its own source states is
+ * reverted to the source; for an early-career candidate or an internship, a
+ * source bullet or project the model left out entirely is restored (bullets
+ * up to 5 per role, projects up to 4).
+ */
+export function enforceSourceCoverage(resume: ResumeShape, profile: GenerationProfile, facts?: CandidateFacts) {
+  const warnings: string[] = [];
+  const out = { ...resume } as ResumeShape & Record<string, unknown>;
+  const early = facts ? isEarlyCareer(facts) : (profile.experience ?? []).every((e) => INTERN.test(e.role));
+
+  if (Array.isArray(out.experience)) {
+    out.experience = out.experience.map((exp) => {
+      const src = (profile.experience ?? []).find(
+        (p) => norm(p.company) === norm(exp.company ?? "") && norm(p.role) === norm(exp.role ?? "")
+      ) ?? (profile.experience ?? []).find((p) => norm(p.company) === norm(exp.company ?? ""));
+      if (!src || !Array.isArray(exp.bullets)) return exp;
+      let bullets = exp.bullets.filter((b): b is string => typeof b === "string");
+      const have = extractNumbers(bullets.join("\n"));
+      bullets = bullets.map((b) => {
+        const best = src.bullets
+          .map((sb) => ({ sb, score: sourceSimilarity(b, sb) }))
+          .sort((x, y) => y.score - x.score)[0];
+        if (!best || best.score < 0.3 || b === best.sb) return b;
+        const lost = [...extractNumbers(best.sb)].filter((n) => !have.has(n));
+        if (!lost.length) return b;
+        warnings.push(`reverted_bullet_lost_number:${lost.join("/")}`);
+        return best.sb;
+      });
+      bullets = [...new Set(bullets)];
+      if (early || INTERN.test(src.role)) {
+        // A source bullet is represented only by an output bullet that was
+        // rewritten from IT (its best match): shared filler words ("the",
+        // "for", "returns") made one rewrite look like it covered two.
+        const represented = new Set(bullets.map((b) => bestSource(b, src.bullets)).filter((x): x is string => x !== null));
+        for (const sb of src.bullets) {
+          if (bullets.length >= 5) break;
+          if (bullets.includes(sb) || represented.has(sb)) continue;
+          warnings.push("restored_omitted_source_bullet");
+          bullets.push(sb);
+        }
+      }
+      return { ...exp, bullets };
+    });
+  }
+
+  if (Array.isArray(out.projects)) {
+    const sameProject = (a: string, b: string) => {
+      const x = norm(a), y = norm(b);
+      return x === y || x.startsWith(y) || y.startsWith(x);
+    };
+    out.projects = out.projects.map((pr) => {
+      const src = (profile.projects ?? []).find((p) => sameProject(p.name, pr.name ?? ""));
+      if (!src || !src.description?.trim()) return pr;
+      const description = typeof pr.description === "string" ? pr.description : "";
+      if (!description.trim()) {
+        warnings.push("restored_empty_project_description");
+        return { ...pr, description: src.description };
+      }
+      const have = extractNumbers(description);
+      const lostNumbers = [...extractNumbers(src.description)].filter((n) => !have.has(n));
+      const shown = new Set(skillsMentioned(`${description}\n${(pr.tech ?? []).join("\n")}`));
+      const lostTools = skillsMentioned(src.description).filter((k) => !shown.has(k));
+      if (!lostNumbers.length && !lostTools.length) return pr;
+      warnings.push(`reverted_project_description_lost_fact:${[...lostNumbers, ...lostTools].join("|")}`);
+      return { ...pr, description: src.description };
+    });
+    if (early) {
+      for (const p of profile.projects ?? []) {
+        if (out.projects.length >= 4) break;
+        if (!p.name?.trim() || out.projects.some((pr) => sameProject(p.name, pr.name ?? ""))) continue;
+        warnings.push(`restored_omitted_project:${p.name}`);
+        out.projects.push({ name: p.name, description: p.description, tech: [...(p.tech ?? [])] });
+      }
+      if (out.projects.length && Array.isArray(out.section_order) && !out.section_order.includes("projects")) {
+        out.section_order = [...out.section_order, "projects"];
+      }
+    }
+  }
+
+  return { resume: out as ResumeShape, warnings };
+}
+
+/** The source bullet `b` was most likely rewritten from (similarity >= 0.3), or null. */
+function bestSource(b: string, sources: string[]): string | null {
+  const best = sources
+    .map((sb) => ({ sb, score: b === sb ? Infinity : sourceSimilarity(b, sb) }))
+    .sort((x, y) => y.score - x.score)[0];
+  return best && best.score >= 0.3 ? best.sb : null;
+}
+
+/**
+ * An early-career candidate with an internship shows it straight after
+ * education: rendered after Skills (the plain fresher order), their only
+ * work experience read as an afterthought.
+ */
+export function orderEarlyCareerSections(resume: ResumeShape, facts: CandidateFacts): ResumeShape {
+  const order = resume.section_order;
+  if (!isEarlyCareer(facts) || !Array.isArray(order) || !Array.isArray(resume.experience) || !resume.experience.length) return resume;
+  const rest = order.filter((sec) => sec !== "experience");
+  const at = rest.indexOf("education");
+  if (at < 0) return resume;
+  return { ...resume, section_order: [...rest.slice(0, at + 1), "experience", ...rest.slice(at + 1)] };
+}
+
+function joinList(items: string[]): string {
+  return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+const wordCount = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+
+/**
+ * An early-career summary of one or two thin sentences gains, in order, the
+ * candidate's most recent role ("Worked as <their title> at <their
+ * employer>.") and the projects the resume leads with, with the tech they
+ * list ("Built <project> and <project> with <tech>."), each only if the
+ * summary does not already name it, the sentence passes the same evidence
+ * check as the model's own, and the summary stays within 80 words.
+ */
+export function enrichEarlyCareerSummary(resume: ResumeShape, profile: GenerationProfile, facts: CandidateFacts) {
+  const warnings: string[] = [];
+  const out = { ...resume } as ResumeShape & Record<string, unknown>;
+  if (!isEarlyCareer(facts) || typeof out.summary !== "string" || !out.summary.trim()) {
+    return { resume: out as ResumeShape, warnings };
+  }
+  const evidence = summaryEvidence(out, profile, facts);
+  let summary = out.summary.trim();
+  const sentences = () => summary.split(SENTENCE_SPLIT).filter((x) => x.trim()).length;
+  const mentions = (name: string) => summary.toLowerCase().includes(name.trim().toLowerCase());
+
+  const additions: string[] = [];
+  const now = new Date();
+  const latest = [...(profile.experience ?? [])]
+    .map((e) => ({ e, end: durationEnd(e.duration, now) }))
+    .sort((a, b) => b.end - a.end)[0]?.e;
+  if (latest && latest.role?.trim() && latest.company?.trim() && !mentions(latest.company)) {
+    additions.push(`Worked as ${latest.role.trim()} at ${latest.company.trim()}.`);
+  }
+  const skillsOrder = (Array.isArray(out.skills) ? out.skills : []).map((k) => norm(String(k)));
+  const rank = (t: string) => {
+    const i = skillsOrder.indexOf(norm(t));
+    return i < 0 ? skillsOrder.length : i;
+  };
+  const projects = (Array.isArray(out.projects) ? out.projects : [])
+    .filter((p) => typeof p.name === "string" && p.name.trim() && !mentions(p.name))
+    .slice(0, 2);
+  if (projects.length) {
+    const tech = [...new Map(projects.flatMap((p) => p.tech ?? []).filter((t): t is string => typeof t === "string" && t.trim().length > 0).map((t) => [norm(t), t.trim()])).values()]
+      .map((t, i) => ({ t, i }))
+      .sort((a, b) => rank(a.t) - rank(b.t) || a.i - b.i)
+      .slice(0, 4)
+      .map((x) => x.t);
+    const names = joinList(projects.map((p) => (p.name as string).trim()));
+    additions.push(tech.length ? `Built ${names} with ${joinList(tech)}.` : `Built ${names}.`);
+  }
+
+  for (const add of additions) {
+    if (sentences() >= 3) break;
+    if (wordCount(summary) + wordCount(add) > 80) continue;
+    if (novelDetail(add, evidence, { summary: true }).length || yearsProblems(add, facts).length) {
+      warnings.push("skipped_summary_enrichment_unsupported");
+      continue;
+    }
+    // Evidence reads before the ask: "... graduate (2025). Built X with Y.
+    // Seeking the Z role." rather than trailing after it.
+    const parts = summary.replace(/([^.!?])$/, "$1.").split(SENTENCE_SPLIT);
+    const last = parts.length > 1 && SEEKING_SENTENCE.test(parts[parts.length - 1]) ? parts.pop()! : null;
+    summary = [...parts, add, ...(last ? [last] : [])].join(" ");
+    warnings.push("enriched_early_career_summary");
+  }
+  out.summary = summary;
+  return { resume: out as ResumeShape, warnings };
+}
+
+const SEEKING_SENTENCE = /^\s*(?:seeking|targeting|pursuing|applying)\b/i;
+
+function durationEnd(duration: string, now: Date): number {
+  const r = durationMonths(duration, now);
+  return r ? r[1] : -1;
+}
+
+/**
+ * The line under the candidate's name: who they are (their own current title,
+ * or their latest degree as graduate/student, or their internship title) and
+ * the first skills the resume lists — already evidence-checked and ordered by
+ * JD relevance. Never the target title: that is the role being sought.
+ * Plain ASCII so ATS parsers read it as text.
+ */
+export function buildHeadline(resume: ResumeShape, profile: GenerationProfile, facts: CandidateFacts): string {
+  let identity = "";
+  if (facts.current_title && facts.professional_months > 0) identity = facts.current_title;
+  else if (facts.latest_degree) {
+    const d = facts.latest_degree;
+    identity = /\b(?:graduate|student)\b/i.test(d) ? d : `${d} ${facts.graduated ? "Graduate" : "Student"}`;
+  } else {
+    const intern = (profile.experience ?? []).find((e) => INTERN.test(e.role));
+    identity = intern?.role.trim() ?? "";
+  }
+  identity = identity.replace(/\s+/g, " ").trim();
+  if (!identity) return "";
+  // Tools and languages lead; practices ("Code Review", "Algorithms") are
+  // what a recruiter probes against specific work, not a headline.
+  const listed = (Array.isArray(resume.skills) ? resume.skills : [])
+    .filter((k): k is string => typeof k === "string" && k.trim().length > 0 && k.length <= 24 && !/[|]/.test(k))
+    .map((k) => k.trim())
+    .filter((k) => !identity.toLowerCase().includes(k.toLowerCase()));
+  const isPractice = (k: string) => skillsMentioned(k).some((x) => PRACTICE_SKILLS.has(x));
+  const skills: string[] = [];
+  for (const k of [...listed.filter((k) => !isPractice(k)), ...listed.filter(isPractice)]) {
+    if (skills.length >= 4) break;
+    // "SQL" beside "MySQL" says nothing new.
+    const low = k.toLowerCase();
+    const inside = (a: string, b: string) => a.length >= 3 && b.includes(a);
+    if (skills.some((x) => inside(low, x.toLowerCase()) || inside(x.toLowerCase(), low))) continue;
+    skills.push(k);
+  }
+  return skills.length ? `${identity} | ${skills.join(", ")}` : identity;
 }

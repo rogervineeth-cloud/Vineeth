@@ -9,6 +9,7 @@ import { postProcessResume } from "@/lib/resume-generation";
 import { Evidence, novelDetail, headNounOnEvidence } from "@/lib/detail-evidence";
 import { usableSections } from "@/lib/profile-completeness";
 import { evaluateResume, skillsIn, type ProfileFixture, type JdFixture, type Scenario, type GeneratedResume } from "../evals/resume-quality/evaluate";
+import { changedBeyondUplift } from "./helpers/quality-uplift";
 
 const ROOT = path.join(__dirname, "..", "evals", "resume-quality");
 const read = <T>(rel: string): T => JSON.parse(fs.readFileSync(path.join(ROOT, rel), "utf8"));
@@ -115,7 +116,7 @@ describe("all 11 final-live-5 captures, replayed", () => {
   it("only S07, S08 and S09 change", () => {
     const changed = IDS.filter((id) => {
       const { cap, replayed } = load(id);
-      return JSON.stringify(cap.final_resume) !== JSON.stringify(replayed);
+      return changedBeyondUplift(cap.final_resume, replayed);
     });
     expect(changed).toEqual(["S07", "S08", "S09"]);
   });
