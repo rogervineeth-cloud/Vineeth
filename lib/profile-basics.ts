@@ -22,6 +22,8 @@
 // The write is now an upsert keyed on user_id, and "saved" is only reported
 // when the database hands the row back.
 
+import { cleanTargetRoles } from "./target-roles";
+
 /** Pragmatic email check — something@something.tld, no spaces. */
 export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
@@ -36,13 +38,30 @@ export function isValidPhone(value: string): boolean {
   return digits.length >= 7 && digits.length <= 15;
 }
 
+/** Earliest graduation year accepted. */
+export const GRAD_YEAR_MIN = 1950;
+/** Latest graduation year accepted: ten years ahead, for current students. */
+export function gradYearMax(now: Date = new Date()): number {
+  return now.getFullYear() + 10;
+}
+
 /** Optional field: blank is fine. Otherwise a 4-digit year within a sane range. */
-export function isValidGradYear(value: string): boolean {
+export function isValidGradYear(value: string, now: Date = new Date()): boolean {
   const v = value.trim();
   if (!v) return true;
   if (!/^\d{4}$/.test(v)) return false;
   const year = Number(v);
-  return year >= 1950 && year <= new Date().getFullYear() + 10;
+  return year >= GRAD_YEAR_MIN && year <= gradYearMax(now);
+}
+
+/**
+ * The inline error for the graduation year, or null when it is valid. It names
+ * the range the check actually enforces — "Enter a 4-digit year, e.g. 2022"
+ * left "1949" or "2040" rejected with no hint why.
+ */
+export function gradYearError(value: string, now: Date = new Date()): string | null {
+  if (isValidGradYear(value, now)) return null;
+  return `Enter a 4-digit year from ${GRAD_YEAR_MIN} to ${gradYearMax(now)}.`;
 }
 
 /**
@@ -133,7 +152,8 @@ export function buildProfileWrite(
     phone: basics.phone.trim() || null,
     current_city: basics.current_city.trim() || null,
     graduation_year: year ? parseInt(year, 10) : null,
-    target_roles: targetRoles,
+    // Never the "Other" sentinel or a blank — see lib/target-roles.ts.
+    target_roles: cleanTargetRoles(targetRoles),
     profile_data: profileData,
   };
 }

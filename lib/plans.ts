@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { PlanType } from "@/lib/plan-config";
 import { PLAN_ALLOTMENTS } from "@/lib/plan-config";
 import { isFreeRegen, normaliseJd, MAX_LINEAGE_HOPS, type LineageNode } from "@/lib/regen";
+import { resumeDownloadAllowed } from "@/lib/download-entitlement";
 
 export type ActivePlan = {
   id: string;
@@ -160,22 +161,33 @@ export async function refundCredit(userId: string): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
-/** Whether the user may download a specific resume PDF. */
-export async function canDownloadResume(userId: string, resumeId: string): Promise<boolean> {
-  // Any active plan → always allowed
-  const plan = await getUserActivePlan(userId);
-  if (plan) return true;
+export type DownloadDecision = "allowed" | "payment_required" | "not_found";
 
-  // Already downloaded once → re-downloads are always free
+/**
+ * Whether the user may download a specific resume PDF.
+ *
+ * Ownership first: a resume that does not exist or is not the caller's is
+ * "not_found" whatever the caller's plan — the `.eq("user_id", userId)` filter
+ * is the ownership check, as in preview. Only then entitlement
+ * (lib/download-entitlement.ts), which no longer requires a credit to be LEFT:
+ * the resume that used the last credit stays downloadable.
+ */
+export async function canDownloadResume(userId: string, resumeId: string): Promise<DownloadDecision> {
   const supabase = await createClient();
   const { data: resume } = await supabase
     .from("resumes")
-    .select("downloaded_at")
+    .select("created_at, downloaded_at")
     .eq("id", resumeId)
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
+  if (!resume) return "not_found";
 
-  return !!(resume?.downloaded_at);
+  const { data: plans } = await supabase
+    .from("user_plans")
+    .select("resumes_used, resumes_allotted, expires_at, purchased_at")
+    .eq("user_id", userId);
+
+  return resumeDownloadAllowed(resume, plans ?? []) ? "allowed" : "payment_required";
 }
 
 /** Insert a test plan row via the service role (bypasses RLS). */

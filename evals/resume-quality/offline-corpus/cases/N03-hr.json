@@ -1,0 +1,63 @@
+{
+  "id": "N03",
+  "domain": "HR / recruitment",
+  "expected_fit": "match",
+  "facts": { "professional_years": 3.5, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Sneha Kulkarni (fictional)",
+    "email": "sneha.kulkarni@example.com",
+    "summary": "HR recruiter hiring for technology and operations roles.",
+    "skills": ["Recruitment", "Sourcing", "Naukri", "LinkedIn Recruiter", "Interview Scheduling", "ATS", "Excel", "Onboarding"],
+    "target_roles": ["Talent Acquisition Specialist"],
+    "experience": [
+      {
+        "company": "Peregrine Staffing Solutions",
+        "role": "HR Recruiter",
+        "duration": "Mar 2023 - Present",
+        "location": "Bengaluru",
+        "bullets": [
+          "Closed 85 hires across tech and operations roles in 2024 with an average time-to-hire of 28 days.",
+          "Sourced candidates on Naukri and LinkedIn Recruiter and screened 60 profiles a week.",
+          "Coordinated onboarding for 120 new joiners with the payroll team."
+        ]
+      }
+    ],
+    "education": [{ "institution": "Deccan Plateau Institute of Management", "degree": "MBA Human Resources", "year": "2021 - 2023", "location": "Pune" }],
+    "projects": []
+  },
+  "jd": {
+    "title": "Talent Acquisition Specialist",
+    "text": "Own end-to-end recruitment for tech roles: sourcing on LinkedIn and Naukri, screening, stakeholder management with hiring managers, offer negotiation and onboarding. 3+ years in talent acquisition. Experience with employer branding and ATS reporting preferred."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education"],
+    "summary": "HR Recruiter with 3+ years of professional experience hiring for technology and operations roles, seeking the Talent Acquisition Specialist role. Closed 85 hires in 2024 through strategic sourcing on LinkedIn Recruiter and Naukri.",
+    "experience": [
+      {
+        "company": "Peregrine Staffing Solutions",
+        "role": "HR Recruiter",
+        "duration": "Mar 2023 - Present",
+        "bullets": [
+          "Closed 85 tech and operations hires in 2024 with an average time-to-hire of 28 days.",
+          "Sourced candidates on LinkedIn Recruiter and Naukri, screening 60 profiles a week and partnering with hiring managers.",
+          "Designed and implemented a structured onboarding program for 120 new joiners, improving 90-day retention."
+        ]
+      }
+    ],
+    "skills": ["Recruitment", "Sourcing", "LinkedIn Recruiter", "Naukri", "Onboarding", "ATS"],
+    "education": [{ "institution": "Deccan Plateau Institute of Management", "degree": "MBA Human Resources", "year": "2021 - 2023" }],
+    "ats_score": 72,
+    "matched_keywords": ["Sourcing", "Onboarding"],
+    "missing_keywords": ["Employer Branding"],
+    "tailored_role": "Talent Acquisition Specialist",
+    "profile_improvement_tips": ["Gain employer branding experience by contributing to your company's campus hiring campaigns."],
+    "growth_note": "Your profile shows sourcing, screening and onboarding experience. Employer branding is not yet evident; gaining it would strengthen your application."
+  },
+  "labels": [
+    { "where": "summary", "text": "HR Recruiter with 3+ years of professional experience hiring for technology and operations roles, seeking the Talent Acquisition Specialist role.", "kind": "tailored" },
+    { "where": "summary", "text": "Closed 85 hires in 2024 through strategic sourcing on LinkedIn Recruiter and Naukri.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Closed 85 tech and operations hires in 2024 with an average time-to-hire of 28 days.", "kind": "tailored" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Sourced candidates on LinkedIn Recruiter and Naukri, screening 60 profiles a week and partnering with hiring managers.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Designed and implemented a structured onboarding program for 120 new joiners, improving 90-day retention.", "kind": "fabricated" }
+  ]
+}

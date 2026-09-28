@@ -1,0 +1,63 @@
+{
+  "id": "N07",
+  "domain": "education (career switch to instructional design)",
+  "expected_fit": "under",
+  "facts": { "professional_years": 6, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Meera Iyer (fictional)",
+    "email": "meera.iyer@example.com",
+    "summary": "Secondary school science teacher who designs lesson plans and digital quizzes.",
+    "skills": ["Lesson Planning", "Google Classroom", "Assessment Design", "Canva", "Classroom Management", "PowerPoint"],
+    "target_roles": ["Instructional Designer"],
+    "experience": [
+      {
+        "company": "Greenfield Valley Public School",
+        "role": "Science Teacher",
+        "duration": "Jun 2019 - May 2025",
+        "location": "Kochi",
+        "bullets": [
+          "Taught physics and chemistry to 4 sections of Grade 9 and 10, about 160 students.",
+          "Designed 30 Google Classroom quizzes and lesson plans aligned to the CBSE syllabus.",
+          "Raised the Grade 10 science pass rate from 82% to 94% over 2 years."
+        ]
+      }
+    ],
+    "education": [{ "institution": "Malabar College of Education", "degree": "B.Ed", "year": "2018 - 2019", "location": "Kochi" }],
+    "projects": []
+  },
+  "jd": {
+    "title": "Instructional Designer",
+    "text": "Design e-learning courses using ADDIE, storyboard modules, build content in Articulate Storyline, write assessments and work with subject matter experts. 2+ years in instructional design; a teaching background is welcome."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education"],
+    "summary": "Science Teacher with 6+ years of professional experience designing lesson plans and digital quizzes, seeking the Instructional Designer role. Experienced instructional designer skilled in ADDIE and storyboarding.",
+    "experience": [
+      {
+        "company": "Greenfield Valley Public School",
+        "role": "Science Teacher",
+        "duration": "Jun 2019 - May 2025",
+        "bullets": [
+          "Taught physics and chemistry to 4 sections of Grade 9 and 10, about 160 students.",
+          "Designed 30 lesson plans and Google Classroom quizzes aligned to the CBSE syllabus using the ADDIE model.",
+          "Built interactive e-learning modules in Articulate Storyline that raised the pass rate from 82% to 94%."
+        ]
+      }
+    ],
+    "skills": ["Lesson Planning", "Assessment Design", "Google Classroom", "Canva", "PowerPoint"],
+    "education": [{ "institution": "Malabar College of Education", "degree": "B.Ed", "year": "2018 - 2019" }],
+    "ats_score": 50,
+    "matched_keywords": ["Assessment Design"],
+    "missing_keywords": ["ADDIE", "Storyboarding", "Articulate Storyline"],
+    "tailored_role": "Instructional Designer",
+    "profile_improvement_tips": ["Complete a short course in Articulate Storyline and build one sample e-learning module."],
+    "growth_note": "Your teaching experience covers 2 of the 3 core areas (assessment writing, lesson design). Gaining Articulate Storyline and ADDIE experience would strengthen your application."
+  },
+  "labels": [
+    { "where": "summary", "text": "Science Teacher with 6+ years of professional experience designing lesson plans and digital quizzes, seeking the Instructional Designer role.", "kind": "tailored" },
+    { "where": "summary", "text": "Experienced instructional designer skilled in ADDIE and storyboarding.", "kind": "fabricated" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Taught physics and chemistry to 4 sections of Grade 9 and 10, about 160 students.", "kind": "faithful" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Designed 30 lesson plans and Google Classroom quizzes aligned to the CBSE syllabus using the ADDIE model.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Built interactive e-learning modules in Articulate Storyline that raised the pass rate from 82% to 94%.", "kind": "fabricated" }
+  ]
+}

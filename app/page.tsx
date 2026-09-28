@@ -1,69 +1,18 @@
-import { FileText, Check, Sparkles, Target, Zap } from "lucide-react";
+import { FileText, Sparkles, Target, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { LandingHeader } from "@/components/landing/LandingHeader";
-
-const plans = [
-  {
-    slug: "free",
-    name: "Free Preview",
-    price: "₹0",
-    resumes: "1 free ATS preview",
-    popular: false,
-    free: true,
-    features: [
-      "ATS score & keyword gap",
-      "Structure & action-verb check",
-      "No card required",
-      "Sign up · 10 seconds",
-    ],
-  },
-  {
-    slug: "single",
-    name: "Single",
-    price: "₹99",
-    resumes: "1 AI-tailored resume",
-    popular: false,
-    free: false,
-    features: ["1 AI-tailored resume", "Unlimited PDF downloads", "Live ATS keyword score", "1-year validity"],
-  },
-  {
-    slug: "fresher",
-    name: "Fresher",
-    price: "₹249",
-    resumes: "5 AI-tailored resumes",
-    popular: true,
-    free: false,
-    features: ["5 AI-tailored resumes", "Unlimited PDF downloads", "Live ATS keyword score", "1-year validity"],
-  },
-  {
-    slug: "job_hunter",
-    name: "Job Hunter",
-    price: "₹599",
-    resumes: "12 AI-tailored resumes",
-    popular: false,
-    free: false,
-    features: ["12 AI-tailored resumes", "Unlimited PDF downloads", "Live ATS keyword score", "1-year validity"],
-  },
-  {
-    slug: "career",
-    name: "Career Pack",
-    price: "₹999",
-    resumes: "25 AI-tailored resumes",
-    popular: false,
-    free: false,
-    features: ["25 AI-tailored resumes", "Unlimited PDF downloads", "Live ATS keyword score", "1-year validity"],
-  },
-];
+import { FreeBetaCard } from "@/components/beta/FreeBetaCard";
 
 const faqs = [
   { q: "Will my resume pass ATS?", a: "Yes. We use single-column, ATS-optimised formatting. Every resume includes a live ATS match score before you download." },
   { q: "What if I don't have LinkedIn?", a: "No problem. You can build from scratch using our guided manual form, or upload an existing resume to get started." },
   { q: "Can I edit after generating?", a: "Yes, freely. Re-downloads of the same resume don't count as new credits." },
-  { q: "How long are resumes valid?", a: "One year from purchase date." },
-  { q: "Is there a free trial?", a: "Yes. Sign up (10 seconds, no card) and you get one free deterministic ATS preview on any resume + JD. AI-tailored resume generation requires a paid pack starting at ₹99." },
-  { q: "What is the LinkedIn Profile Rewrite?", a: "An AI-rewritten LinkedIn Headline, About section, and your top 3 Experience entries — tailored to the role you're targeting. Available standalone for ₹499 or bundled with any resume plan for ₹399 (save ₹100). Truthful only — we never invent jobs or metrics." },
+  { q: "What does the free beta include?", a: "Every account gets 3 AI-tailored resume generations, free — no card, no subscription. Downloads of the resumes you generate are unlimited, and regenerating for the same job description within 24 hours is free. You also get one free ATS review." },
+  { q: "What happens after my 3 generations?", a: "Paid plans aren't available during the beta. Your resumes stay yours to view and download." },
+  { q: "How long are the beta generations valid?", a: "One year from when they're added to your account." },
+  { q: "What is the LinkedIn Profile Rewrite?", a: "An AI-rewritten LinkedIn Headline, About section, and top Experience entries. It isn't part of the free beta yet." },
 ];
 
 export default async function Home() {
@@ -95,7 +44,7 @@ export default async function Home() {
               Your AI resume, tailored<br />to your dream job —<br /><span className="text-[#1f5c3a]">built to get you hired.</span>
             </h1>
             <p className="text-[#6b6b6b] text-base sm:text-lg max-w-lg mb-8 leading-relaxed">
-              Paste a job description. Neduresume reads it, matches your profile, and crafts a resume tailored to the role you're applying for — ATS-optimised on every download.
+              Paste a job description. Neduresume reads it, matches your profile, and crafts a resume tailored to the role you&apos;re applying for — ATS-optimised on every download.
             </p>
             {/* Two-path CTAs */}
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -118,7 +67,7 @@ export default async function Home() {
               </div>
             </div>
             <p className="text-xs text-[#6b6b6b]">
-              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}Free ATS preview · Resumes from ₹99 · Pay once, no subscription
+              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}Free Beta · 3 resume generations · No card needed
             </p>
           </div>
 
@@ -194,8 +143,8 @@ export default async function Home() {
 
       {/* Pricing */}
       <section id="pricing" className="max-w-6xl mx-auto px-6 py-16 border-t border-stone-200/60">
-        <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-2">Simple pricing</h2>
-        <p className="text-center text-[#6b6b6b] mb-8 text-sm">All plans valid 1 year · No subscription · Pay once, use anytime</p>
+        <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-2">Free during the beta</h2>
+        <p className="text-center text-[#6b6b6b] mb-8 text-sm">3 AI-tailored resume generations per account · No card · No subscription</p>
 
         <div className="max-w-3xl mx-auto mb-8 rounded-xl border-2 border-dashed border-[#1f5c3a]/40 bg-[#1f5c3a]/5 px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
@@ -216,34 +165,8 @@ export default async function Home() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {plans.filter((p) => !p.free).map((plan, idx) => (
-            <div
-              key={plan.slug}
-              className={`relative rounded-xl border p-5 flex flex-col gap-4 ${plan.popular ? "border-[#1f5c3a] bg-[#1f5c3a] text-white shadow-lg" : plan.free ? "border-stone-200 bg-stone-50" : "border-stone-200 bg-white"} ${idx === 0 ? "mt-3 sm:mt-0" : ""}`}
-            >
-              {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">Most popular</span>}
-              {plan.free && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-stone-200 text-stone-700 text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">Always free</span>}
-              <div>
-                <p className={`text-sm font-medium mb-1 ${plan.popular ? "text-white/80" : "text-[#6b6b6b]"}`}>{plan.name}</p>
-                <p className="text-3xl font-bold">{plan.price}</p>
-                <p className={`text-sm mt-1 ${plan.popular ? "text-white/70" : "text-[#6b6b6b]"}`}>{plan.resumes}</p>
-              </div>
-              <ul className="flex flex-col gap-2 text-sm flex-1">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <Check className={`w-4 h-4 shrink-0 ${plan.popular ? "text-white" : "text-[#1f5c3a]"}`} />
-                    <span className={plan.popular ? "text-white/90" : "text-[#1a1a1a]"}>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button asChild variant={plan.popular ? "secondary" : "outline"} size="sm" className={plan.popular ? "bg-white text-[#1f5c3a] hover:bg-white/90" : ""}>
-                <Link href={plan.free ? "/free-review" : `/pricing#${plan.slug}`}>{plan.free ? "Try free review" : "Get started"}</Link>
-              </Button>
-            </div>
-          ))}
-        </div>
-        <p className="text-center text-[#6b6b6b] text-sm mt-6">+ LinkedIn Profile Rewrite add-on — ₹499 standalone, ₹399 bundled with any plan</p>
+        {/* Free Beta: no paid plans or checkout until payments are integrated. */}
+        <FreeBetaCard cta={{ href: "/signup", label: "Start your free beta →" }} />
       </section>
 
       {/* FAQ */}

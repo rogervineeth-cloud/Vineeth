@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Briefcase, Sparkles } from "lucide-react";
@@ -72,11 +71,10 @@ export default function LinkedinRewriteClient() {
         </p>
 
         {needsAddon && (
-          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center justify-between gap-3">
-            <span>You don&apos;t have an active LinkedIn Rewrite entitlement.</span>
-            <Button asChild size="sm" variant="outline">
-              <Link href="/pricing">Get LinkedIn Rewrite</Link>
-            </Button>
+          // Free Beta: the rewrite is not part of the beta and cannot be bought
+          // yet, so this says so instead of linking to a purchase.
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            LinkedIn Profile Rewrite isn&apos;t part of the free beta yet.
           </div>
         )}
 

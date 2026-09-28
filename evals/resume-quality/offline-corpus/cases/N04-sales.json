@@ -1,0 +1,77 @@
+{
+  "id": "N04",
+  "domain": "B2B sales",
+  "expected_fit": "match",
+  "facts": { "professional_years": 2.7, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Karan Singh (fictional)",
+    "email": "karan.singh@example.com",
+    "summary": "Inside sales executive selling SaaS subscriptions to SMBs.",
+    "skills": ["B2B Sales", "Inside Sales", "Salesforce", "Cold Calling", "Lead Qualification", "Negotiation", "Excel"],
+    "target_roles": ["Account Executive"],
+    "experience": [
+      {
+        "company": "Cloudnest Software Pvt Ltd",
+        "role": "Inside Sales Executive",
+        "duration": "Jan 2024 - Present",
+        "location": "Pune",
+        "bullets": [
+          "Achieved 118% of the annual quota in 2025, closing Rs 96 lakh in new SaaS subscriptions.",
+          "Made 60 cold calls a day and qualified leads in Salesforce for 2 account executives.",
+          "Negotiated renewal discounts with 30 SMB customers."
+        ]
+      },
+      {
+        "company": "Orbitel Telecom",
+        "role": "Sales Trainee",
+        "duration": "Jun 2023 - Dec 2023",
+        "location": "Pune",
+        "bullets": ["Sold 210 broadband connections door to door in Pune."]
+      }
+    ],
+    "education": [{ "institution": "Westbridge College of Management", "degree": "BBA", "year": "2020 - 2023", "location": "Pune" }],
+    "projects": []
+  },
+  "jd": {
+    "title": "Account Executive (Mid-Market)",
+    "text": "Own the full sales cycle for mid-market SaaS deals: prospecting, discovery, demos, negotiation and closing. Manage pipeline in Salesforce, forecast accurately and exceed quota. 2+ years of B2B SaaS sales."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education"],
+    "summary": "Inside Sales Executive with 2+ years of professional experience selling SaaS subscriptions to SMBs, seeking the Account Executive (Mid-Market) role. Achieved 118% of the annual quota in 2025 as a consistent top performer.",
+    "experience": [
+      {
+        "company": "Cloudnest Software Pvt Ltd",
+        "role": "Inside Sales Executive",
+        "duration": "Jan 2024 - Present",
+        "bullets": [
+          "Achieved 118% of the annual quota in 2025, closing Rs 96 lakh in new SaaS subscriptions.",
+          "Made 60 outbound prospecting calls a day and qualified leads in Salesforce for 2 account executives.",
+          "Negotiated renewal discounts with 30 SMB SaaS customers, protecting recurring revenue."
+        ]
+      },
+      {
+        "company": "Orbitel Telecom",
+        "role": "Sales Trainee",
+        "duration": "Jun 2023 - Dec 2023",
+        "bullets": ["Exceeded broadband sales targets by selling 210 connections in Pune through consultative selling."]
+      }
+    ],
+    "skills": ["B2B Sales", "Salesforce", "Negotiation", "Lead Qualification", "Cold Calling"],
+    "education": [{ "institution": "Westbridge College of Management", "degree": "BBA", "year": "2020 - 2023" }],
+    "ats_score": 68,
+    "matched_keywords": ["Salesforce", "Negotiation"],
+    "missing_keywords": ["Demos", "Pipeline Management"],
+    "tailored_role": "Account Executive (Mid-Market)",
+    "profile_improvement_tips": ["Ask to run product demos alongside your account executives to gain full-cycle experience."],
+    "growth_note": "You meet 3 of the 5 listed requirements (Salesforce, negotiation). Running demos and owning deals end to end would strengthen your application."
+  },
+  "labels": [
+    { "where": "summary", "text": "Inside Sales Executive with 2+ years of professional experience selling SaaS subscriptions to SMBs, seeking the Account Executive (Mid-Market) role.", "kind": "tailored" },
+    { "where": "summary", "text": "Achieved 118% of the annual quota in 2025 as a consistent top performer.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Achieved 118% of the annual quota in 2025, closing Rs 96 lakh in new SaaS subscriptions.", "kind": "faithful" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Made 60 outbound prospecting calls a day and qualified leads in Salesforce for 2 account executives.", "kind": "truthful_unscoped" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Negotiated renewal discounts with 30 SMB SaaS customers, protecting recurring revenue.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 1, "source": 0, "text": "Exceeded broadband sales targets by selling 210 connections in Pune through consultative selling.", "kind": "fabricated" }
+  ]
+}

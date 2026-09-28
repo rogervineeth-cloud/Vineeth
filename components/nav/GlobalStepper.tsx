@@ -4,6 +4,11 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { cleanTargetRoles } from "@/lib/target-roles";
+import { loadSignedInProfile } from "@/lib/profile-hydration";
+import { TEMPLATE_STORAGE_KEY } from "@/lib/templates";
+import { JD_MIN_CHARS } from "@/lib/jd-length";
+import { createStepFromParam, createStepHref, handleStepClickInPage, type CreateStep } from "@/lib/create-steps";
 
 const STEPS = [
   { key: "basics",     label: "Basics",    route: "/profile", subStep: "basics",     optional: false },
@@ -21,12 +26,8 @@ type StepKey = typeof STEPS[number]["key"];
 
 function getActiveStep(pathname: string, stepParam: string | null): number {
   if (pathname.startsWith("/preview")) return 8;
-  if (pathname.startsWith("/create")) {
-    if (stepParam === "resume") return 8;
-    if (stepParam === "review") return 7;
-    if (stepParam === "template") return 6;
-    return 5;
-  }
+  // Same mapping the create page uses, so both always show the same step.
+  if (pathname.startsWith("/create")) return 4 + createStepFromParam(stepParam);
   if (pathname.startsWith("/profile")) {
     const map: Record<string, number> = { basics: 0, experience: 1, education: 2, projects: 3, roles: 4 };
     if (stepParam && stepParam in map) return map[stepParam];
@@ -54,16 +55,29 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
   type SkipKey = "experience" | "education" | "projects";
   const [skipped, setSkipped] = useState<Record<SkipKey, boolean>>({ experience: false, education: false, projects: false });
 
+  // Bumped to reload after a failed load (on window focus).
+  const [reloadTick, setReloadTick] = useState(0);
+  const [loadFailed, setLoadFailed] = useState(false);
+
   useEffect(() => {
-    if (active < 0) { setLoaded(true); return; }
+    // Not a stepper page: nothing to load. (The redirect effect below also
+    // returns for active < 1, so `loaded` is not needed here.)
+    if (active < 0) return;
     const supabase = createClient();
     let cancelled = false;
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || cancelled) { setLoaded(true); return; }
-        const { data: p } = await supabase.from("profiles").select("full_name, email, target_roles, profile_data").eq("user_id", user.id).single();
+        // Retried; a failed load is NOT "all steps incomplete" — that used to
+        // grey out Basics/Roles in a fresh tab and could redirect to Basics.
+        // See lib/profile-hydration.ts.
+        const res = await loadSignedInProfile<{ full_name?: string; email?: string; target_roles?: string[] | null; profile_data?: unknown }>(
+          supabase, "full_name, email, target_roles, profile_data"
+        );
         if (cancelled) return;
+        if (res.status === "error") { setLoadFailed(true); return; } // keep `loaded` false: no redirect
+        setLoadFailed(false);
+        if (res.status === "signed_out") { setLoaded(true); return; }
+        const p = res.profile;
         const pd = (p?.profile_data ?? {}) as Record<string, unknown>;
         
         // ONLY check profile_data (user-confirmed data), NEVER fall back to linkedin_data
@@ -77,22 +91,22 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
         const projSkipped = !!pd.projSkipped;
         
         const jd = typeof window !== "undefined" ? (localStorage.getItem("ndrs_jd") ?? "") : "";
-        const template = typeof window !== "undefined" ? (localStorage.getItem("ndrs_template") ?? "") : "";
+        const template = typeof window !== "undefined" ? (localStorage.getItem(TEMPLATE_STORAGE_KEY) ?? "") : "";
         const resumeId = latestResumeId ?? (typeof window !== "undefined" ? (localStorage.getItem("ndrs_latest_resume_id") ?? "") : "");
         if (cancelled) return;
         
         setCompletion({
           basics: !!p?.full_name?.trim() && !!p?.email?.trim(),
-          roles: Array.isArray(p?.target_roles) && p.target_roles.length > 0,
+          roles: cleanTargetRoles(p?.target_roles).length > 0,
           // Experience: complete if skipped OR has at least one entry with company
           experience: expSkipped || exp.some((e) => e.company?.trim()),
           // Education: complete if skipped OR has at least one entry with institution
           education: eduSkipped || edu.some((e) => e.institution?.trim()),
           // Projects: complete if skipped OR has at least one entry with name
           projects: projSkipped || projects.some((pr) => pr.name?.trim()),
-          jd: jd.trim().length >= 200,
+          jd: jd.trim().length >= JD_MIN_CHARS,
           template: !!template,
-          review: !!(jd.trim().length >= 200 && template),
+          review: !!(jd.trim().length >= JD_MIN_CHARS && template),
           resume: !!resumeId,
         });
         setSkipped({
@@ -101,10 +115,17 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
           projects:   !!pd?.projSkipped,
         });
         setLoaded(true);
-      } catch { setLoaded(true); }
+      } catch { if (!cancelled) setLoadFailed(true); }
     })();
     return () => { cancelled = true; };
-  }, [active, pathname, latestResumeId]);
+  }, [active, pathname, latestResumeId, reloadTick]);
+
+  useEffect(() => {
+    if (!loadFailed) return;
+    const onFocus = () => setReloadTick((n) => n + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loadFailed]);
 
   // Forward-only enforcement: redirect to basics if incomplete
   useEffect(() => {
@@ -137,7 +158,11 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
             const isCompleted = i !== active && (completion[step.key] || (isPast && step.optional && !isSkipped));
             const isActive = i === active;
             const lastResumeHref = step.key === "resume" && latestResumeId ? "/preview/" + latestResumeId : null;
-            const baseHref = step.route + (step.subStep ? "?step=" + step.subStep : "");
+            // /create steps keep the current query (e.g. ?regen=<id>) so a
+            // regeneration does not lose its parent when navigated this way.
+            const baseHref = step.route === "/create" && pathname.startsWith("/create")
+              ? createStepHref(searchParams.toString(), (i - 4) as CreateStep)
+              : step.route + (step.subStep ? "?step=" + step.subStep : "");
             const href = lastResumeHref || baseHref;
             const clickable = isPast && !isActive;
 
@@ -178,7 +203,19 @@ function StepperInner({ latestResumeId }: { latestResumeId?: string }) {
             return (
               <div key={step.key} className="flex items-center min-w-0 shrink">
                 {clickable ? (
-                  <Link href={href} className="flex items-center gap-1 hover:opacity-75 transition-opacity">
+                  <Link
+                    href={href}
+                    className="flex items-center gap-1 hover:opacity-75 transition-opacity"
+                    onClick={(e) => {
+                      // /create → /create step: shallow pushState, not a router
+                      // navigation (which was a no-op after a direct load of a
+                      // later step). See lib/create-steps.ts.
+                      if (step.route === "/create" && handleStepClickInPage(e, pathname)) {
+                        e.preventDefault();
+                        window.history.pushState(null, "", href);
+                      }
+                    }}
+                  >
                     {inner}
                   </Link>
                 ) : inner}

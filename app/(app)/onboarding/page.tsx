@@ -1,6 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { gradYearError } from "@/lib/profile-basics";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Path = "linkedin" | "resume" | "scratch";
@@ -32,28 +33,31 @@ const basicsSchema = z.object({
   email: z.string().email("Enter a valid email"),
   phone: z.string().optional(),
   current_city: z.string().optional(),
-  graduation_year: z.string().optional(),
+  // Same rule and message as the profile page: a 4-digit year in the range
+  // the profile accepts. It was unvalidated here, so "20222" or "abcd" were
+  // saved via parseInt.
+  graduation_year: z.string().optional().superRefine((value, ctx) => {
+    const error = gradYearError(value ?? "");
+    if (error) ctx.addIssue({ code: "custom", message: error });
+  }),
 });
 
 type BasicsData = z.infer<typeof basicsSchema>;
 
 // ── Component ──────────────────────────────────────────────────────────────
-export default function OnboardingPage() {
+function OnboardingPageInner() {
   const router = useRouter();
 
-  // Auto-select candidate type from landing page CTA
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const pathParam = params.get("path");
-    if (pathParam === "experienced") { setCandidateType("experienced"); setStep(0); }
-    else if (pathParam === "fresher") { setCandidateType("fresher"); setStep(0); }
-  }, []);
+  // Auto-select candidate type from the landing page CTA (?path=...). Read as
+  // the initial state rather than set in an effect: the effect used to run
+  // before these states were declared, and set state synchronously on mount.
+  const pathParam = useSearchParams().get("path");
+  const presetType = pathParam === "experienced" || pathParam === "fresher" ? pathParam : null;
 
   // step -1 = candidate type, 0 = path selection, 1 = upload, 2 = basics
-  const [candidateType, setCandidateType] = useState<"experienced" | "fresher" | null>(null);
+  const [candidateType, setCandidateType] = useState<"experienced" | "fresher" | null>(presetType);
   const [path, setPath] = useState<Path | null>(null);
-  const [step, setStep] = useState(-1);
+  const [step, setStep] = useState(presetType ? 0 : -1);
 
   const [uploading, setUploading] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
@@ -146,7 +150,7 @@ export default function OnboardingPage() {
       email: data.email,
       phone: data.phone || null,
       current_city: data.current_city || null,
-      graduation_year: data.graduation_year ? parseInt(data.graduation_year) : null,
+      graduation_year: data.graduation_year?.trim() ? parseInt(data.graduation_year.trim(), 10) : null,
       profile_data: profileData,
       onboarded_at: new Date().toISOString(),
     });
@@ -389,7 +393,8 @@ export default function OnboardingPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="graduation_year">Graduation year <span className="text-xs text-[#6b6b6b] font-normal">(optional)</span></Label>
-                  <Input id="graduation_year" inputMode="numeric" placeholder="e.g. 2022" {...register("graduation_year")} />
+                  <Input id="graduation_year" inputMode="numeric" placeholder="e.g. 2022" aria-invalid={!!errors.graduation_year} {...register("graduation_year")} />
+                  {errors.graduation_year && <p className="text-xs text-red-500">{errors.graduation_year.message}</p>}
                 </div>
               </div>
 
@@ -413,5 +418,15 @@ export default function OnboardingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary for prerendering (as on /profile
+// and /create).
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f3ea]" />}>
+      <OnboardingPageInner />
+    </Suspense>
   );
 }

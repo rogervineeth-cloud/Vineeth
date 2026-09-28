@@ -1,0 +1,519 @@
+{
+  "meta": {
+    "run_id": "results/before-live",
+    "mode": "live model (captured from preview: live-before)",
+    "model": "claude-haiku-4-5-20251001",
+    "jd_sources": "OFFICIAL_PARAPHRASE"
+  },
+  "rows": [
+    {
+      "scenario": "S01",
+      "profile": "A",
+      "jd": "AMZ-SDE",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 62,
+        "unsupported_claim_rate": 0.267,
+        "keyword_precision": 0,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill \"Data Structures\"",
+          "[factual_fidelity] unsupported skill \"Algorithms\"",
+          "[factual_fidelity] unsupported skill \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill \"Object-Oriented Design\"",
+          "[factual_fidelity] unsupported skill in prose \"Data Structures\"",
+          "[factual_fidelity] unsupported skill in prose \"Algorithms\"",
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill in prose \"Object-Oriented Design\"",
+          "[ats_keywords] JD keywords claimed without evidence: Data Structures, Algorithms, Distributed Systems, Object-Oriented Design"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": []
+      }
+    },
+    {
+      "scenario": "S02",
+      "profile": "A",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "under",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 62,
+        "unsupported_claim_rate": 0.214,
+        "keyword_precision": 0.2,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill \"System Design\"",
+          "[factual_fidelity] unsupported skill \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill \"Code Review\"",
+          "[factual_fidelity] unsupported skill in prose \"System Design\"",
+          "[factual_fidelity] unsupported skill in prose \"Microservices\"",
+          "[factual_fidelity] unsupported skill in prose \"GCP\"",
+          "[ats_keywords] JD keywords claimed without evidence: System Design, GCP, Code Review, Distributed Systems"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": []
+      }
+    },
+    {
+      "scenario": "S03",
+      "profile": "A",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "mismatch",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 58,
+        "unsupported_claim_rate": 0.214,
+        "keyword_precision": 0,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": false,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill \"Algorithms\"",
+          "[factual_fidelity] unsupported skill \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill \"Design Patterns\"",
+          "[factual_fidelity] unsupported skill \"Code Review\"",
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill in prose \"Design Patterns\"",
+          "[ats_keywords] JD keywords claimed without evidence: Code Review, Algorithms, Distributed Systems, Design Patterns",
+          "[seniority_calibration] ats_score 58 too high for a mismatch (cap 55)"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": []
+      }
+    },
+    {
+      "scenario": "S04",
+      "profile": "B",
+      "jd": "AMZ-SDE",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 62,
+        "unsupported_claim_rate": 0.08,
+        "keyword_precision": 0.5,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill in prose \"Object-Oriented Design\"",
+          "[ats_keywords] JD keywords claimed without evidence: Distributed Systems, Object-Oriented Design"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": []
+      }
+    },
+    {
+      "scenario": "S05",
+      "profile": "B",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "under",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 48,
+        "unsupported_claim_rate": 0.087,
+        "keyword_precision": 0.333,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill in prose \"GCP\"",
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[ats_keywords] JD keywords claimed without evidence: GCP, Distributed Systems"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": []
+      }
+    },
+    {
+      "scenario": "S06",
+      "profile": "C",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 68,
+        "unsupported_claim_rate": 0.071,
+        "keyword_precision": 0.333,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill in prose \"Design Patterns\"",
+          "[ats_keywords] JD keywords claimed without evidence: Distributed Systems, Design Patterns"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": [
+          "dropped_bullet_unverifiable_metric:10"
+        ]
+      }
+    },
+    {
+      "scenario": "S07",
+      "profile": "C",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 68,
+        "unsupported_claim_rate": 0.161,
+        "keyword_precision": 0.4,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": true,
+          "section_completeness": false,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill \"System Design\"",
+          "[factual_fidelity] unsupported skill \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill in prose \"System Design\"",
+          "[factual_fidelity] unsupported skill in prose \"GCP\"",
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[ats_keywords] JD keywords claimed without evidence: System Design, GCP, Distributed Systems",
+          "[section_completeness] empty \"projects\" array emitted"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": [
+          "dropped_bullet_unverifiable_metric:10"
+        ]
+      }
+    },
+    {
+      "scenario": "S08",
+      "profile": "D",
+      "jd": "AMZ-SDE",
+      "expected_fit": "mismatch",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 58,
+        "unsupported_claim_rate": 0.267,
+        "keyword_precision": 0,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": false,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill \"Data Structures\"",
+          "[factual_fidelity] unsupported skill \"Algorithms\"",
+          "[factual_fidelity] unsupported skill \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill \"Object-Oriented Design\"",
+          "[factual_fidelity] unsupported skill in prose \"Data Structures\"",
+          "[factual_fidelity] unsupported skill in prose \"Algorithms\"",
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill in prose \"Object-Oriented Design\"",
+          "[ats_keywords] JD keywords claimed without evidence: Data Structures, Algorithms, Distributed Systems, Object-Oriented Design",
+          "[seniority_calibration] ats_score 58 too high for a mismatch (cap 55)",
+          "[seniority_calibration] summary presents the target title \"Software Development Engineer\" as the candidate's own level"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": []
+      }
+    },
+    {
+      "scenario": "S09",
+      "profile": "D",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "mismatch",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 0.667,
+        "attainable_not_licensed": [
+          "C"
+        ],
+        "pass": false
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 58,
+        "unsupported_claim_rate": 0.2,
+        "keyword_precision": 0.5,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": false,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill \"System Design\"",
+          "[factual_fidelity] unsupported skill \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill \"Code Review\"",
+          "[factual_fidelity] unsupported skill in prose \"System Design\"",
+          "[factual_fidelity] unsupported skill in prose \"Code Review\"",
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[ats_keywords] JD keywords claimed without evidence: System Design, Code Review, Distributed Systems",
+          "[seniority_calibration] ats_score 58 too high for a mismatch (cap 55)"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": []
+      }
+    },
+    {
+      "scenario": "S10",
+      "profile": "E",
+      "jd": "AMZ-SDE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 4,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 78,
+        "unsupported_claim_rate": 0.237,
+        "keyword_precision": 0,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill \"Algorithms\"",
+          "[factual_fidelity] unsupported skill \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill \"Design Patterns\"",
+          "[factual_fidelity] unsupported skill \"Code Review\"",
+          "[factual_fidelity] unsupported skill in prose \"Microservices\"",
+          "[factual_fidelity] unsupported skill in prose \"Code Review\"",
+          "[factual_fidelity] unsupported skill in prose \"Algorithms\"",
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill in prose \"Design Patterns\"",
+          "[ats_keywords] JD keywords claimed without evidence: Code Review, Algorithms, Distributed Systems, Design Patterns"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": []
+      }
+    },
+    {
+      "scenario": "S11",
+      "profile": "E",
+      "jd": "GOOG-SWE2",
+      "expected_fit": "match",
+      "jd_source": "OFFICIAL_PARAPHRASE",
+      "payload": {
+        "curated": 10,
+        "truthful_but_marked_jd_only": [],
+        "absent_but_marked_intersection": [],
+        "curated_not_in_jd": [],
+        "payload_recall_ceiling": 1,
+        "must_inject_coverage": 1,
+        "attainable_not_licensed": [],
+        "pass": true
+      },
+      "model": {
+        "status": "ok",
+        "ats_score": 72,
+        "unsupported_claim_rate": 0.324,
+        "keyword_precision": 0.25,
+        "keyword_recall": 1,
+        "gates": {
+          "factual_fidelity": false,
+          "ats_keywords": false,
+          "seniority_calibration": true,
+          "section_completeness": true,
+          "readability": true,
+          "career_gap": true,
+          "projects_vs_employment": true,
+          "structural_validity": true
+        },
+        "defects": [
+          "[factual_fidelity] unsupported skill \"Python\"",
+          "[factual_fidelity] unsupported skill \"C++\"",
+          "[factual_fidelity] unsupported skill \"System Design\"",
+          "[factual_fidelity] unsupported skill \"Distributed Systems\"",
+          "[factual_fidelity] unsupported skill \"Code Review\"",
+          "[factual_fidelity] unsupported skill \"GCP\"",
+          "[factual_fidelity] unsupported skill in prose \"Microservices\"",
+          "[factual_fidelity] unsupported skill in prose \"System Design\"",
+          "[factual_fidelity] unsupported skill in prose \"GCP\"",
+          "[factual_fidelity] unsupported skill in prose \"Code Review\"",
+          "[factual_fidelity] unsupported skill in prose \"Distributed Systems\"",
+          "[factual_fidelity] unverifiable number \"5 (in Brightline Retail Tech bullet)\"",
+          "[ats_keywords] JD keywords claimed without evidence: System Design, GCP, Code Review, Python, C++, Distributed Systems"
+        ],
+        "interview_chance": "weak",
+        "sanitiser_warnings": [
+          "dropped_bullet_unverifiable_metric:40",
+          "dropped_bullet_unverifiable_metric:60"
+        ]
+      }
+    }
+  ]
+}

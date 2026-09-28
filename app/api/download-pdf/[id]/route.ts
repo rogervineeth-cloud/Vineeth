@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderResumePdf, type ResumeJson } from "@/lib/resume-pdf";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { canDownloadResume } from "@/lib/plans";
 
 // ── Main route ─────────────────────────────────────────────────────────────
@@ -22,8 +22,11 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const allowed = await canDownloadResume(authUser.id, id);
-    if (!allowed) {
+    const decision = await canDownloadResume(authUser.id, id);
+    if (decision === "not_found") {
+      return NextResponse.json({ error: "Resume not found" }, { status: 404 });
+    }
+    if (decision !== "allowed") {
       return NextResponse.json(
         { error: "PAYMENT_REQUIRED", message: "A paid plan is required to download.", upgrade_url: "/pricing" },
         { status: 402 }
@@ -66,8 +69,21 @@ export async function GET(
       resumeRes.data.template as string | null
     );
 
-    // Mark as downloaded — fire and forget
-    supabase.from("resumes").update({ downloaded_at: new Date().toISOString() }).eq("id", id).then(() => {});
+    // Mark as downloaded. Server-side (service role): since migration 014 the
+    // browser role cannot update resumes, so a user can no longer mark a
+    // resume "downloaded" themselves to unlock free re-downloads. Scoped to
+    // the owner, whose ownership was checked above. Awaited, so a serverless
+    // freeze after the response cannot drop it; a failure only means the next
+    // download re-checks entitlement.
+    if (!resumeRes.data.downloaded_at) {
+      const svc = await createServiceClient();
+      const { error: markError } = await svc
+        .from("resumes")
+        .update({ downloaded_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("user_id", authUser.id);
+      if (markError) console.error(`[PDF:${debugId}] could not mark downloaded:`, markError.message);
+    }
 
 
     return new Response(Buffer.from(pdfBytes), {

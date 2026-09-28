@@ -1,12 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent, RESUME_CONTENT_HINT } from "@/lib/profile-completeness";
 import { parseRegenParam } from "@/lib/regen";
+import { analyzeJd, effectiveJdKeywords, withoutKeyword, type JdAnalysis } from "@/lib/jd-keywords";
+import { storedTemplate, TEMPLATE_STORAGE_KEY, type TemplateId } from "@/lib/templates";
+import { createStepFromParam, type CreateStep } from "@/lib/create-steps";
+import { isAlreadyGenerating, ALREADY_GENERATING } from "@/lib/generation-feedback";
+import { loadPlansEnsuringBeta, summarisePlans, type PlanRow } from "@/lib/beta-client";
+import { BETA_EXHAUSTED_MESSAGE } from "@/lib/plan-config";
+import { cleanTargetRoles } from "@/lib/target-roles";
+import { singleFlight } from "@/lib/single-flight";
+import { jdLengthStatus, JD_MIN_CHARS } from "@/lib/jd-length";
+import { shouldRemoveLastChip } from "@/lib/chip-input";
+import { loadSignedInProfile, withRetry } from "@/lib/profile-hydration";
 import MagicReveal from "@/components/generation/MagicReveal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,11 +58,17 @@ type PlanCheck =
   | { allowed: true; remaining: number }
   | { allowed: false; reason: "NO_PLAN" | "CREDITS_EXHAUSTED"; allotted: number };
 
-type JdAnalysis = {
-  detectedRole: string | null;
-  keywords: string[];
-  quality: "weak" | "ok" | "good";
-};
+/**
+ * Free Beta: why Generate is unavailable, with nothing to buy. NO_PLAN means
+ * the beta grant could not be made or read (an error, not a paywall).
+ */
+function noCreditsMessage(reason: "NO_PLAN" | "CREDITS_EXHAUSTED"): string {
+  return reason === "CREDITS_EXHAUSTED"
+    ? BETA_EXHAUSTED_MESSAGE
+    : "We couldn't load your free beta generations. Please refresh the page and try again.";
+}
+
+
 
 type GeneratedResume = {
   ats_score: number;
@@ -64,179 +81,12 @@ type GeneratedResume = {
   section_order?: string[];
 };
 
-// Each entry is the canonical skill name. `aliases` are alternative
-// spellings/synonyms users commonly write in JDs (case-insensitive).
-// Match logic uses a custom boundary so short tokens like "Go" do NOT
-// match inside "go-to-market", and so hyphens/dots inside identifiers
-// (e.g. "Node.js", "C++", "A/B testing") are preserved correctly.
-const TECH_SKILLS: { name: string; aliases?: string[] }[] = [
-    // Languages & runtimes
-  { name: "JavaScript", aliases: ["JS", "ES6", "ECMAScript"] },
-  { name: "TypeScript", aliases: ["TS"] },
-  { name: "Python" },
-  { name: "Java" },
-  { name: "Kotlin" },
-  { name: "Swift" },
-  { name: "Objective-C" },
-  { name: "Go", aliases: ["Golang"] },
-  { name: "Rust" },
-  { name: "C++" },
-  { name: "C#" },
-  { name: "Ruby" },
-  { name: "PHP" },
-  { name: "Scala" },
-    // Web / frontend
-  { name: "React", aliases: ["React.js", "ReactJS"] },
-  { name: "Next.js", aliases: ["NextJS"] },
-  { name: "Angular" },
-  { name: "Vue.js", aliases: ["Vue", "VueJS"] },
-  { name: "Node.js", aliases: ["NodeJS"] },
-  { name: "HTML" },
-  { name: "CSS" },
-  { name: "Tailwind", aliases: ["TailwindCSS", "Tailwind CSS"] },
-    // Mobile
-  { name: "iOS", aliases: ["iPhone", "iPadOS"] },
-  { name: "Android" },
-  { name: "React Native" },
-  { name: "Flutter" },
-    // Backend / APIs
-  { name: "GraphQL" },
-  { name: "REST API", aliases: ["REST", "RESTful API", "RESTful"] },
-  { name: "gRPC" },
-  { name: "Spring Boot" },
-  { name: "Django" },
-  { name: "FastAPI" },
-  { name: "Flask" },
-  { name: "Express", aliases: ["Express.js"] },
-    // Cloud & infra
-  { name: "AWS", aliases: ["Amazon Web Services"] },
-  { name: "Azure", aliases: ["Microsoft Azure"] },
-  { name: "GCP", aliases: ["Google Cloud", "Google Cloud Platform"] },
-  { name: "Docker" },
-  { name: "Kubernetes", aliases: ["K8s"] },
-  { name: "Terraform" },
-  { name: "CI/CD", aliases: ["Continuous Integration", "Continuous Delivery", "Continuous Deployment"] },
-  { name: "Linux" },
-  { name: "Git" },
-    // Data
-  { name: "SQL" },
-  { name: "PostgreSQL", aliases: ["Postgres"] },
-  { name: "MySQL" },
-  { name: "MongoDB" },
-  { name: "Redis" },
-  { name: "Kafka" },
-  { name: "Elasticsearch", aliases: ["Elastic Search", "ELK"] },
-  { name: "Firebase" },
-  { name: "Snowflake" },
-  { name: "BigQuery" },
-  { name: "Airflow" },
-    // Analytics & BI
-  { name: "Excel" },
-  { name: "Power BI" },
-  { name: "Tableau" },
-  { name: "Looker" },
-  { name: "Mixpanel" },
-  { name: "Amplitude" },
-  { name: "Google Analytics", aliases: ["GA4"] },
-  { name: "SQL Server" },
-    // ML / AI
-  { name: "Machine Learning", aliases: ["ML"] },
-  { name: "Deep Learning" },
-  { name: "TensorFlow" },
-  { name: "PyTorch" },
-  { name: "NLP", aliases: ["Natural Language Processing"] },
-  { name: "Computer Vision" },
-  { name: "LLM", aliases: ["Large Language Model", "Large Language Models", "GPT"] },
-  { name: "Data Analysis" },
-    // Process & ways of working
-  { name: "Agile" },
-  { name: "Scrum" },
-  { name: "Kanban" },
-    // Product & design
-  { name: "Product Management" },
-  { name: "Product Strategy" },
-  { name: "Roadmapping", aliases: ["Roadmap"] },
-  { name: "A/B Testing", aliases: ["AB Testing", "Experimentation", "Split Testing"] },
-  { name: "User Research" },
-  { name: "Stakeholder Management" },
-  { name: "Go-to-Market", aliases: ["GTM"] },
-  { name: "OKRs" },
-  { name: "Figma" },
-  { name: "Sketch" },
-  { name: "UI/UX", aliases: ["UX", "UI"] },
-    // Enterprise / SaaS
-  { name: "Salesforce" },
-  { name: "SAP" },
-  { name: "JIRA" },
-  { name: "Confluence" },
-  { name: "Notion" },
-  { name: "Slack" },
-    // Marketing
-  { name: "SEO" },
-  { name: "SEM" },
-  { name: "Performance Marketing" },
-    // Other / misc
-  { name: "Technical Writing" },
-  ];
-
-// Build a flat list of patterns we test against the JD text. Map each
-// match back to the canonical skill name so aliases collapse correctly.
-const TECH_SKILL_PATTERNS: { canonical: string; pattern: string }[] = (() => {
-    const out: { canonical: string; pattern: string }[] = [];
-    for (const s of TECH_SKILLS) {
-          out.push({ canonical: s.name, pattern: s.name });
-          for (const a of s.aliases ?? []) out.push({ canonical: s.name, pattern: a });
-    }
-    return out;
-})();
-
-// Custom word boundary: a "tech token" can include letters, digits,
-// `+`, `#`, `.`, `/`, and `-`. We refuse to match if the character
-// immediately before/after the candidate is one of those — this stops
-// "Go" from matching inside "go-to-market" while still letting
-// "Node.js", "C++", "A/B Testing", "CI/CD" match correctly.
-const SKILL_BOUNDARY_CHARS = "A-Za-z0-9+#./\\-";
-
-function escapeRegex(s: string): string {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function analyzeJd(text: string): JdAnalysis {
-    if (text.length < 100) {
-          return { detectedRole: null, keywords: [], quality: "weak" };
-    }
-    const seen = new Set<string>();
-    const found: string[] = [];
-    for (const p of TECH_SKILL_PATTERNS) {
-          const re = new RegExp(
-                  `(?<![${SKILL_BOUNDARY_CHARS}])${escapeRegex(p.pattern)}(?![${SKILL_BOUNDARY_CHARS}])`,
-                  "i"
-                );
-          if (re.test(text) && !seen.has(p.canonical)) {
-                  seen.add(p.canonical);
-                  found.push(p.canonical);
-          }
-    }
-    const roleMatch = text.match(
-          /(?:role|position|title)[:\s]+([A-Za-z][A-Za-z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Consultant|Lead|Specialist|Associate|Executive|Director|Architect))/i
-        );
-    const detectedRole = roleMatch ? roleMatch[1].trim().slice(0, 40) : null;
-    // Quality is now driven both by length AND signal density: a long JD
-    // with no recognized skills is still treated as "weak" so we surface
-    // a warning to the user instead of a falsely-confident green tick.
-    let quality: JdAnalysis["quality"];
-    if (text.length < 300 || found.length < 2) quality = "weak";
-    else if (text.length < 800 || found.length < 5) quality = "ok";
-    else quality = "good";
-    return { detectedRole, keywords: found.slice(0, 12), quality };
-}
-
-
 function checkCompleteness(profile: Profile | null): { complete: boolean; missing: string } {
   if (!profile) return { complete: false, missing: "your profile" };
   if (!profile.full_name?.trim()) return { complete: false, missing: "your name" };
   if (!profile.email?.trim()) return { complete: false, missing: "your email" };
-  if (!profile.target_roles?.length) return { complete: false, missing: "your target roles" };
+  // A literal "Other" from the old role picker is not a target role.
+  if (!cleanTargetRoles(profile.target_roles).length) return { complete: false, missing: "your target roles" };
   // Same rule the server enforces (lib/profile-completeness.ts). Checking
   // array length here let a skipped section's blank placeholder row count as
   // content, so the page said "ready" and the server then refused.
@@ -244,7 +94,34 @@ function checkCompleteness(profile: Profile | null): { complete: boolean; missin
   return { complete: true, missing: "" };
 }
 
-type TemplateId = "classic" | "modern" | "compact" | "executive";
+type CreateContext =
+  | { status: "ready"; email: string | null; profile: Profile | null; planCheck: PlanCheck }
+  | { status: "signed_out" }
+  | { status: "error"; message: string; userMessage: string };
+
+/** The signed-in user's profile and plan for this page, with retries. */
+async function fetchCreateContext(): Promise<CreateContext> {
+  const supabase = createClient();
+  const res = await loadSignedInProfile<Profile>(supabase, "*");
+  if (res.status !== "ready") {
+    return res.status === "error" ? { status: "error", message: res.message, userMessage: "We couldn't load your profile." } : res;
+  }
+  let plans: PlanRow[];
+  try {
+    // All plans, granting the Free Beta credits first if this account has
+    // never had them (so a new account sees its 3 generations right away).
+    plans = await withRetry(() => loadPlansEnsuringBeta(supabase, res.user.id));
+  } catch (err) {
+    // A failed plan query is not "no plan": that would block Generate too.
+    return { status: "error", message: err instanceof Error ? err.message : String(err), userMessage: "We couldn't load your plan." };
+  }
+  const summary = summarisePlans(plans);
+  const planCheck: PlanCheck =
+    summary.state === "active" ? { allowed: true, remaining: summary.remaining }
+    : summary.state === "exhausted" ? { allowed: false, reason: "CREDITS_EXHAUSTED", allotted: summary.allotted }
+    : { allowed: false, reason: "NO_PLAN", allotted: 0 };
+  return { status: "ready", email: res.user.email, profile: res.profile, planCheck };
+}
 
 const TEMPLATES: { id: TemplateId; label: string; description: string; svg: React.ReactNode }[] = [
   {
@@ -374,14 +251,19 @@ function CreatePageInner() {
   const router = useRouter();
   const jdRef = useRef<HTMLTextAreaElement>(null);
 
-  const [flowStep, setFlowStep] = useState<1 | 2 | 3 | 4>(() => {
-    if (typeof window === "undefined") return 1;
-    const step = new URLSearchParams(window.location.search).get("step");
-    if (step === "template") return 2;
-    if (step === "review") return 3;
-    if (step === "resume") return 4;
-    return 1;
-  });
+  const searchParams = useSearchParams();
+  // The step follows ?step= — including when only the URL changes, as when a
+  // GlobalStepper link or the browser's Back button is used. It used to be
+  // read once on mount, so the stepper could show "Job Desc" while the page
+  // stayed on Template. (Adjusting state during render is React's pattern for
+  // "reset state when a prop changes"; no effect, no extra paint.)
+  const stepParam = searchParams.get("step");
+  const [flowStep, setFlowStep] = useState<CreateStep>(() => createStepFromParam(stepParam));
+  const [syncedStepParam, setSyncedStepParam] = useState(stepParam);
+  if (stepParam !== syncedStepParam) {
+    setSyncedStepParam(stepParam);
+    setFlowStep(createStepFromParam(stepParam));
+  }
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -397,8 +279,9 @@ function CreatePageInner() {
   // still holds the previous page's URL during the first render. Reading it
   // there returned null in production: ?regen= was in the address bar, never
   // in the request, and a same-JD regeneration was charged.
-  const regenParentId = parseRegenParam(useSearchParams().toString());
+  const regenParentId = parseRegenParam(searchParams.toString());
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [jdText, setJdText] = useState<string>(() =>
     typeof window === "undefined" ? "" : (localStorage.getItem("ndrs_jd") ?? "")
@@ -434,8 +317,19 @@ function CreatePageInner() {
   });
   const [newSkillInput, setNewSkillInput] = useState("");
   const [genError, setGenError] = useState<string | null>(null);
+  // A 409 GENERATION_IN_PROGRESS: benign, shown as its own state.
+  const [alreadyGenerating, setAlreadyGenerating] = useState(false);
 
   const [generating, setGenerating] = useState(false);
+  // Synchronous lock: `generating` only disables the button on the next
+  // render, so a double click used to start two generations — two credits and
+  // two saved resumes. See lib/single-flight.ts.
+  const generateFlight = useRef(singleFlight((run: () => Promise<void>) => run()));
+  // Server-side idempotency key (migration 013): new for each attempt, reused
+  // only to retry the IDENTICAL request after a network or server failure, so
+  // a retry of a generation that actually finished returns that resume
+  // instead of charging again.
+  const attemptRef = useRef<{ key: string; signature: string } | null>(null);
   const [genStageIdx, setGenStageIdx] = useState(0);
   const [genProgress, setGenProgress] = useState(0);
   const [tipIdx, setTipIdx] = useState(0);
@@ -444,7 +338,11 @@ function CreatePageInner() {
   const [generatedResume, setGeneratedResume] = useState<GeneratedResume | null>(null);
   const [savedResumeId, setSavedResumeId] = useState<string | null>(null);
 
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("classic");
+  // Restored like the JD text: the choice was saved on click but never read
+  // back, so it reverted to Classic on the next visit and in Review.
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>(() =>
+    typeof window === "undefined" ? "classic" : storedTemplate(localStorage.getItem(TEMPLATE_STORAGE_KEY))
+  );
 
   useEffect(() => {
     if (!showRevealDone) return;
@@ -452,32 +350,37 @@ function CreatePageInner() {
     return () => clearTimeout(t);
   }, [showRevealDone]);
 
+  // Profile + plans, retried; a failure is shown as a failure (with Retry),
+  // never as an incomplete profile. See lib/profile-hydration.ts.
+  const [reloadTick, setReloadTick] = useState(0);
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return;
-      setUserEmail(user.email ?? null);
-      const [profileRes, plansRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", user.id).single(),
-        supabase
-          .from("user_plans")
-          .select("resumes_used,resumes_allotted,expires_at")
-          .eq("user_id", user.id)
-          .gt("expires_at", new Date().toISOString()),
-      ]);
-      if (profileRes.data) setProfile(profileRes.data as Profile);
-      const plans = plansRes.data ?? [];
-      const active = plans.find((p) => p.resumes_used < p.resumes_allotted);
-      if (active) {
-        setPlanCheck({ allowed: true, remaining: active.resumes_allotted - active.resumes_used });
-      } else if (plans.length > 0) {
-        setPlanCheck({ allowed: false, reason: "CREDITS_EXHAUSTED", allotted: plans[0].resumes_allotted });
-      } else {
-        setPlanCheck({ allowed: false, reason: "NO_PLAN", allotted: 0 });
+    let cancelled = false;
+    (async () => {
+      const ctx = await fetchCreateContext();
+      if (cancelled || ctx.status === "signed_out") return; // middleware sends signed-out visitors to /login
+      if (ctx.status === "error") {
+        console.error("[create] load failed:", ctx.message);
+        setLoadError(ctx.userMessage);
+        return;
       }
+      setLoadError(null);
+      setUserEmail(ctx.email);
+      setProfile(ctx.profile);
+      setPlanCheck(ctx.planCheck);
       setLoaded(true);
-    });
-  }, []);
+    })();
+    return () => { cancelled = true; };
+  }, [reloadTick]);
+
+  const retryLoad = () => { setLoadError(null); setReloadTick((n) => n + 1); };
+
+  // A tab whose load failed tries again when the user comes back to it.
+  useEffect(() => {
+    if (loaded || !loadError) return;
+    const onFocus = () => setReloadTick((n) => n + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loaded, loadError]);
 
   useEffect(() => {
     localStorage.setItem("ndrs_jd", jdText);
@@ -514,26 +417,20 @@ function CreatePageInner() {
       setShowMissingPopup(true);
       return;
     }
-    if (jdText.trim().length < 200) {
-      toast.error("Please paste a longer job description (min 200 characters).");
+    const jdStatus = jdLengthStatus(jdText);
+    if (!jdStatus.ready) {
+      toast.error(jdStatus.toast);
       jdRef.current?.focus();
       return;
     }
     if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed && !regenParentId) {
-      toast.error(
-        planCheck.reason === "NO_PLAN"
-          ? "You need a paid plan to generate a resume."
-          : "You've used all credits in your current plan.",
-        {
-          action: { label: "View plans", onClick: () => router.push("/pricing") },
-          duration: 5000,
-        }
-      );
+      toast.error(noCreditsMessage(planCheck.reason), { duration: 6000 });
       return;
     }
 
     setGenerating(true);
     setGenError(null);
+    setAlreadyGenerating(false);
     setGenStageIdx(0);
     setGenProgress(3);
     setGeneratedResume(null);
@@ -554,43 +451,66 @@ function CreatePageInner() {
     const pd = profile!.profile_data ?? {};
     pushUrlStep("resume");
     try {
+      const requestBody = {
+        jd_text: jdText,
+        jd_keywords: effectiveKeywords,
+        template: selectedTemplate,
+        user_profile: {
+          full_name: profile!.full_name,
+          email: profile!.email,
+          phone: profile!.phone,
+          current_city: profile!.current_city,
+          graduation_year: profile!.graduation_year,
+          target_roles: cleanTargetRoles(profile!.target_roles),
+          linkedin_data: profile!.linkedin_data,
+          summary: pd.summary,
+          experience: pd.experience,
+          skills: pd.skills,
+          education: pd.education,
+          projects: pd.projects,
+        },
+        ...(regenParentId ? { regen_of_resume_id: regenParentId } : {}),
+      };
+      const signature = JSON.stringify(requestBody);
+      if (attemptRef.current?.signature !== signature) {
+        attemptRef.current = { key: crypto.randomUUID(), signature };
+      }
       const res = await fetch("/api/generate-resume", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jd_text: jdText,
-          jd_keywords: effectiveKeywords,
-          template: selectedTemplate,
-          user_profile: {
-            full_name: profile!.full_name,
-            email: profile!.email,
-            phone: profile!.phone,
-            current_city: profile!.current_city,
-            graduation_year: profile!.graduation_year,
-            target_roles: profile!.target_roles,
-            linkedin_data: profile!.linkedin_data,
-            summary: pd.summary,
-            experience: pd.experience,
-            skills: pd.skills,
-            education: pd.education,
-            projects: pd.projects,
-          },
-          ...(regenParentId ? { regen_of_resume_id: regenParentId } : {}),
-        }),
+        body: JSON.stringify({ ...requestBody, request_key: attemptRef.current.key }),
       });
 
       timers.forEach(clearTimeout);
+      // A definite answer ends this attempt; after a 5xx the same request may
+      // be retried under the same key.
+      if (res.status < 500) attemptRef.current = null;
       const data = await res.json();
 
-      if (res.status === 402) {
-        const msg =
-          data.reason === "CREDITS_EXHAUSTED"
-            ? "You've used all credits in your plan."
-            : "You need a paid plan to generate a resume.";
+      if (isAlreadyGenerating(res.status, data)) {
+        // Another tab or device is generating this resume right now. Nothing
+        // was charged and nothing went wrong: say so, and offer the dashboard
+        // (where it will appear) — not a red "Something went wrong".
+        setAlreadyGenerating(true);
+        setGenerating(false);
+        setGenProgress(0);
+        return;
+      }
+
+      if (res.status === 409) {
+        // e.g. the attempt timed out (GENERATION_EXPIRED). Nothing was charged.
+        const msg = data.message || "Please try again.";
         setGenError(msg);
-        toast.error(msg, {
-          action: { label: "View plans", onClick: () => router.push("/pricing") },
-        });
+        toast.error(msg);
+        setGenerating(false);
+        setGenProgress(0);
+        return;
+      }
+
+      if (res.status === 402) {
+        const msg = noCreditsMessage(data.reason === "CREDITS_EXHAUSTED" ? "CREDITS_EXHAUSTED" : "NO_PLAN");
+        setGenError(msg);
+        toast.error(msg);
         setGenerating(false);
         setGenProgress(0);
         return;
@@ -626,55 +546,11 @@ function CreatePageInner() {
       if (data.is_free_regen) toast.success("Free regeneration — no credit used.");
       setGenProgress(100);
 
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Session expired.");
-        router.push("/login");
-        return;
-      }
-
+      // The server saved the resume in the same transaction that charged the
+      // credit (migration 013). The browser no longer inserts it: two tabs
+      // used to mean two rows.
       const resumeJson = data.resume_json;
-      // Freeze the contact details as they are right now. Preview and PDF used
-      // to join to the live profile, so editing your profile silently rewrote
-      // the name/email/phone on resumes you had already generated.
-      const contactSnapshot = {
-        full_name: profile?.full_name ?? "",
-        email: profile?.email ?? "",
-        phone: profile?.phone ?? "",
-        current_city: profile?.current_city ?? "",
-      };
-      const { data: savedResume, error: saveError } = await supabase
-        .from("resumes")
-        .insert({
-          user_id: user.id,
-          jd_text: jdText,
-          resume_json: resumeJson,
-          ats_score: resumeJson.ats_score,
-          tailored_role: resumeJson.tailored_role,
-          matched_keywords: resumeJson.matched_keywords,
-          missing_keywords: resumeJson.missing_keywords,
-          contact_snapshot: contactSnapshot,
-          // Persist the template so the PDF can actually render it. This used
-          // to be sent to the generator as a prompt hint and then thrown away.
-          template: selectedTemplate,
-          // Regeneration lineage. Deliberately the SERVER-VERIFIED id from the
-          // response, not the local variable we sent up: the server confirms
-          // the caller owns the parent and returns null otherwise, so an id
-          // belonging to someone else can never reach the column. Previously
-          // this was never written at all, leaving the column always NULL.
-          regen_of_resume_id: data.regen_of_resume_id ?? null,
-        })
-        .select("id")
-        .single();
-
-      if (saveError) {
-        toast.error("Couldn't save resume: " + saveError.message);
-        setGenerating(false);
-        return;
-      }
+      if (data.replayed) toast.info("This resume was already generated — showing it. No extra credit was used.");
 
       setGeneratedResume({
         ats_score: resumeJson.ats_score,
@@ -686,7 +562,7 @@ function CreatePageInner() {
         growth_note: resumeJson.growth_note ?? null,
         section_order: resumeJson.section_order ?? [],
       });
-      setSavedResumeId(savedResume.id);
+      setSavedResumeId(data.resume_id);
       setShowRevealDone(true);
       setGenerating(false);
     } catch (err) {
@@ -701,32 +577,33 @@ function CreatePageInner() {
   }
 
   async function handleClickGenerate() {
+    // A second click while a generation is running must not start another.
+    if (generateFlight.current.inFlight) return;
     const comp = checkCompleteness(profile);
     if (!comp.complete) {
       setShowMissingPopup(true);
       return;
     }
     if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed && !regenParentId) {
-      toast.error(
-        planCheck.reason === "NO_PLAN"
-          ? "You need a paid plan to generate a resume."
-          : "You've used all credits in your current plan.",
-        { action: { label: "View plans", onClick: () => router.push("/pricing") }, duration: 5000 }
-      );
+      toast.error(noCreditsMessage(planCheck.reason), { duration: 6000 });
       return;
     }
     setFlowStep(4);
-    handleGenerate();
+    await generateFlight.current(() => handleGenerate());
   }
 
   const completeness = checkCompleteness(profile);
   const isCreator = userEmail === CREATOR_EMAIL;
-  const jdReady = jdText.trim().length >= 200;
-  const effectiveKeywords = useMemo(() => {
-    const base = jdAnalysis.keywords.filter((k) => !removedKeywords.has(k.toLowerCase()));
-    const extras = extraKeywords.filter((k) => !base.some((b) => b.toLowerCase() === k.toLowerCase()));
-    return [...base, ...extras];
-  }, [jdAnalysis.keywords, removedKeywords, extraKeywords]);
+  const jdStatus = jdLengthStatus(jdText);
+  const jdReady = jdStatus.ready;
+  // Plain computation: the React Compiler memoises it. A manual useMemo here
+  // could not be preserved by the compiler (react-hooks/preserve-manual-memoization).
+  const effectiveKeywords = effectiveJdKeywords(jdAnalysis.keywords, removedKeywords, extraKeywords);
+  const removeKeyword = (kw: string) => {
+    const next = withoutKeyword(removedKeywords, extraKeywords, kw);
+    setRemovedKeywords(next.removed);
+    setExtraKeywords(next.extras);
+  };
   const canGenerate =
     jdReady &&
     completeness.complete &&
@@ -799,10 +676,8 @@ function CreatePageInner() {
                 onChange={(e) => setJdText(e.target.value)}
               />
               <div className="flex items-center justify-between mt-1.5">
-                <span className={`text-xs ${jdReady ? "text-[#1f5c3a] font-medium" : "text-[#999]"}`}>
-                  {jdText.length < 200
-                    ? `${jdText.length}/200 characters minimum`
-                    : `${jdText.length} characters ✓`}
+                <span className={`text-xs ${jdReady ? "text-[#1f5c3a] font-medium" : "text-[#999]"}`} aria-live="polite">
+                  {jdStatus.counter}
                 </span>
                 {jdAnalysis.quality === "good" && (
                   <span className="text-xs text-[#1f5c3a]">Detailed JD ✓</span>
@@ -820,34 +695,34 @@ function CreatePageInner() {
                           {(effectiveKeywords.length > 0 || jdReady) && (
               <div className="mt-3 flex flex-wrap gap-1.5 items-center">
                 <span className="text-xs text-[#6b6b6b]">Detected skills:</span>
-                {effectiveKeywords.slice(0, 12).map((kw) => (
+                {/* Every chip is shown: with a cap, a skill added by hand could sit
+                    hidden behind "+N more", and Backspace removed a different,
+                    visible chip while the next hidden one slid into its place. */}
+                {effectiveKeywords.map((kw) => (
                   <span key={kw} className="text-xs bg-white border border-[#1f5c3a]/25 text-[#1f5c3a] pl-2 pr-1 py-0.5 rounded-full inline-flex items-center gap-1">
                     {kw}
                     <button
                       type="button"
                       aria-label={`Remove ${kw}`}
-                      onClick={() => {
-                        setRemovedKeywords((prev) => {
-                          const next = new Set(prev);
-                          next.add(kw.toLowerCase());
-                          return next;
-                        });
-                        setExtraKeywords((prev) => prev.filter((x) => x.toLowerCase() !== kw.toLowerCase()));
-                      }}
+                      onClick={() => removeKeyword(kw)}
                       className="text-[#1f5c3a]/60 hover:text-[#1f5c3a] hover:bg-[#1f5c3a]/10 rounded-full w-4 h-4 inline-flex items-center justify-center leading-none"
                     >
                       ×
                     </button>
                   </span>
                 ))}
-                {effectiveKeywords.length > 12 && (
-                  <span className="text-xs text-[#999]">+{effectiveKeywords.length - 12} more</span>
-                )}
                 <input
                   type="text"
                   value={newSkillInput}
                   onChange={(e) => setNewSkillInput(e.target.value)}
+                  aria-label="Add a skill"
                   onKeyDown={(e) => {
+                    if (shouldRemoveLastChip({ key: e.key, repeat: e.repeat, isComposing: e.nativeEvent.isComposing, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey }, newSkillInput, effectiveKeywords.length)) {
+                      // Remove the last chip (the most recently added) — the same as its × button.
+                      e.preventDefault();
+                      removeKeyword(effectiveKeywords[effectiveKeywords.length - 1]);
+                      return;
+                    }
                     if (e.key === "Enter" || e.key === ",") {
                       e.preventDefault();
                       const v = newSkillInput.trim().replace(/,$/, "");
@@ -908,7 +783,7 @@ function CreatePageInner() {
               Next — Choose template →
             </Button>
             {!jdReady && (
-              <p className="lg:hidden text-xs text-center text-[#999] mt-2">Paste a job description above to continue</p>
+              <p className="lg:hidden text-xs text-center text-[#999] mt-2">{jdStatus.blocker}</p>
             )}
           </div>
 
@@ -917,7 +792,14 @@ function CreatePageInner() {
             <p className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wide mb-4">Your Profile</p>
             {!loaded ? (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-sm text-[#9b9080]">Loading...</p>
+                {loadError ? (
+                  <p className="text-sm text-amber-700">
+                    {loadError}{" "}
+                    <button type="button" onClick={retryLoad} className="underline">Retry</button>
+                  </p>
+                ) : (
+                  <p className="text-sm text-[#9b9080]">Loading...</p>
+                )}
               </div>
             ) : (
               <div className="flex flex-col gap-4">
@@ -936,9 +818,9 @@ function CreatePageInner() {
                         {completeness.complete ? (
                           <>
                             <p className="text-xs text-[#6b6b6b] mt-0.5">{profile?.email}</p>
-                            {(profile?.target_roles?.length ?? 0) > 0 && (
+                            {cleanTargetRoles(profile?.target_roles).length > 0 && (
                               <p className="text-xs text-[#6b6b6b] mt-0.5">
-                                Targeting: {profile!.target_roles!.slice(0, 2).join(", ")}
+                                Targeting: {cleanTargetRoles(profile!.target_roles).slice(0, 2).join(", ")}
                               </p>
                             )}
                             {planCheck?.allowed && (
@@ -996,7 +878,9 @@ function CreatePageInner() {
                     <FileText className="w-3.5 h-3.5 shrink-0 text-[#1f5c3a]" />
                     {jdReady
                       ? "Profile and job description look good — you're ready to continue."
-                      : "Profile looks good — paste a JD above to continue."}
+                      : jdStatus.state === "empty"
+                        ? "Profile looks good — paste a JD above to continue."
+                        : `Profile looks good — the job description needs at least ${JD_MIN_CHARS} characters (${jdStatus.count} so far).`}
                   </div>
                 )}
               </div>
@@ -1016,9 +900,7 @@ function CreatePageInner() {
                   simply too short. */}
               {!jdReady && (
                 <p className="text-xs text-center text-[#999] mt-2">
-                  {jdText.trim().length === 0
-                    ? "Paste a job description to continue"
-                    : `Needs at least 200 characters (${jdText.trim().length} so far)`}
+                  {jdStatus.blocker}
                 </p>
               )}
             </div>
@@ -1050,7 +932,7 @@ function CreatePageInner() {
                 <button
                   key={tpl.id}
                   type="button"
-                  onClick={() => { setSelectedTemplate(tpl.id); if (typeof window !== "undefined") localStorage.setItem("ndrs_template", tpl.id); }}
+                  onClick={() => { setSelectedTemplate(tpl.id); if (typeof window !== "undefined") localStorage.setItem(TEMPLATE_STORAGE_KEY, tpl.id); }}
                   className={`rounded-xl border-2 overflow-hidden text-left transition-all focus:outline-none ${
                     selectedTemplate === tpl.id
                       ? "border-[#1f5c3a] shadow-md"
@@ -1086,8 +968,7 @@ function CreatePageInner() {
             <div className="lg:hidden mt-auto pt-6">
               {planCheck && !planCheck.allowed && !isCreator && !regenParentId && (
                 <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800 flex items-center justify-between gap-2">
-                  <span>{planCheck.reason === "NO_PLAN" ? "You need a paid plan." : `All ${planCheck.allotted} credits used.`}</span>
-                  <Link href="/pricing" className="font-semibold underline whitespace-nowrap">{planCheck.reason === "NO_PLAN" ? "View plans →" : "Buy more →"}</Link>
+                  <span>{noCreditsMessage(planCheck.reason)}</span>
                 </div>
               )}
               <Button size="lg" onClick={() => { pushUrlStep("review"); setFlowStep(3); }} disabled={!canGenerate} className="w-full text-base py-6 rounded-xl font-semibold">
@@ -1106,9 +987,9 @@ function CreatePageInner() {
                 <p className="text-sm font-semibold text-[#1a1a1a]">{profile?.full_name}</p>
               </div>
               <p className="text-xs text-[#6b6b6b]">{profile?.email}</p>
-              {(profile?.target_roles?.length ?? 0) > 0 && (
+              {cleanTargetRoles(profile?.target_roles).length > 0 && (
                 <p className="text-xs text-[#6b6b6b] mt-0.5">
-                  Targeting: {profile!.target_roles!.slice(0, 2).join(", ")}
+                  Targeting: {cleanTargetRoles(profile!.target_roles).slice(0, 2).join(", ")}
                 </p>
               )}
               {planCheck?.allowed && (
@@ -1124,13 +1005,16 @@ function CreatePageInner() {
               {jdAnalysis.detectedRole && (
                 <p className="text-xs text-[#1f5c3a] mt-0.5">📌 {jdAnalysis.detectedRole}</p>
               )}
-              {jdAnalysis.keywords.length > 0 && (
+              {effectiveKeywords.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {jdAnalysis.keywords.slice(0, 5).map((kw) => (
+                  {effectiveKeywords.slice(0, 5).map((kw) => (
                     <span key={kw} className="text-xs bg-white border border-[#1f5c3a]/25 text-[#1f5c3a] px-1.5 py-0.5 rounded-full">
                       {kw}
                     </span>
                   ))}
+                  {effectiveKeywords.length > 5 && (
+                    <span className="text-xs text-[#999]">+{effectiveKeywords.length - 5} more</span>
+                  )}
                 </div>
               )}
             </div>
@@ -1139,11 +1023,7 @@ function CreatePageInner() {
 
             {planCheck && !planCheck.allowed && !isCreator && !regenParentId && (
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
-                <span>{planCheck.reason === "NO_PLAN" ? "You need a paid plan to generate." : `All ${planCheck.allotted} credits used.`}</span>
-                {" "}
-                <Link href="/pricing" className="font-semibold underline">
-                  {planCheck.reason === "NO_PLAN" ? "View plans →" : "Buy more →"}
-                </Link>
+                <span>{noCreditsMessage(planCheck.reason)}</span>
               </div>
             )}
 
@@ -1156,7 +1036,14 @@ function CreatePageInner() {
               Next — Review →
             </Button>
 
-            {!completeness.complete && (
+            {loadError ? (
+              <p className="text-xs text-center text-amber-700 mt-2">
+                {loadError}{" "}
+                <button type="button" onClick={retryLoad} className="underline">Retry</button>
+              </p>
+            ) : !loaded ? (
+              <p className="text-xs text-center text-[#9b9080] mt-2">Loading your profile…</p>
+            ) : !completeness.complete && (
               <p className="text-xs text-center text-amber-700 mt-2">
                 Profile incomplete.{" "}
                 <Link href="/profile" className="underline">Fix it first →</Link>
@@ -1191,8 +1078,8 @@ function CreatePageInner() {
                   {profile.current_city && !profile.current_city.startsWith("e.g.") && (
                     <span className="text-[#6b6b6b]">{profile.current_city}</span>
                   )}
-                  {(profile.target_roles?.length ?? 0) > 0 && (
-                    <span className="text-[#6b6b6b] mt-0.5">Targeting: {profile.target_roles!.join(", ")}</span>
+                  {cleanTargetRoles(profile.target_roles).length > 0 && (
+                    <span className="text-[#6b6b6b] mt-0.5">Targeting: {cleanTargetRoles(profile.target_roles).join(", ")}</span>
                   )}
                 </div>
               </div>
@@ -1287,9 +1174,10 @@ function CreatePageInner() {
               </div>
               <p className="text-xs text-[#6b6b6b]">{jdText.length} characters</p>
               {jdAnalysis.detectedRole && <p className="text-sm font-medium text-[#1a1a1a] mt-1">📌 {jdAnalysis.detectedRole}</p>}
-              {jdAnalysis.keywords.length > 0 && (
+              {/* Every keyword the generation will use, including ones added by hand. */}
+              {effectiveKeywords.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {jdAnalysis.keywords.slice(0, 8).map((kw) => (
+                  {effectiveKeywords.map((kw) => (
                     <span key={kw} className="text-xs bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full border border-[#1f5c3a]/20">{kw}</span>
                   ))}
                 </div>
@@ -1320,7 +1208,14 @@ function CreatePageInner() {
                 Generate my resume →
               </Button>
             </div>
-            {!completeness.complete && (
+            {loadError ? (
+              <p className="text-xs text-center text-amber-700 mt-3">
+                {loadError}{" "}
+                <button type="button" onClick={retryLoad} className="underline">Retry</button>
+              </p>
+            ) : !loaded ? (
+              <p className="text-xs text-center text-[#9b9080] mt-3">Loading your profile…</p>
+            ) : !completeness.complete && (
               <p className="text-xs text-center text-amber-700 mt-3">
                 Profile incomplete.{" "}
                 <Link href="/profile" className="underline">Fix it first →</Link>
@@ -1454,6 +1349,20 @@ function CreatePageInner() {
                     }}
                   >
                     Start over
+                  </Button>
+                </div>
+              </div>
+            ) : alreadyGenerating ? (
+              <div className="text-center" role="status">
+                <div className="w-12 h-12 rounded-full bg-[#1f5c3a]/10 flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-6 h-6 text-[#1f5c3a]" />
+                </div>
+                <p className="text-sm font-semibold text-[#1a1a1a] mb-1">{ALREADY_GENERATING.title}</p>
+                <p className="text-sm text-[#6b6b6b] mb-5">{ALREADY_GENERATING.message}</p>
+                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                  <Button onClick={() => router.push("/dashboard")}>Go to dashboard</Button>
+                  <Button variant="outline" onClick={() => { setAlreadyGenerating(false); pushUrlStep("review"); setFlowStep(3); }}>
+                    ← Back to review
                   </Button>
                 </div>
               </div>

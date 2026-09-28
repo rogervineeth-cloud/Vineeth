@@ -1,0 +1,69 @@
+{
+  "id": "N11",
+  "domain": "graphic design to UI/UX",
+  "expected_fit": "under",
+  "facts": { "professional_years": 3.3, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Neha Bansal (fictional)",
+    "email": "neha.bansal@example.com",
+    "summary": "Graphic designer creating social media and packaging designs, learning Figma for app design.",
+    "skills": ["Adobe Illustrator", "Photoshop", "Figma", "Brand Identity", "Packaging Design", "Typography"],
+    "target_roles": ["UI/UX Designer"],
+    "experience": [
+      {
+        "company": "Marigold Creative Studio",
+        "role": "Graphic Designer",
+        "duration": "Jun 2023 - Present",
+        "location": "Jaipur",
+        "bullets": [
+          "Designed 20 social media creatives a week for 5 retail clients in Illustrator and Photoshop.",
+          "Created packaging for 12 snack products, from concept sketches to print-ready files.",
+          "Rebuilt a jewellery client's brand identity, including logo, typography and colour palette."
+        ]
+      }
+    ],
+    "education": [{ "institution": "Pink City School of Design", "degree": "B.Des Communication Design", "year": "2019 - 2023", "location": "Jaipur" }],
+    "projects": [
+      { "name": "Bus Pass App Concept", "description": "Figma prototype of a 6-screen bus pass app, tested with 8 classmates.", "tech": ["Figma"] }
+    ]
+  },
+  "jd": {
+    "title": "UI/UX Designer",
+    "text": "Design user flows, wireframes and high-fidelity prototypes in Figma for web and mobile products. Run usability tests, build and maintain a design system, and work with developers. 2+ years of product design experience."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "projects", "skills", "education"],
+    "summary": "Graphic Designer with 3+ years of professional experience in social media, packaging and brand identity design, seeking the UI/UX Designer role. Passionate about user-centred design and design systems.",
+    "experience": [
+      {
+        "company": "Marigold Creative Studio",
+        "role": "Graphic Designer",
+        "duration": "Jun 2023 - Present",
+        "bullets": [
+          "Designed 20 social media creatives and landing pages a week for 5 retail clients in Illustrator and Photoshop.",
+          "Created packaging for 12 snack products, from concept sketches to print-ready files.",
+          "Rebuilt a jewellery client's brand identity, including logo, typography and colour palette, following a user-centred design process."
+        ]
+      }
+    ],
+    "skills": ["Figma", "Adobe Illustrator", "Photoshop", "Brand Identity", "Typography"],
+    "education": [{ "institution": "Pink City School of Design", "degree": "B.Des Communication Design", "year": "2019 - 2023" }],
+    "projects": [
+      { "name": "Bus Pass App Concept", "description": "High-fidelity Figma prototype of a 6-screen bus pass app, tested with 8 classmates.", "tech": ["Figma"] }
+    ],
+    "ats_score": 52,
+    "matched_keywords": ["Figma"],
+    "missing_keywords": ["Wireframing", "Usability Testing", "Design Systems"],
+    "tailored_role": "UI/UX Designer",
+    "profile_improvement_tips": ["Build a second app concept with wireframes and a short usability test write-up."],
+    "growth_note": "You have strong visual design skills and early Figma prototyping. Product design experience with user flows and usability testing is not yet evident."
+  },
+  "labels": [
+    { "where": "summary", "text": "Graphic Designer with 3+ years of professional experience in social media, packaging and brand identity design, seeking the UI/UX Designer role.", "kind": "tailored" },
+    { "where": "summary", "text": "Passionate about user-centred design and design systems.", "kind": "fabricated" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Designed 20 social media creatives and landing pages a week for 5 retail clients in Illustrator and Photoshop.", "kind": "one_unsupported", "note": "unsupported coordinated noun ('and landing pages'): not a clause or modifier; expected to be reverted, not trimmed (measured limitation)" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Created packaging for 12 snack products, from concept sketches to print-ready files.", "kind": "faithful" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Rebuilt a jewellery client's brand identity, including logo, typography and colour palette, following a user-centred design process.", "kind": "one_unsupported" },
+    { "where": "project", "project": 0, "text": "High-fidelity Figma prototype of a 6-screen bus pass app, tested with 8 classmates.", "kind": "one_unsupported" }
+  ]
+}

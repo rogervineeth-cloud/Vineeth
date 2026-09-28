@@ -10,8 +10,9 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PLAN_LABELS } from "@/lib/plan-config";
+import { PLAN_LABELS, FREE_BETA_LABEL, BETA_EXHAUSTED_MESSAGE } from "@/lib/plan-config";
 import type { PlanType } from "@/lib/plan-config";
+import { loadPlansEnsuringBeta, summarisePlans, type PlanSummary } from "@/lib/beta-client";
 
 type Resume = {
   id: string;
@@ -20,14 +21,6 @@ type Resume = {
   resume_json: { summary: string };
   created_at: string;
   downloaded_at: string | null;
-};
-
-type UserPlan = {
-  id: string;
-  plan_type: PlanType;
-  resumes_allotted: number;
-  resumes_used: number;
-  expires_at: string;
 };
 
 function ATSBadge({ score }: { score: number }) {
@@ -40,46 +33,34 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function PlanBadge({ plan }: { plan: UserPlan | null }) {
-  if (!plan) {
+function PlanBadge({ summary }: { summary: PlanSummary }) {
+  // Free Beta: no purchase controls anywhere. What is shown is what the server
+  // enforces (migration 015): 3 generations per account, granted once.
+  if (summary.state === "active") {
+    const { plan, remaining } = summary;
+    const label = plan.plan_type === "beta" ? FREE_BETA_LABEL : `${PLAN_LABELS[plan.plan_type as PlanType] ?? plan.plan_type} plan`;
     return (
-      <div className="flex items-center gap-3 bg-stone-100 border border-stone-200 rounded-xl px-5 py-3">
+      <div className="flex items-center gap-3 bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl px-5 py-3">
+        <div className="w-2 h-2 rounded-full bg-[#1f5c3a] shrink-0" aria-hidden="true" />
         <div>
-          {/* Was "Free tier · 0 resumes", which read as a resume count and
-              contradicted the "3 resumes" heading right below it. It means
-              credits, so say credits.
-              The subtitle also used to claim previewing was free, which is not
-              true: /api/generate-resume returns 402 without a plan. Free means
-              one deterministic ATS review, nothing more. */}
-          <p className="text-sm font-medium text-[#1a1a1a]">Free tier · 0 credits left</p>
+          <p className="text-sm font-semibold text-[#1a1a1a]">{label}</p>
           <p className="text-xs text-[#6b6b6b]">
-            Free includes 1 ATS review. Generating and downloading resumes needs a paid pack.
+            {remaining} of {plan.resumes_allotted} resume generation{plan.resumes_allotted !== 1 ? "s" : ""} left · valid until {formatDate(plan.expires_at)}
           </p>
         </div>
-        <Link href="/pricing" className="ml-auto shrink-0">
-          <Button size="sm" variant="outline">Upgrade to download →</Button>
-        </Link>
       </div>
     );
   }
-
-  const remaining = plan.resumes_allotted - plan.resumes_used;
-  const label = PLAN_LABELS[plan.plan_type] ?? plan.plan_type;
-
   return (
-    <div className="flex items-center gap-3 bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl px-5 py-3">
-      <div className="w-2 h-2 rounded-full bg-[#1f5c3a] shrink-0" />
+    <div className="flex items-center gap-3 bg-stone-100 border border-stone-200 rounded-xl px-5 py-3">
       <div>
-        <p className="text-sm font-semibold text-[#1a1a1a]">
-          {label} plan · {remaining} of {plan.resumes_allotted} resume{plan.resumes_allotted !== 1 ? "s" : ""} remaining
+        <p className="text-sm font-medium text-[#1a1a1a]">{FREE_BETA_LABEL}</p>
+        <p className="text-xs text-[#6b6b6b]">
+          {summary.state === "exhausted"
+            ? BETA_EXHAUSTED_MESSAGE
+            : "We couldn't load your free beta generations. Please refresh the page."}
         </p>
-        <p className="text-xs text-[#6b6b6b]">Expires {formatDate(plan.expires_at)}</p>
       </div>
-      {remaining === 0 && (
-        <Link href="/pricing" className="ml-auto shrink-0">
-          <Button size="sm" variant="outline">Buy another pack</Button>
-        </Link>
-      )}
     </div>
   );
 }
@@ -87,7 +68,7 @@ function PlanBadge({ plan }: { plan: UserPlan | null }) {
 export default function DashboardPage() {
   const router = useRouter();
   const [resumes, setResumes] = useState<Resume[]>([]);
-  const [activePlan, setActivePlan] = useState<UserPlan | null | undefined>(undefined);
+  const [planSummary, setPlanSummary] = useState<PlanSummary | undefined>(undefined);
 
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -96,11 +77,6 @@ export default function DashboardPage() {
   const [pendingDelete, setPendingDelete] = useState<Resume | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  function handleViewResume(e: React.MouseEvent, resumeId: string) {
-    e.preventDefault();
-    e.stopPropagation();
-    router.push(`/preview/${resumeId}`);
-  }
 
   function handleAskDelete(e: React.MouseEvent, resume: Resume) {
     e.preventDefault();
@@ -142,26 +118,21 @@ export default function DashboardPage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push("/login"); return; }
 
-      const [resumesRes, plansRes] = await Promise.all([
+      const [resumesRes, plans] = await Promise.all([
         supabase
           .from("resumes")
           .select("id,tailored_role,ats_score,resume_json,created_at,downloaded_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
-        supabase
-          .from("user_plans")
-          .select("id,plan_type,resumes_allotted,resumes_used,expires_at")
-          .eq("user_id", user.id)
-          .gt("expires_at", new Date().toISOString())
-          .order("purchased_at", { ascending: false }),
+        // All plans (not only unexpired), granting the Free Beta credits first
+        // if this account has never had them.
+        loadPlansEnsuringBeta(supabase, user.id).catch(() => null),
       ]);
 
       if (resumesRes.error) toast.error("Couldn't load resumes.");
       else setResumes((resumesRes.data as Resume[]) ?? []);
 
-      const plans = (plansRes.data as UserPlan[]) ?? [];
-      const active = plans.find((p) => p.resumes_used < p.resumes_allotted) ?? null;
-      setActivePlan(active);
+      setPlanSummary(plans ? summarisePlans(plans) : { state: "none" });
       setLoading(false);
     });
   }, [router]);
@@ -173,10 +144,9 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/download-pdf/${resumeId}`);
       if (res.status === 402) {
-        toast.error("A paid plan is required to download.", {
-          action: { label: "View plans", onClick: () => router.push("/pricing") },
-          duration: 5000,
-        });
+        // Free Beta: nothing to buy. Resumes generated with beta credits are
+        // always downloadable (lib/download-entitlement.ts).
+        toast.error("This resume can't be downloaded on your account.");
         return;
       }
       if (!res.ok) { toast.error("Download failed."); return; }
@@ -204,9 +174,9 @@ export default function DashboardPage() {
 
       <div className="max-w-5xl mx-auto px-6 py-12">
         {/* Plan badge */}
-        {activePlan !== undefined && (
+        {planSummary !== undefined && (
           <div className="mb-8">
-            <PlanBadge plan={activePlan} />
+            <PlanBadge summary={planSummary} />
           </div>
         )}
 
@@ -250,42 +220,51 @@ export default function DashboardPage() {
               const summary = resume.resume_json?.summary ?? "";
               const truncated = summary.length > 120 ? summary.slice(0, 120) + "…" : summary;
               return (
-                <Link
+                // A card, not one big link: the actions used to be <button>s
+                // nested inside the card's <a> (invalid, and a tap on one could
+                // also follow the link). The title link is stretched over the
+                // card so a click or tap anywhere still opens the preview; the
+                // actions sit above it as their own controls.
+                <div
                   key={resume.id}
-                  href={`/preview/${resume.id}`}
-                  className="group relative bg-white rounded-xl border border-stone-200 p-5 shadow-sm hover:shadow-md hover:border-[#1f5c3a]/30 transition-all flex flex-col gap-3"
+                  className="group relative bg-white rounded-xl border border-stone-200 p-5 shadow-sm hover:shadow-md hover:border-[#1f5c3a]/30 focus-within:border-[#1f5c3a]/40 transition-all flex flex-col gap-3"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-serif italic text-lg text-[#1a1a1a] leading-tight">
+                    <Link
+                      href={`/preview/${resume.id}`}
+                      className="font-serif italic text-lg text-[#1a1a1a] leading-tight rounded-sm after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f5c3a]/50"
+                    >
                       {resume.tailored_role || "Resume"}
-                    </p>
+                    </Link>
                     <ATSBadge score={resume.ats_score ?? 0} />
                   </div>
                   {truncated && <p className="text-xs text-[#6b6b6b] leading-relaxed flex-1">{truncated}</p>}
                   <p className="text-xs text-[#6b6b6b]">{formatDate(resume.created_at)}</p>
-                  {/* Always visible on touch devices. These were hover-only,
-                      which made View and Download unreachable on phones and
-                      tablets — the majority of this product's audience. On
-                      pointer devices they still fade in on hover. */}
-                  <div className="flex gap-2 opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8"
-                      onClick={(e) => handleViewResume(e, resume.id)}>
-                      <Eye className="w-3 h-3 mr-1" />View
+                  {/* Always visible and always tappable. They used to be fully
+                      transparent until hover on any device reporting hover —
+                      including touchscreen laptops — while still clickable
+                      while invisible. Larger targets on coarse pointers. */}
+                  <div className="relative z-10 flex gap-2">
+                    <Button asChild size="sm" variant="outline" className="flex-1 text-xs h-8 [@media(pointer:coarse)]:h-11">
+                      <Link href={`/preview/${resume.id}`} aria-label={`View ${resume.tailored_role || "resume"}`}>
+                        <Eye className="w-3 h-3 mr-1" aria-hidden="true" />View
+                      </Link>
                     </Button>
-                    <Button size="sm" variant="ghost" className="flex-1 text-xs h-8"
+                    <Button size="sm" variant="ghost" className="flex-1 text-xs h-8 [@media(pointer:coarse)]:h-11"
+                      aria-label={`Download ${resume.tailored_role || "resume"} as PDF`}
                       onClick={(e) => handleQuickDownload(e, resume.id)}
                       disabled={downloading === resume.id}>
-                      <Download className="w-3 h-3 mr-1" />
+                      <Download className="w-3 h-3 mr-1" aria-hidden="true" />
                       {downloading === resume.id ? "…" : "Download"}
                     </Button>
                     <Button size="sm" variant="ghost"
-                      className="text-xs h-8 px-2 text-[#6b6b6b] hover:text-red-600 hover:bg-red-50"
+                      className="text-xs h-8 px-2 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:px-3 text-[#6b6b6b] hover:text-red-600 hover:bg-red-50"
                       aria-label={`Delete ${resume.tailored_role || "resume"}`}
                       onClick={(e) => handleAskDelete(e, resume)}>
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3 h-3" aria-hidden="true" />
                     </Button>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

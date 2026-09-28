@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:parser": "node --import tsx scripts/test-resume-parser.mjs",
-    "test:pdf": "node scripts/verify-pdf-parse.mjs"
+    "test:pdf": "node scripts/verify-pdf-parse.mjs",
+    "eval:resumes": "tsx evals/resume-quality/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",

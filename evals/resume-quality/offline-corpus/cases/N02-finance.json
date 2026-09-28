@@ -1,0 +1,77 @@
+{
+  "id": "N02",
+  "domain": "finance / chartered accountant",
+  "expected_fit": "match",
+  "facts": { "professional_years": 5.3, "has_employment": true, "internship_only": false, "career_gap": null },
+  "profile": {
+    "full_name": "Rohan Mehta (fictional)",
+    "email": "rohan.mehta@example.com",
+    "summary": "Chartered Accountant with statutory audit and month-end close experience in manufacturing.",
+    "skills": ["Statutory Audit", "Month-end Close", "Excel", "Tally", "SAP FICO", "GST", "Ind AS", "Financial Reporting"],
+    "target_roles": ["Financial Analyst"],
+    "experience": [
+      {
+        "company": "Northgate Industrial Components Ltd",
+        "role": "Finance Executive",
+        "duration": "Jul 2023 - Present",
+        "location": "Pune",
+        "bullets": [
+          "Owned the month-end close for 2 plants, cutting close time from 9 days to 6 days.",
+          "Reconciled 14 bank accounts and vendor ledgers in SAP FICO every month.",
+          "Prepared GST returns and supported the Ind AS financial statements audit."
+        ]
+      },
+      {
+        "company": "Kapoor Iyer and Associates",
+        "role": "Audit Associate",
+        "duration": "Jun 2021 - Jun 2023",
+        "location": "Pune",
+        "bullets": ["Audited 11 mid-size manufacturing clients under statutory audit engagements."]
+      }
+    ],
+    "education": [{ "institution": "Lakeview College of Commerce", "degree": "B.Com", "year": "2016 - 2019", "location": "Pune" }],
+    "projects": []
+  },
+  "jd": {
+    "title": "Financial Analyst (FP&A)",
+    "text": "Seeking a Financial Analyst for FP&A: budgeting, forecasting, variance analysis, month-end close support and management reporting in Excel and SAP. CA or MBA Finance preferred, 3-5 years of experience. Power BI a plus."
+  },
+  "output": {
+    "section_order": ["summary", "experience", "skills", "education"],
+    "summary": "Finance Executive with 5+ years of professional experience in month-end close, GST and Ind AS reporting, seeking the Financial Analyst (FP&A) role. Strong analytical skills with hands-on Excel and SAP FICO expertise.",
+    "experience": [
+      {
+        "company": "Northgate Industrial Components Ltd",
+        "role": "Finance Executive",
+        "duration": "Jul 2023 - Present",
+        "bullets": [
+          "Owned the month-end close for 2 plants, cutting close time from 9 days to 6 days.",
+          "Reconciled 14 bank accounts and vendor ledgers monthly in SAP FICO with zero audit exceptions.",
+          "Led variance analysis and forecasting for the Ind AS financial statements, driving budget accuracy."
+        ]
+      },
+      {
+        "company": "Kapoor Iyer and Associates",
+        "role": "Audit Associate",
+        "duration": "Jun 2021 - Jun 2023",
+        "bullets": ["Performed statutory audits of 11 mid-size manufacturing companies."]
+      }
+    ],
+    "skills": ["Month-end Close", "Excel", "SAP FICO", "GST", "Ind AS", "Financial Reporting", "Statutory Audit"],
+    "education": [{ "institution": "Lakeview College of Commerce", "degree": "B.Com", "year": "2016 - 2019" }],
+    "ats_score": 62,
+    "matched_keywords": ["Excel"],
+    "missing_keywords": ["Budgeting", "Forecasting", "Power BI"],
+    "tailored_role": "Financial Analyst (FP&A)",
+    "profile_improvement_tips": ["Build budgeting and forecasting experience, for example by supporting your plant's annual budget cycle."],
+    "growth_note": "You meet 2 of the 4 core requirements (month-end close, SAP, Excel). Building budgeting, forecasting and Power BI experience would strengthen your fit."
+  },
+  "labels": [
+    { "where": "summary", "text": "Finance Executive with 5+ years of professional experience in month-end close, GST and Ind AS reporting, seeking the Financial Analyst (FP&A) role.", "kind": "tailored" },
+    { "where": "summary", "text": "Strong analytical skills with hands-on Excel and SAP FICO expertise.", "kind": "fabricated" },
+    { "where": "bullet", "role": 0, "source": 0, "text": "Owned the month-end close for 2 plants, cutting close time from 9 days to 6 days.", "kind": "faithful" },
+    { "where": "bullet", "role": 0, "source": 1, "text": "Reconciled 14 bank accounts and vendor ledgers monthly in SAP FICO with zero audit exceptions.", "kind": "one_unsupported" },
+    { "where": "bullet", "role": 0, "source": 2, "text": "Led variance analysis and forecasting for the Ind AS financial statements, driving budget accuracy.", "kind": "fabricated" },
+    { "where": "bullet", "role": 1, "source": 0, "text": "Performed statutory audits of 11 mid-size manufacturing companies.", "kind": "truthful_unscoped" }
+  ]
+}
