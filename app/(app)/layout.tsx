@@ -3,7 +3,7 @@ import { usePathname } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import GlobalStepper from "@/components/nav/GlobalStepper";
 
-const NO_STEPPER_PATHS = ["/onboarding"];
+const NO_STEPPER_PATHS = ["/onboarding", "/job-recommendations"];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -26,7 +26,7 @@ export async function updateSession(request: NextRequest) {
   // Use getSession (cookie-based, no network call) — safe for middleware in this environment
   const { data: { session } } = await supabase.auth.getSession();
 
-  const protectedPaths = ["/onboarding", "/create", "/preview", "/dashboard"];
+  const protectedPaths = ["/onboarding", "/create", "/preview", "/dashboard", "/job-recommendations"];
   const isProtected = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
