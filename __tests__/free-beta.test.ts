@@ -172,7 +172,7 @@ describe("UI: Free Beta, nothing for sale", () => {
 
   it("the Free Beta offer stays on the landing page and /pricing, separate from the (disabled) paid plans", () => {
     const landing = read("app/page.tsx");
-    expect(landing).toMatch(/<FreeBetaCard cta=\{\{ href: "\/signup"/);
+    expect(landing).toMatch(/<FreeBetaCard paidPlansAvailable=\{checkoutEnabled\} cta=\{\{ href: "\/signup"/);
     expect(landing).toMatch(/Free Beta · 3 resume generations · No card needed/);
     expect(read("app/pricing/PricingClient.tsx")).toMatch(/<FreeBetaCard/);
   });

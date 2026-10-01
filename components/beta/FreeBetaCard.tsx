@@ -15,7 +15,7 @@ export const FREE_BETA_FEATURES = [
   "No card required",
 ] as const;
 
-export function FreeBetaCard({ cta }: { cta: { href: string; label: string } }) {
+export function FreeBetaCard({ cta, paidPlansAvailable = false }: { cta: { href: string; label: string }; paidPlansAvailable?: boolean }) {
   return (
     <div className="max-w-md mx-auto rounded-2xl border border-[#1f5c3a] bg-white p-6 shadow-sm flex flex-col gap-4">
       <p className="self-start inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#1f5c3a] bg-[#1f5c3a]/10 rounded-full px-2.5 py-0.5">
@@ -32,7 +32,7 @@ export function FreeBetaCard({ cta }: { cta: { href: string; label: string } }) 
         ))}
       </ul>
       <p className="text-xs text-[#6b6b6b]">
-        Paid plans aren&apos;t available during the beta. Your {BETA_CREDITS} free generations are added to your account automatically.
+        {paidPlansAvailable ? "Paid plans are listed separately." : "Paid plans aren't available during the beta."} Your {BETA_CREDITS} free generations are added to your account automatically.
       </p>
       <Button asChild className="bg-[#1f5c3a] hover:bg-[#174d30]">
         <Link href={cta.href}>{cta.label}</Link>

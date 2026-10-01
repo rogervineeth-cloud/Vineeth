@@ -168,7 +168,10 @@ describe("no payment call is possible from the pricing UI", () => {
 
   it.each(files)("%s has no fetch, checkout, order, grant or Razorpay call", (f) => {
     const code = read(f).split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join("\n"); // ignore comments
-    expect(code).not.toMatch(/\bfetch\(|\/api\/checkout|\/api\/dev\/grant|grant-test-plan|razorpay|checkout_start|createOrder|\.rpc\(/i);
+    // Payment requests exist only in the gated BuyButton (components/pricing/
+    // BuyButton.tsx via lib/payments/checkout-client.ts), rendered only when
+    // the server enables checkout — never directly from these files.
+    expect(code).not.toMatch(/\bfetch\(|\/api\/checkout|\/api\/payments|\/api\/dev\/grant|grant-test-plan|checkout\.razorpay|checkout_start|createOrder|\.rpc\(/i);
   });
 
   it("the purchase button is disabled and has no handler or link", () => {

@@ -4,20 +4,28 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { FreeBetaCard } from "@/components/beta/FreeBetaCard";
-import { PaymentsComingSoonButton } from "@/components/pricing/PaymentsComingSoonButton";
+import { PurchaseCta } from "@/components/pricing/PurchaseCta";
+import { isCheckoutAvailable } from "@/lib/payments/config";
 import { PAID_TIERS, LINKEDIN_ADDON } from "@/lib/pricing-display";
+
+const PAID_PLANS_UNAVAILABLE_ANSWER = "Paid plans aren't available during the beta. Your resumes stay yours to view and download.";
 
 const faqs = [
   { q: "Will my resume pass ATS?", a: "Yes. We use single-column, ATS-optimised formatting. Every resume includes a live ATS match score before you download." },
   { q: "What if I don't have LinkedIn?", a: "No problem. You can build from scratch using our guided manual form, or upload an existing resume to get started." },
   { q: "Can I edit after generating?", a: "Yes, freely. Re-downloads of the same resume don't count as new credits." },
   { q: "What does the free beta include?", a: "Every account gets 3 AI-tailored resume generations, free — no card, no subscription. Downloads of the resumes you generate are unlimited, and regenerating for the same job description within 24 hours is free. You also get one free ATS review." },
-  { q: "What happens after my 3 generations?", a: "Paid plans aren't available during the beta. Your resumes stay yours to view and download." },
+  { q: "What happens after my 3 generations?", a: PAID_PLANS_UNAVAILABLE_ANSWER },
   { q: "How long are the beta generations valid?", a: "One year from when they're added to your account." },
   { q: "What is the LinkedIn Profile Rewrite?", a: "An AI-rewritten LinkedIn Headline, About section, and top Experience entries. It isn't part of the free beta yet." },
 ];
 
 export default async function Home() {
+  // Off by default; buy buttons only when the server's payment config allows it.
+  const checkoutEnabled = isCheckoutAvailable();
+  const faqItems = checkoutEnabled
+    ? faqs.map((f) => (f.a === PAID_PLANS_UNAVAILABLE_ANSWER ? { ...f, a: "You can buy a one-time credit pack below. Your resumes stay yours to view and download." } : f))
+    : faqs;
   const supabase = await createClient();
   const { count } = await supabase.from("resumes").select("*", { count: "exact", head: true });
   const resumeCount = count ?? 0;
@@ -169,14 +177,18 @@ export default async function Home() {
 
         {/* Available now: the Free Beta (3 generations per account, migration 015). */}
         <div className="mb-12">
-          <FreeBetaCard cta={{ href: "/signup", label: "Start your free beta →" }} />
+          <FreeBetaCard paidPlansAvailable={checkoutEnabled} cta={{ href: "/signup", label: "Start your free beta →" }} />
         </div>
 
         {/* Paid plans, restored as they were before 7709d56. Payments are not
             integrated yet: every card's button is a disabled "Payments coming
             soon" (lib/pricing-display.ts). */}
         <h3 className="text-center text-sm font-semibold uppercase tracking-wide text-[#6b6b6b] mb-1">Paid plans</h3>
-        <p className="text-center text-[#6b6b6b] text-sm mb-8">Payments aren&apos;t live yet — during the beta, use your 3 free resume generations.</p>
+        {checkoutEnabled ? (
+          <p className="text-center text-[#6b6b6b] text-sm mb-8">One-time payment, securely processed by Razorpay.</p>
+        ) : (
+          <p className="text-center text-[#6b6b6b] text-sm mb-8">Payments aren&apos;t live yet — during the beta, use your 3 free resume generations.</p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {PAID_TIERS.map((plan, idx) => (
             <div
@@ -198,7 +210,9 @@ export default async function Home() {
                   </li>
                 ))}
               </ul>
-              <PaymentsComingSoonButton
+              <PurchaseCta
+                enabled={checkoutEnabled}
+                sku={plan.slug}
                 planName={plan.name}
                 variant={plan.popular ? "secondary" : "outline"}
                 className={plan.popular ? "bg-white text-[#1f5c3a] hover:bg-white/90" : ""}
@@ -213,7 +227,7 @@ export default async function Home() {
       <section className="max-w-3xl mx-auto px-6 py-14 border-t border-stone-200/60">
         <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-10">FAQ</h2>
         <div className="flex flex-col gap-2">
-          {faqs.map((faq) => (
+          {faqItems.map((faq) => (
             <details key={faq.q} className="group border border-stone-200 rounded-lg bg-white overflow-hidden">
               <summary className="px-5 py-4 cursor-pointer font-medium text-[#1a1a1a] list-none flex items-center justify-between gap-4 hover:bg-stone-50 transition-colors">
                 {faq.q}

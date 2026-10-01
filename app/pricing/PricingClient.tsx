@@ -8,7 +8,7 @@ import type { Plan } from "@/lib/plan-config";
 import { createClient } from "@/lib/supabase/client";
 import { track } from "@/lib/analytics";
 import { planFeatures, LINKEDIN_ADDON as LINKEDIN } from "@/lib/pricing-display";
-import { PaymentsComingSoonButton } from "@/components/pricing/PaymentsComingSoonButton";
+import { PurchaseCta } from "@/components/pricing/PurchaseCta";
 import { FreeBetaCard } from "@/components/beta/FreeBetaCard";
 
 // Restored paid pricing (as before commit 7709d56). PAYMENTS ARE NOT LIVE:
@@ -22,11 +22,13 @@ function PlanCard({
   withAddon,
   onToggleAddon,
   showAddonToggle,
+  checkoutEnabled,
 }: {
   plan: Plan;
   withAddon: boolean;
   onToggleAddon: (next: boolean) => void;
   showAddonToggle: boolean;
+  checkoutEnabled: boolean;
 }) {
   // Displayed price only (plan + optional LinkedIn bundle); nothing is charged.
   const total = plan.priceInr + (withAddon ? LINKEDIN.bundlePriceInr : 0);
@@ -97,8 +99,11 @@ function PlanCard({
         </label>
       )}
 
-      <PaymentsComingSoonButton
-        planName={plan.name}
+      <PurchaseCta
+        enabled={checkoutEnabled}
+        sku={plan.type}
+        withLinkedinAddon={withAddon}
+        planName={withAddon ? `${plan.name} + LinkedIn Rewrite` : plan.name}
         variant={isPopular ? "secondary" : "outline"}
         className={isPopular ? "bg-white text-[#1f5c3a] hover:bg-white/90" : ""}
       />
@@ -106,7 +111,7 @@ function PlanCard({
   );
 }
 
-function LinkedinAddonCard() {
+function LinkedinAddonCard({ checkoutEnabled }: { checkoutEnabled: boolean }) {
   return (
     <div className="rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 p-6 flex flex-col sm:flex-row gap-5 items-start sm:items-center">
       <div className="w-12 h-12 rounded-lg bg-[#0A66C2]/10 flex items-center justify-center shrink-0">
@@ -120,7 +125,7 @@ function LinkedinAddonCard() {
       </div>
       <div className="flex items-center gap-3">
         <p className="text-2xl font-bold text-[#1a1a1a]">₹{LINKEDIN.priceInr}</p>
-        <PaymentsComingSoonButton planName={LINKEDIN.name} />
+        <PurchaseCta enabled={checkoutEnabled} sku="linkedin_rewrite" planName={LINKEDIN.name} />
       </div>
     </div>
   );
@@ -158,7 +163,10 @@ function FreeReviewBanner({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
+// checkoutEnabled comes from the server (lib/payments/config.ts
+// isCheckoutAvailable); false by default, which keeps every purchase control
+// a disabled "Payments coming soon".
+export default function PricingClient({ pricingV2, checkoutEnabled = false }: { pricingV2: boolean; checkoutEnabled?: boolean }) {
   const [withAddon, setWithAddon] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const router = useRouter();
@@ -225,7 +233,7 @@ export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
 
         {/* Available now, separate from the paid plans: the Free Beta. */}
         <div className="mb-12">
-          <FreeBetaCard cta={signedIn ? { href: "/create", label: "Use your free generations →" } : { href: "/signup", label: "Start your free beta →" }} />
+          <FreeBetaCard paidPlansAvailable={checkoutEnabled} cta={signedIn ? { href: "/create", label: "Use your free generations →" } : { href: "/signup", label: "Start your free beta →" }} />
         </div>
 
 
@@ -236,9 +244,13 @@ export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
         )}
 
         <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-[#6b6b6b] mb-1">Paid plans</h2>
-        <p className="text-center text-[#6b6b6b] text-sm mb-8">
-          Payments aren&apos;t live yet — these plans can&apos;t be bought today. During the beta, use your 3 free resume generations.
-        </p>
+        {checkoutEnabled ? (
+          <p className="text-center text-[#6b6b6b] text-sm mb-8">One-time payment, securely processed by Razorpay. Credits are added to your account once the payment is confirmed.</p>
+        ) : (
+          <p className="text-center text-[#6b6b6b] text-sm mb-8">
+            Payments aren&apos;t live yet — these plans can&apos;t be bought today. During the beta, use your 3 free resume generations.
+          </p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {PLANS.map((plan) => (
             <PlanCard
@@ -247,11 +259,12 @@ export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
               withAddon={pricingV2 && withAddon}
               onToggleAddon={setWithAddon}
               showAddonToggle={pricingV2}
+              checkoutEnabled={checkoutEnabled}
             />
           ))}
         </div>
 
-        <LinkedinAddonCard />
+        <LinkedinAddonCard checkoutEnabled={checkoutEnabled} />
 
         <div className="mt-16 text-center">
           <p className="text-sm text-[#6b6b6b]">
