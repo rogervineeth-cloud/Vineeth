@@ -1,6 +1,6 @@
 // Server-only persistence for job recommendations. The route talks to this
 // interface; production uses Supabase with the service role (writes go
-// through the migration-016 functions), tests use an in-memory double.
+// through the migration-017 functions), tests use an in-memory double.
 //
 // Every method is scoped by the caller's user id, taken from the verified
 // session — never from the request body.

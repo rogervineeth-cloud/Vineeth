@@ -1,4 +1,8 @@
--- Migration 016: AI Job Recommendations, Phase 1.
+-- Migration 017: AI Job Recommendations, Phase 1.
+--
+-- Numbered 017 (was 016): 016 is taken by 016_payment_orders.sql (branch
+-- claude/razorpay-checkout-foundation). The two touch no common objects;
+-- this migration does not depend on 016.
 --
 -- WHAT IT ADDS
 --
@@ -25,7 +29,7 @@
 -- BACKWARD COMPATIBLE: additions only; nothing existing is altered. The
 -- feature is behind JOB_RECOMMENDATIONS_ENABLED (off by default), so applying
 -- this migration changes nothing user-visible on its own.
--- Rollback: supabase/rollback/016_job_recommendations_down.sql.
+-- Rollback: supabase/rollback/017_job_recommendations_down.sql.
 
 create table if not exists public.job_rec_consents (
   user_id uuid primary key references auth.users on delete cascade,
@@ -272,4 +276,4 @@ grant execute on function public.record_job_rec_run(uuid, uuid, text, text, text
 grant execute on function public.set_job_rec_status(uuid, uuid, text) to service_role;
 
 comment on table public.job_recommendations is
-  'AI Job Recommendations Phase 1: scored jobs per run with persisted v1 components. Owner SELECT only; writes via server functions. See migration 016.';
+  'AI Job Recommendations Phase 1: scored jobs per run with persisted v1 components. Owner SELECT only; writes via server functions. See migration 017.';

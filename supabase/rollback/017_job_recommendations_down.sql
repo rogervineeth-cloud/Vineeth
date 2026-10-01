@@ -1,4 +1,4 @@
--- Rollback for migration 016 (AI Job Recommendations, Phase 1).
+-- Rollback for migration 017 (AI Job Recommendations, Phase 1).
 --
 -- DESTRUCTIVE for this feature's data only: it drops the three job
 -- recommendation tables (consents, runs, recommendations) and their

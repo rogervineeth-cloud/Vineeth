@@ -1,5 +1,5 @@
 /**
- * In-memory double of the migration-016 store (lib/job-recs/store.ts), with
+ * In-memory double of the migration-017 store (lib/job-recs/store.ts), with
  * the same semantics as the SQL functions: consent gate, idempotency by
  * (user, request_key), rolling-hour run limit, dismissed jobs left out of new
  * runs, saved jobs kept saved, and owner-scoped status changes. The SQL itself

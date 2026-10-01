@@ -10,7 +10,7 @@ This slice is off by default. It has not been deployed, the migration has not be
 | `JOB_RECOMMENDATIONS_PROVIDER` | unset | Must be on the allowlist (`fixture` only). If unset or unknown, the page shows the honest **unavailable** state. |
 | `JOB_RECOMMENDATIONS_FIXTURE_SCENARIO` | `default` | Dev/test only: `default`, `partial`, `empty` or `error`. |
 
-The `fixture` provider hard-fails in production (`VERCEL_ENV=production` or `NODE_ENV=production`, which includes local `next start`), so it never serves fake jobs to users. To try the feature locally, use `next dev` with `JOB_RECOMMENDATIONS_ENABLED=true JOB_RECOMMENDATIONS_PROVIDER=fixture`, with migration 016 applied to a **local/dev** database.
+The `fixture` provider hard-fails in production (`VERCEL_ENV=production` or `NODE_ENV=production`, which includes local `next start`), so it never serves fake jobs to users. To try the feature locally, use `next dev` with `JOB_RECOMMENDATIONS_ENABLED=true JOB_RECOMMENDATIONS_PROVIDER=fixture`, with migration 017 applied to a **local/dev** database.
 
 ## Flow
 
@@ -21,10 +21,10 @@ The `fixture` provider hard-fails in production (`VERCEL_ENV=production` or `NOD
 5. `POST /api/job-recommendations` `{request_key}` is idempotent per key. The limit is 5 runs per user per rolling hour, enforced in the database under a per-user lock, plus a per-instance burst limiter.
 6. Save/dismiss/reset go through `PATCH /api/job-recommendations/:id`, scoped to the session user. Dismissed jobs are left out of later runs, and saved jobs stay saved.
 
-## Database (migration 016)
+## Database (migration 017)
 
 The migration adds `job_rec_consents`, `job_rec_runs` and `job_recommendations`. Owners can SELECT their own rows under RLS. All writes go through service-role-only functions. It stores no resume text and no raw provider payloads, only a profile fingerprint. Apply links have an HTTPS check constraint.
-Rollback: `supabase/rollback/016_job_recommendations_down.sql` (drops only this feature's tables and functions).
+Rollback: `supabase/rollback/017_job_recommendations_down.sql` (drops only this feature's tables and functions).
 
 ## Not in Phase 1
 

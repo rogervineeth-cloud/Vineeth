@@ -1,7 +1,7 @@
 /**
- * Migration 016 (AI Job Recommendations) against a real PostgreSQL
+ * Migration 017 (AI Job Recommendations) against a real PostgreSQL
  * (throwaway local cluster; see helpers/local-postgres.ts), migrations
- * 001-016 in order, then the rollback.
+ * 001-017 in order, then the rollback.
  *
  * Skipped (not failed) on machines without PostgreSQL server binaries.
  */
@@ -15,7 +15,7 @@ const d = pg ? describe : describe.skip;
 jest.setTimeout(120_000);
 
 const MIGRATIONS = path.join(__dirname, "..", "supabase", "migrations");
-const ROLLBACK = path.join(__dirname, "..", "supabase", "rollback", "016_job_recommendations_down.sql");
+const ROLLBACK = path.join(__dirname, "..", "supabase", "rollback", "017_job_recommendations_down.sql");
 const ALICE = "11111111-1111-4111-8111-111111111111";
 const BOB = "22222222-2222-4222-8222-222222222222";
 const RACER = "33333333-3333-4333-8333-333333333333";
@@ -30,7 +30,7 @@ const record = (u: string, key: string, items: unknown[], max = 5) =>
   `select outcome || ':' || coalesce(run_id::text, '') from public.record_job_rec_run('${u}', '${key}', 'fixture', 'v1', '${FP}', 'results', 0, ${q(JSON.stringify(items))}::jsonb, ${max})`;
 const outcome = (s: string) => s.split(":")[0];
 
-d("migration 016 (job recommendations) on PostgreSQL", () => {
+d("migration 017 (job recommendations) on PostgreSQL", () => {
   beforeAll(() => {
     pg!.start();
     for (const f of fs.readdirSync(MIGRATIONS).filter((f) => /^\d{3}_.*\.sql$/.test(f)).sort()) pg!.psqlFile(path.join(MIGRATIONS, f));
@@ -39,7 +39,7 @@ d("migration 016 (job recommendations) on PostgreSQL", () => {
   afterAll(() => pg!.stop());
 
   it("re-applying the migration is harmless", () => {
-    expect(() => pg!.psqlFile(path.join(MIGRATIONS, "016_job_recommendations.sql"))).not.toThrow();
+    expect(() => pg!.psqlFile(path.join(MIGRATIONS, "017_job_recommendations.sql"))).not.toThrow();
   });
 
   it("no consent: nothing is recorded", () => {
@@ -141,6 +141,6 @@ d("migration 016 (job recommendations) on PostgreSQL", () => {
     expect(pg!.psql(`select count(*) from pg_tables where schemaname = 'public' and tablename like 'job_rec%'`)).toBe("0");
     expect(pg!.psql(`select count(*) from pg_proc where proname like '%job_rec%'`)).toBe("0");
     expect(pg!.psql(`select count(*) from pg_tables where schemaname = 'public' and tablename in ('profiles', 'resumes', 'user_plans')`)).toBe("3");
-    pg!.psqlFile(path.join(MIGRATIONS, "016_job_recommendations.sql"));
+    pg!.psqlFile(path.join(MIGRATIONS, "017_job_recommendations.sql"));
   });
 });
