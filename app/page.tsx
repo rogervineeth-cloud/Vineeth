@@ -1,9 +1,11 @@
-import { FileText, Sparkles, Target, Zap } from "lucide-react";
+import { FileText, Check, Sparkles, Target, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { FreeBetaCard } from "@/components/beta/FreeBetaCard";
+import { PaymentsComingSoonButton } from "@/components/pricing/PaymentsComingSoonButton";
+import { PAID_TIERS, LINKEDIN_ADDON } from "@/lib/pricing-display";
 
 const faqs = [
   { q: "Will my resume pass ATS?", a: "Yes. We use single-column, ATS-optimised formatting. Every resume includes a live ATS match score before you download." },
@@ -143,8 +145,8 @@ export default async function Home() {
 
       {/* Pricing */}
       <section id="pricing" className="max-w-6xl mx-auto px-6 py-16 border-t border-stone-200/60">
-        <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-2">Free during the beta</h2>
-        <p className="text-center text-[#6b6b6b] mb-8 text-sm">3 AI-tailored resume generations per account · No card · No subscription</p>
+        <h2 className="font-serif italic text-3xl text-[#1a1a1a] text-center mb-2">Simple pricing</h2>
+        <p className="text-center text-[#6b6b6b] mb-8 text-sm">All plans valid 1 year · No subscription · Pay once, use anytime</p>
 
         <div className="max-w-3xl mx-auto mb-8 rounded-xl border-2 border-dashed border-[#1f5c3a]/40 bg-[#1f5c3a]/5 px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
@@ -165,8 +167,46 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* Free Beta: no paid plans or checkout until payments are integrated. */}
-        <FreeBetaCard cta={{ href: "/signup", label: "Start your free beta →" }} />
+        {/* Available now: the Free Beta (3 generations per account, migration 015). */}
+        <div className="mb-12">
+          <FreeBetaCard cta={{ href: "/signup", label: "Start your free beta →" }} />
+        </div>
+
+        {/* Paid plans, restored as they were before 7709d56. Payments are not
+            integrated yet: every card's button is a disabled "Payments coming
+            soon" (lib/pricing-display.ts). */}
+        <h3 className="text-center text-sm font-semibold uppercase tracking-wide text-[#6b6b6b] mb-1">Paid plans</h3>
+        <p className="text-center text-[#6b6b6b] text-sm mb-8">Payments aren&apos;t live yet — during the beta, use your 3 free resume generations.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {PAID_TIERS.map((plan, idx) => (
+            <div
+              key={plan.slug}
+              id={plan.slug}
+              className={`relative rounded-xl border p-5 flex flex-col gap-4 ${plan.popular ? "border-[#1f5c3a] bg-[#1f5c3a] text-white shadow-lg" : "border-stone-200 bg-white"} ${idx === 0 ? "mt-3 sm:mt-0" : ""}`}
+            >
+              {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">Most popular</span>}
+              <div>
+                <p className={`text-sm font-medium mb-1 ${plan.popular ? "text-white/80" : "text-[#6b6b6b]"}`}>{plan.name}</p>
+                <p className="text-3xl font-bold">{plan.price}</p>
+                <p className={`text-sm mt-1 ${plan.popular ? "text-white/70" : "text-[#6b6b6b]"}`}>{plan.resumes}</p>
+              </div>
+              <ul className="flex flex-col gap-2 text-sm flex-1">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-center gap-2">
+                    <Check className={`w-4 h-4 shrink-0 ${plan.popular ? "text-white" : "text-[#1f5c3a]"}`} />
+                    <span className={plan.popular ? "text-white/90" : "text-[#1a1a1a]"}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <PaymentsComingSoonButton
+                planName={plan.name}
+                variant={plan.popular ? "secondary" : "outline"}
+                className={plan.popular ? "bg-white text-[#1f5c3a] hover:bg-white/90" : ""}
+              />
+            </div>
+          ))}
+        </div>
+        <p className="text-center text-[#6b6b6b] text-sm mt-6">+ LinkedIn Profile Rewrite add-on — ₹{LINKEDIN_ADDON.priceInr} standalone, ₹{LINKEDIN_ADDON.bundlePriceInr} bundled with any plan</p>
       </section>
 
       {/* FAQ */}

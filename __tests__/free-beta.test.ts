@@ -142,8 +142,11 @@ describe("client plan summary", () => {
 });
 
 describe("UI: Free Beta, nothing for sale", () => {
+  // In-app surfaces: nothing for sale. The landing page's pricing section and
+  // /pricing show the restored paid plans with disabled "Payments coming soon"
+  // buttons — covered by restored-pricing.test.ts.
   const UI = [
-    "app/page.tsx", "app/pricing/page.tsx", "components/beta/FreeBetaCard.tsx", "components/landing/LandingHeader.tsx",
+    "app/pricing/page.tsx", "components/beta/FreeBetaCard.tsx", "components/landing/LandingHeader.tsx",
     "app/(app)/create/page.tsx", "app/(app)/dashboard/page.tsx", "app/(app)/preview/[id]/page.tsx",
     "app/free-review/FreeReviewClient.tsx", "app/(app)/dashboard/linkedin/LinkedinRewriteClient.tsx",
   ];
@@ -167,12 +170,11 @@ describe("UI: Free Beta, nothing for sale", () => {
     expect(src[f]).not.toMatch(/View plans|Buy more|Buy another|Upgrade to|Unlock (Download|your resume)|See plans|Get LinkedIn Rewrite|\/pricing#|CHEAPEST_PLAN|priceInr|\/api\/checkout/);
   });
 
-  it("/pricing explains the beta and no longer renders the paid plan client", () => {
-    expect(src["app/pricing/page.tsx"]).not.toMatch(/import PricingClient|<PricingClient/);
-    expect(src["app/pricing/page.tsx"]).toMatch(/<FreeBetaCard/);
-    expect(src["app/page.tsx"]).toMatch(/<FreeBetaCard cta=\{\{ href: "\/signup"/);
-    expect(src["app/page.tsx"]).toMatch(/Free Beta · 3 resume generations · No card needed/);
-    expect(src["components/landing/LandingHeader.tsx"]).toMatch(/>\s*Free Beta\s*</);
+  it("the Free Beta offer stays on the landing page and /pricing, separate from the (disabled) paid plans", () => {
+    const landing = read("app/page.tsx");
+    expect(landing).toMatch(/<FreeBetaCard cta=\{\{ href: "\/signup"/);
+    expect(landing).toMatch(/Free Beta · 3 resume generations · No card needed/);
+    expect(read("app/pricing/PricingClient.tsx")).toMatch(/<FreeBetaCard/);
   });
 
   it("dashboard and create page show beta state from the server's plans (claiming first), and a spent beta says so", () => {
