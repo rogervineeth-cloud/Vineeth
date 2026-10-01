@@ -421,6 +421,16 @@ export function sanitiseGeneratedResume(
       ed.institution = src.institution;
       ed.degree = src.degree;
       ed.year = src.year;
+      // CGPA and location are the candidate's own too. The prompt used to ask
+      // for "gpa" while the profile and the PDF use "cgpa", so a fresher's
+      // CGPA never reached the document; a grade the profile does not state
+      // is never shown.
+      const extra = ed as Record<string, unknown>;
+      delete extra.gpa;
+      if (src.cgpa?.trim()) extra.cgpa = src.cgpa.trim();
+      else delete extra.cgpa;
+      if (src.location?.trim()) extra.location = src.location.trim();
+      else delete extra.location;
       return true;
     });
     if (cleanedEdu.length === 0) {

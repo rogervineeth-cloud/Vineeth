@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, Lock } from "lucide-react";
 import { resumeDownloadAllowed } from "@/lib/download-entitlement";
+import { formatGrade, descriptionBullets } from "@/lib/resume-format";
 
 // Free Beta: nothing is for sale, so a resume that cannot be downloaded says
 // so plainly — no plan cards, prices or "unlock" purchase button. Resumes
@@ -18,6 +19,7 @@ const NOT_DOWNLOADABLE =
   "This resume can't be downloaded on your account. Resumes you generate with your free beta generations can always be downloaded.";
 
 type ResumeJson = {
+  headline?: string;
   summary: string;
   experience: Array<{ company: string; role: string; duration: string; location: string; bullets: string[] }>;
   skills: string[];
@@ -182,6 +184,7 @@ export default function PreviewPage() {
             <div className="p-8 relative z-0">
               <div className="mb-6 pb-4 border-b border-stone-200">
                 <h1 className="font-serif italic text-3xl text-[#1a1a1a] mb-1">{profile?.full_name ?? "Your Name"}</h1>
+                {rj.headline && <p className="text-sm text-[#444] mb-1">{rj.headline}</p>}
                 <p className="text-sm text-[#6b6b6b]">{[profile?.email, profile?.phone, profile?.current_city].filter(Boolean).join(" · ")}</p>
               </div>
 
@@ -199,9 +202,10 @@ export default function PreviewPage() {
                     {rj.experience.map((exp, i) => (
                       <div key={i}>
                         <div className="flex items-baseline justify-between flex-wrap gap-1">
-                          <span className="font-semibold text-sm text-[#1a1a1a]">{exp.company} — {exp.role}</span>
-                          <span className="text-xs text-[#6b6b6b]">{exp.duration} · {exp.location}</span>
+                          <span className="font-semibold text-sm text-[#1a1a1a]">{exp.role}</span>
+                          <span className="text-xs text-[#6b6b6b]">{exp.duration}</span>
                         </div>
+                        <p className="text-xs text-[#444]">{[exp.company, exp.location].filter(Boolean).join(" · ")}</p>
                         <ul className="mt-1.5 flex flex-col gap-1">
                           {exp.bullets.map((b, j) => (
                             <li key={j} className="text-sm text-[#1a1a1a] pl-3 relative before:absolute before:left-0 before:content-['·'] before:text-[#1f5c3a]">{b}</li>
@@ -228,13 +232,12 @@ export default function PreviewPage() {
                 <section className="mb-5">
                   <h2 className="text-xs font-bold uppercase tracking-widest text-[#1f5c3a] mb-3">Education</h2>
                   {rj.education.map((edu, i) => (
-                    <div key={i} className="flex items-baseline justify-between flex-wrap gap-1">
-                      <div>
-                        <span className="font-semibold text-sm">{edu.institution}</span>
-                        <span className="text-sm text-[#6b6b6b]"> · {edu.degree}</span>
-                        {edu.cgpa && <span className="text-xs text-[#6b6b6b]"> · {edu.cgpa}</span>}
+                    <div key={i} className="mb-2">
+                      <div className="flex items-baseline justify-between flex-wrap gap-1">
+                        <span className="font-semibold text-sm">{edu.degree}</span>
+                        <span className="text-xs text-[#6b6b6b]">{edu.year}</span>
                       </div>
-                      <span className="text-xs text-[#6b6b6b]">{edu.year} · {edu.location}</span>
+                      <p className="text-xs text-[#444]">{[edu.institution, edu.location, formatGrade(edu.cgpa)].filter(Boolean).join(" · ")}</p>
                     </div>
                   ))}
                 </section>
@@ -247,14 +250,12 @@ export default function PreviewPage() {
                     {rj.projects.map((proj, i) => (
                       <div key={i}>
                         <span className="font-semibold text-sm">{proj.name}</span>
-                        <p className="text-sm text-[#6b6b6b] mt-0.5">{proj.description}</p>
-                        {proj.tech?.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {proj.tech.map((t, j) => (
-                              <span key={j} className="text-xs bg-[#1f5c3a]/10 text-[#1f5c3a] px-2 py-0.5 rounded-full">{t}</span>
-                            ))}
-                          </div>
-                        )}
+                        {proj.tech?.length > 0 && <p className="text-xs text-[#1f5c3a]">{proj.tech.join(" · ")}</p>}
+                        <ul className="mt-1 flex flex-col gap-1">
+                          {descriptionBullets(proj.description ?? "").map((b, j) => (
+                            <li key={j} className="text-sm text-[#1a1a1a] pl-3 relative before:absolute before:left-0 before:content-['·'] before:text-[#1f5c3a]">{b}</li>
+                          ))}
+                        </ul>
                       </div>
                     ))}
                   </div>

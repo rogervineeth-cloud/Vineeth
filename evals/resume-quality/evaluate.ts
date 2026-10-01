@@ -67,6 +67,7 @@ export type GeneratedResume = {
   matched_keywords?: string[];
   missing_keywords?: string[];
   tailored_role?: string;
+  headline?: string;
   growth_note?: string | null;
   profile_improvement_tips?: string[];
   [k: string]: unknown;
@@ -556,6 +557,16 @@ export function evaluateResume(
     };
     const added = addedWords(summary, scope, SUMMARY_NEUTRAL).filter((w) => !(w === "systems" && headed(w)));
     if (added.length) det.push(`summary adds "${added.join(", ")}"`);
+  }
+  // The headline under the name (early-career uplift): the candidate's own
+  // title or degree and listed skills only, never the target title.
+  if (typeof r.headline === "string" && r.headline.trim()) {
+    const headline = r.headline;
+    const added = addedWords(headline, wordSet(profileText(up)), SUMMARY_NEUTRAL);
+    if (added.length) det.push(`headline adds "${added.join(", ")}"`);
+    const t = jd.title.trim().toLowerCase();
+    if (t && headline.toLowerCase().includes(t) && !profileText(up).toLowerCase().includes(t)) det.push(`headline presents the target title "${jd.title}"`);
+    if (/[^\x20-\x7E]/.test(headline)) det.push("headline has non-ASCII characters");
   }
   gates.push({ gate: "detail_fidelity", pass: det.length === 0, defects: det });
 

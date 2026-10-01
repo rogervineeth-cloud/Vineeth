@@ -11,6 +11,7 @@ import { sanitiseGeneratedResume, resolveProfileName, type SanitiseProfile, type
 import { postProcessResume } from "@/lib/resume-generation";
 import { usableSections } from "@/lib/profile-completeness";
 import { evaluateResume, type ProfileFixture, type JdFixture, type Scenario, type GeneratedResume } from "../evals/resume-quality/evaluate";
+import { changedBeyondUplift } from "./helpers/quality-uplift";
 
 const ROOT = path.join(__dirname, "..", "evals", "resume-quality");
 const read = <T>(rel: string): T => JSON.parse(fs.readFileSync(path.join(ROOT, rel), "utf8"));
@@ -67,7 +68,7 @@ describe("S04 (final-live-6): a misspelt institution is restored", () => {
     const changed: string[] = [];
     for (const id of IDS) {
       const { profile, jd, s, cap, replayed } = load(id);
-      if (JSON.stringify(cap.final_resume) !== JSON.stringify(replayed)) changed.push(id);
+      if (changedBeyondUplift(cap.final_resume, replayed)) changed.push(id);
       const ev = evaluateResume(profile, jd, s, replayed, NOW);
       for (const g of ev.gates.filter((x) => x.gate !== "seniority_calibration")) {
         expect({ id, g: g.gate, defects: g.defects }).toEqual({ id, g: g.gate, defects: [] });

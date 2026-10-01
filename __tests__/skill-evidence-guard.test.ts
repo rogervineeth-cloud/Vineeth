@@ -174,9 +174,13 @@ describe("practice terms are checked against the bullet's own source", () => {
     const r = enforceSkillEvidence(resume as never, B);
     expect((r.resume as unknown as { experience: { bullets: string[] }[] }).experience[0].bullets.join(" ")).not.toMatch(/Data Structures/);
     // ... and the full pipeline, whose detail guard also rejects the invented
-    // "handling concurrent requests", returns the candidate's own bullet.
+    // "handling concurrent requests", returns the candidate's own bullet —
+    // and, this being an internship, restores the two source bullets the
+    // rewrite left out (enforceSourceCoverage).
     const full = postProcessResume(structuredClone(resume), B, { now: NOW });
-    expect((full.resume as unknown as { experience: { bullets: string[] }[] }).experience[0].bullets).toEqual([src]);
+    const bullets = (full.resume as unknown as { experience: { bullets: string[] }[] }).experience[0].bullets;
+    expect(bullets[0]).toEqual(src);
+    expect(bullets).toEqual(B.experience![0].bullets);
   });
 
   it("a practice the source bullet already names is kept (C: code reviews)", () => {

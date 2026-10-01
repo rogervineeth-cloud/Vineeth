@@ -25,10 +25,14 @@ export type CandidateFacts = {
   current_title: string | null;
   /** The sentence a summary should open with when the model's opening lost it. */
   identity: string;
+  /** Degree of the most recent education entry, verbatim, if any. */
+  latest_degree: string | null;
+  /** Whether that degree's end year has passed (null when there is no education). */
+  graduated: boolean | null;
 };
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-const INTERN = /\bintern(?:ship)?s?\b|\btrainee\b|\bapprentice\b/i;
+export const INTERN = /\bintern(?:ship)?s?\b|\btrainee\b|\bapprentice\b/i;
 
 function monthIndex(token: string, present: number): number | null {
   const t = token.trim().toLowerCase();
@@ -81,6 +85,8 @@ export function computeFacts(profile: FactsProfile, now: Date = new Date()): Can
     .sort((a, b) => b.last - a.last)
     .map((e) => ({ company: e.company, months: e.months.size }));
 
+  const edu = latestEducation(profile);
+  const eduYear = edu ? endYear(edu.year) : 0;
   return {
     professional_months: months,
     professional_years: years,
@@ -88,6 +94,8 @@ export function computeFacts(profile: FactsProfile, now: Date = new Date()): Can
     employer_months,
     current_title: current?.title ?? null,
     identity: identitySentence(profile, current?.title ?? null, months, internship.size, now),
+    latest_degree: edu?.degree.trim() || null,
+    graduated: edu ? eduYear > 0 && eduYear <= now.getUTCFullYear() : null,
   };
 }
 
@@ -97,7 +105,7 @@ function identitySentence(p: FactsProfile, title: string | null, months: number,
     return `${title} with ${y}+ year${y === 1 ? "" : "s"} of professional experience.`;
   }
   if (title && months > 0) return `${title} with ${months} months of professional experience.`;
-  const edu = [...(p.education ?? [])].sort((a, b) => endYear(b.year) - endYear(a.year))[0];
+  const edu = latestEducation(p);
   const intern = internMonths > 0 ? ` with ${internMonths} months of internship experience` : "";
   if (edu) {
     const y = endYear(edu.year);
@@ -105,6 +113,10 @@ function identitySentence(p: FactsProfile, title: string | null, months: number,
     return `${edu.degree.trim()} ${graduated ? `graduate (${y})` : "student"}${intern}.`;
   }
   return internMonths > 0 ? `Candidate${intern}.` : "";
+}
+
+function latestEducation(p: FactsProfile) {
+  return [...(p.education ?? [])].sort((a, b) => endYear(b.year) - endYear(a.year))[0];
 }
 
 function endYear(s: string): number {
