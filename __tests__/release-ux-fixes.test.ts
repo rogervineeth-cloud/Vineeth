@@ -172,9 +172,12 @@ describe("3. dashboard View / Download on touch and keyboard", () => {
 
   it("View is a real link; Download and Delete are labelled buttons with touch-sized targets", () => {
     expect(card).toMatch(/<Button asChild[^>]*>\s*<Link href=\{`\/preview\/\$\{resume\.id\}`\} aria-label=\{`View /);
-    expect(card).toMatch(/aria-label=\{`Download \$\{resume\.tailored_role \|\| "resume"\} as PDF`\}/);
+    // Download is one of three states since migration 018 (Download /
+    // Unlock PDF / Get a paid credit), each a labelled, touch-sized control.
+    expect(card).toMatch(/const name = resume\.tailored_role \|\| "resume";/);
+    expect(card).toMatch(/aria-label=\{`Download \$\{name\} as PDF`\}/);
     expect(card).toMatch(/aria-label=\{`Delete /);
-    expect(card.match(/\[@media\(pointer:coarse\)\]:h-11/g)?.length).toBe(3);
+    expect(card.match(/\[@media\(pointer:coarse\)\]:h-11/g)?.length).toBe(5); // View, 3 download states, Delete
   });
 });
 

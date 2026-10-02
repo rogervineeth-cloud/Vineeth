@@ -29,7 +29,9 @@ const row = (jd: string) => JSON.stringify({ jd_text: jd, resume_json: { summary
 d("migration 015 (Free Beta credits) on PostgreSQL", () => {
   beforeAll(() => {
     pg!.start();
-    for (const f of fs.readdirSync(MIGRATIONS).filter((f) => /^\d{3}_.*\.sql$/.test(f)).sort()) pg!.psqlFile(path.join(MIGRATIONS, f));
+    // 001-015 only: this suite is 015 as written (3 credits). Migration 018
+    // changes the grant to 1 credit (see migration-018-sql.test.ts).
+    for (const f of fs.readdirSync(MIGRATIONS).filter((f) => /^\d{3}_.*\.sql$/.test(f) && Number(f.slice(0, 3)) <= 15).sort()) pg!.psqlFile(path.join(MIGRATIONS, f));
     pg!.psql(`insert into auth.users values ('${NEW}'), ('${RACE}'), ('${PAID}'), ('${HACKER}')`);
   });
   afterAll(() => pg!.stop());

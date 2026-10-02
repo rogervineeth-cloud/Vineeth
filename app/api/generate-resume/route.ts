@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { canGenerateResume, canGenerateFreeRegen, userOwnsResume } from "@/lib/plans";
+import { userOwnsResume } from "@/lib/plans";
 import { ensureBetaCredits } from "@/lib/beta";
 import { track } from "@/lib/analytics";
 import { MODEL_RESUME_CREATOR, MODEL_RESUME_STANDARD } from "@/lib/models";
@@ -11,6 +11,7 @@ import { usableSections, hasResumeContent, MISSING_RESUME_CONTENT } from "@/lib/
 import { cleanTargetRoles } from "@/lib/target-roles";
 import { JD_MIN_CHARS } from "@/lib/jd-length";
 import { generationStore, generationFingerprint, type GeneratedResumeRow } from "@/lib/generation-idempotency";
+import { FREE_PREVIEW_USED_MESSAGE, VERIFY_EMAIL_FOR_FREE_MESSAGE } from "@/lib/plan-config";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
 const TEMPLATES = new Set(["classic", "modern", "compact", "executive"]);
@@ -70,7 +71,9 @@ async function replayResponse(store: ReturnType<typeof generationStore>, userId:
   return NextResponse.json({
     resume_id: stored.id,
     resume_json: stored.resume_json,
-    is_free_regen: false,
+    // A free preview (no paid credit) cannot be downloaded.
+    entitled: stored.entitled,
+    free_preview: !stored.entitled,
     regen_of_resume_id: stored.regen_of_resume_id,
     replayed: true,
   });
@@ -111,18 +114,19 @@ export async function POST(req: NextRequest) {
     //
     // An unowned, deleted or unknown parent is safely IGNORED rather than
     // rejected: it is treated as an ordinary generation with no lineage. That
-    // is exactly the behaviour today (canGenerateFreeRegen already returns
-    // false for all three cases, so the request was charged and succeeded),
-    // so ignoring changes nothing for users while preventing a cross-user id
+    // was the behaviour before (such a request was charged and succeeded), so
+    // ignoring changes nothing for users while preventing a cross-user id
     // from ever being written. Rejecting instead would newly break a real
     // case now that users can delete resumes: regenerating from a stale tab
     // whose parent has since been deleted would start failing.
+    //
+    // A regeneration is an ordinary generation: it needs a credit like any
+    // other (migration 018). The old "same JD within 24 h is free" rule is
+    // gone — it let a free resume be regenerated with more free model calls.
     let validatedParentId: string | null = null;
-    let isFreeRegen = false;
     if (regen_of_resume_id) {
       if (await userOwnsResume(userId, regen_of_resume_id)) {
         validatedParentId = regen_of_resume_id;
-        isFreeRegen = await canGenerateFreeRegen(userId, regen_of_resume_id, jd_text);
       } else {
         console.warn(
           "[generate-resume] ignoring regen parent not owned by caller:",
@@ -135,20 +139,11 @@ export async function POST(req: NextRequest) {
         });
       }
     }
-    if (!isCreator && !isFreeRegen) {
-      // Free Beta (migration 015): an account that has never had its 3 free
-      // generations gets them now, once. Idempotent; a failure changes
-      // nothing (the check below then answers as before).
-      await ensureBetaCredits(userId);
-      const { allowed, reason } = await canGenerateResume(userId);
-      if (!allowed) {
-        track("generate_attempt_blocked_free", { user_id: userId, reason: reason ?? "NO_PLAN" });
-        return NextResponse.json(
-          { error: "payment_required", reason, checkoutUrl: "/pricing" },
-          { status: 402 }
-        );
-      }
-    }
+    // ONE free AI resume preview per VERIFIED account (migration 018): the
+    // free credit is granted only once the email address is confirmed
+    // (Google sign-in is confirmed). Idempotent; a failure grants nothing.
+    const emailVerified = !!authUser.email_confirmed_at;
+    if (!isCreator && emailVerified) await ensureBetaCredits(userId);
     // Server-side defense: never call Anthropic for incomplete profiles.
     // Experience, Education and Projects are each optional, but at least one
     // must hold a real entry — see lib/profile-completeness.ts. Blank rows (the
@@ -173,16 +168,18 @@ export async function POST(req: NextRequest) {
     parsed.data.user_profile.experience = usable.experience;
     parsed.data.user_profile.education = usable.education;
     parsed.data.user_profile.projects = usable.projects;
-    // ── Idempotency (migration 013) ──────────────────────────────────────
-    // Before any model call or charge: claim this attempt. A generation for
-    // the same JD already running in another tab or device is refused here
-    // (whatever template, keywords or profile that tab sent), and a retry of
-    // an attempt that already finished gets its resume back.
+    // ── Idempotency + credit reservation (migrations 013, 018) ───────────
+    // Before any model call: claim this attempt AND reserve one credit, under
+    // a per-user database lock — paid credits first, then the single free
+    // preview credit. No credit -> 402 here, with no model call, whatever the
+    // browser shows (direct API calls, other tabs, concurrent requests and
+    // regenerations all land here). A generation for the same JD already
+    // running is refused; a retry of a finished attempt gets its resume back.
     const store = generationStore();
     const fingerprint = generationFingerprint(jd_text);
     let begun;
     try {
-      begun = await store.begin(userId, request_key, fingerprint);
+      begun = await store.begin(userId, request_key, fingerprint, !isCreator);
     } catch (err) {
       // Fail closed: e.g. the migration is not applied yet. Nothing spent.
       console.error("[generate-resume] begin failed:", err instanceof Error ? err.message : err);
@@ -196,6 +193,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "GENERATION_IN_PROGRESS", message: "This resume is already being generated in another tab or window. It will appear on your dashboard when it's ready — no extra credit is used." },
         { status: 409 }
+      );
+    }
+    if (begun.outcome === "payment_required") {
+      track("generate_attempt_blocked_free", { user_id: userId, reason: emailVerified ? "NO_CREDITS" : "EMAIL_NOT_VERIFIED" });
+      return NextResponse.json(
+        emailVerified
+          ? { error: "payment_required", reason: "FREE_PREVIEW_USED", message: FREE_PREVIEW_USED_MESSAGE, checkoutUrl: "/pricing" }
+          : { error: "payment_required", reason: "EMAIL_NOT_VERIFIED", message: VERIFY_EMAIL_FOR_FREE_MESSAGE, checkoutUrl: "/pricing" },
+        { status: 402 }
       );
     }
     if (begun.outcome === "key_reused") {
@@ -265,9 +271,9 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // One transaction: charge (unless creator / free regeneration), insert
-      // the resume, mark the attempt done. The browser used to insert the row
-      // after this route charged, so two tabs meant two of each.
+      // One transaction: save the resume against the credit reserved at
+      // begin, record a download entitlement only if that credit was PAID,
+      // mark the attempt done.
       const row: GeneratedResumeRow = {
         jd_text,
         resume_json: resumeJson,
@@ -286,15 +292,8 @@ export async function POST(req: NextRequest) {
         // Server-verified parent only — never the client's copy.
         regen_of_resume_id: validatedParentId,
       };
-      const done = await store.complete(userId, request_key, !isCreator && !isFreeRegen, row);
+      const done = await store.complete(userId, request_key, row, isCreator);
       finished = true;
-      if (done.outcome === "payment_required") {
-        track("generate_attempt_blocked_free", { user_id: userId, reason: "CREDITS_EXHAUSTED" });
-        return NextResponse.json(
-          { error: "payment_required", reason: "CREDITS_EXHAUSTED", checkoutUrl: "/pricing" },
-          { status: 402 }
-        );
-      }
       if (done.outcome === "replay") return replayResponse(store, userId, done.resumeId);
       if (done.outcome !== "completed") {
         // The lease ran out (or begin was lost): nothing was charged or saved.
@@ -306,7 +305,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         resume_id: done.resumeId,
         resume_json: resumeJson,
-        is_free_regen: isFreeRegen,
+        // Generated with the free preview credit: viewable, not downloadable.
+        entitled: done.entitled,
+        free_preview: !done.entitled,
         // Server-verified parent id, or null.
         regen_of_resume_id: validatedParentId,
       });

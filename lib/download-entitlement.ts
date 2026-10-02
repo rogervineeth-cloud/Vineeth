@@ -1,52 +1,51 @@
-// Whether the OWNER of a resume may download it as a PDF. Safe to import from
-// client and server components: the preview page uses it to choose between
-// the Download button and the upgrade modal, and /api/download-pdf enforces
-// it. The caller must already have established that the resume belongs to the
-// user — this function only decides entitlement, never ownership.
+// Whether a resume's PDF may be downloaded, and what to offer when it may
+// not. Safe to import from client and server components.
 //
-// A resume is downloadable when any of:
-//   1. it has been downloaded before (re-downloads are always free);
-//   2. the user has an active plan with a credit left (unchanged behaviour);
-//   3. the user held a plan when the resume was created — the plan was
-//      purchased at or before the resume's created_at — even if that plan is
-//      now exhausted or expired.
+// RULE (migration 018): a PDF can be downloaded only for a resume covered by
+// a PAID credit — a row in resume_entitlements, written server-side when a
+// resume is generated with a paid credit, when a paid credit is spent to
+// unlock it (POST /api/resumes/[id]/unlock, once per resume), for the creator
+// account, or by the migration's backfill for resumes made under a paid plan.
+// The free AI resume preview never has one.
 //
-// Rule 3 is the fix. Generating a resume consumes a credit; without it, the
-// resume that used a plan's LAST credit (every Single purchase) could not be
-// downloaded: no active plan with credits, and not yet downloaded → 402. The
-// same applied to a free regeneration made after the last credit, and to any
-// generated-but-not-yet-downloaded resume once the plan ran out or expired.
-// "Each AI-tailored resume can be re-downloaded as a PDF unlimited times"
-// (lib/plan-config.ts) — the credit buys the resume, not a time window.
+// Removed (they let free resumes be downloaded): "downloaded once before →
+// free re-downloads", "any active plan → any resume", and "a plan was held
+// when the resume was created".
+//
+// Invariant: an entitled resume can be re-downloaded any number of times
+// without another charge; a download request never spends a credit by itself
+// (only the explicit unlock does, and only once).
 
-export type DownloadPlan = {
-  resumes_used: number | null;
+export type DownloadAction =
+  /** Covered by a paid credit: download freely. */
+  | "download"
+  /** Not covered, but the user has a paid credit: offer "Use 1 credit to download". */
+  | "unlock"
+  /** Not covered and no paid credit: point to pricing. */
+  | "upgrade";
+
+export function downloadAction(entitled: boolean, paidCreditsLeft: number): DownloadAction {
+  if (entitled) return "download";
+  return paidCreditsLeft > 0 ? "unlock" : "upgrade";
+}
+
+export type CreditPlan = {
+  plan_type: string;
   resumes_allotted: number;
+  resumes_used: number | null;
   expires_at: string;
-  purchased_at: string | null;
 };
 
-export type DownloadResume = {
-  created_at: string;
-  downloaded_at: string | null;
-};
+/** Unexpired PAID credits left (the free preview credit never unlocks a download). */
+export function paidCreditsLeft(plans: readonly CreditPlan[], now: Date = new Date()): number {
+  return plans
+    .filter((p) => p.plan_type !== "beta" && Date.parse(p.expires_at) > now.getTime())
+    .reduce((n, p) => n + Math.max(0, p.resumes_allotted - (p.resumes_used ?? 0)), 0);
+}
 
-export function resumeDownloadAllowed(
-  resume: DownloadResume,
-  plans: readonly DownloadPlan[],
-  now: Date = new Date()
-): boolean {
-  if (resume.downloaded_at) return true;
-
-  const hasActiveCredit = plans.some(
-    (p) => Date.parse(p.expires_at) > now.getTime() && (p.resumes_used ?? 0) < p.resumes_allotted
-  );
-  if (hasActiveCredit) return true;
-
-  const createdAt = Date.parse(resume.created_at);
-  if (Number.isNaN(createdAt)) return false;
-  return plans.some((p) => {
-    const purchasedAt = p.purchased_at ? Date.parse(p.purchased_at) : NaN;
-    return !Number.isNaN(purchasedAt) && purchasedAt <= createdAt;
-  });
+/** The free preview credit still unused (0 or 1). */
+export function freeCreditsLeft(plans: readonly CreditPlan[], now: Date = new Date()): number {
+  return plans
+    .filter((p) => p.plan_type === "beta" && Date.parse(p.expires_at) > now.getTime())
+    .reduce((n, p) => n + Math.max(0, p.resumes_allotted - (p.resumes_used ?? 0)), 0);
 }

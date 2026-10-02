@@ -11,10 +11,10 @@ const faqs = [
   { q: "Will my resume pass ATS?", a: "Yes. We use single-column, ATS-optimised formatting. Every resume includes a live ATS match score before you download." },
   { q: "What if I don't have LinkedIn?", a: "No problem. You can build from scratch using our guided manual form, or upload an existing resume to get started." },
   { q: "Can I edit after generating?", a: "Yes, freely. Re-downloads of the same resume don't count as new credits." },
-  { q: "What does the free beta include?", a: "Every account gets 3 AI-tailored resume generations, free — no card, no subscription. Downloads of the resumes you generate are unlimited, and regenerating for the same job description within 24 hours is free. You also get one free ATS review." },
-  { q: "What happens after my 3 generations?", a: "Paid plans aren't available during the beta. Your resumes stay yours to view and download." },
-  { q: "How long are the beta generations valid?", a: "One year from when they're added to your account." },
-  { q: "What is the LinkedIn Profile Rewrite?", a: "An AI-rewritten LinkedIn Headline, About section, and top Experience entries. It isn't part of the free beta yet." },
+  { q: "What is free?", a: "One AI-tailored resume preview per verified account — you can view it online — plus one free ATS review. PDF download requires a paid credit." },
+  { q: "What needs a paid credit?", a: "Every PDF download and every AI resume after your free preview, including regenerations. A resume you've paid for can be downloaded again any time at no extra cost. Payments are coming soon." },
+  { q: "How long are credits valid?", a: "One year from when they're added to your account." },
+  { q: "What is the LinkedIn Profile Rewrite?", a: "An AI-rewritten LinkedIn Headline, About section, and top Experience entries. It isn't available yet." },
 ];
 
 export default async function Home() {
@@ -69,7 +69,7 @@ export default async function Home() {
               </div>
             </div>
             <p className="text-xs text-[#6b6b6b]">
-              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}Free Beta · 3 resume generations · No card needed
+              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}1 free AI resume preview · PDF download requires a paid credit
             </p>
           </div>
 
@@ -167,16 +167,16 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* Available now: the Free Beta (3 generations per account, migration 015). */}
+        {/* Available now: 1 free AI resume preview per account (migration 018). */}
         <div className="mb-12">
-          <FreeBetaCard cta={{ href: "/signup", label: "Start your free beta →" }} />
+          <FreeBetaCard cta={{ href: "/signup", label: "Get your free preview →" }} />
         </div>
 
         {/* Paid plans, restored as they were before 7709d56. Payments are not
             integrated yet: every card's button is a disabled "Payments coming
             soon" (lib/pricing-display.ts). */}
         <h3 className="text-center text-sm font-semibold uppercase tracking-wide text-[#6b6b6b] mb-1">Paid plans</h3>
-        <p className="text-center text-[#6b6b6b] text-sm mb-8">Payments aren&apos;t live yet — during the beta, use your 3 free resume generations.</p>
+        <p className="text-center text-[#6b6b6b] text-sm mb-8">Payments aren&apos;t live yet — paid credits can&apos;t be bought today.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {PAID_TIERS.map((plan, idx) => (
             <div

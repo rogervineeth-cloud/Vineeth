@@ -12,7 +12,7 @@ import { storedTemplate, TEMPLATE_STORAGE_KEY, type TemplateId } from "@/lib/tem
 import { createStepFromParam, type CreateStep } from "@/lib/create-steps";
 import { isAlreadyGenerating, ALREADY_GENERATING } from "@/lib/generation-feedback";
 import { loadPlansEnsuringBeta, summarisePlans, type PlanRow } from "@/lib/beta-client";
-import { BETA_EXHAUSTED_MESSAGE } from "@/lib/plan-config";
+import { BETA_EXHAUSTED_MESSAGE, FREE_PREVIEW_RULE, FREE_PREVIEW_DOWNLOAD_MESSAGE } from "@/lib/plan-config";
 import { cleanTargetRoles } from "@/lib/target-roles";
 import { singleFlight } from "@/lib/single-flight";
 import { jdLengthStatus, JD_MIN_CHARS } from "@/lib/jd-length";
@@ -59,13 +59,14 @@ type PlanCheck =
   | { allowed: false; reason: "NO_PLAN" | "CREDITS_EXHAUSTED"; allotted: number };
 
 /**
- * Free Beta: why Generate is unavailable, with nothing to buy. NO_PLAN means
- * the beta grant could not be made or read (an error, not a paywall).
+ * Why Generate is unavailable (migration 018). CREDITS_EXHAUSTED: the 1 free
+ * AI resume preview is used and there is no paid credit. NO_PLAN: no credit
+ * at all — the free preview needs a verified email, or could not be loaded.
  */
 function noCreditsMessage(reason: "NO_PLAN" | "CREDITS_EXHAUSTED"): string {
   return reason === "CREDITS_EXHAUSTED"
     ? BETA_EXHAUSTED_MESSAGE
-    : "We couldn't load your free beta generations. Please refresh the page and try again.";
+    : "Your 1 free AI resume preview needs a verified email address. Verify your email, then refresh this page.";
 }
 
 
@@ -269,9 +270,8 @@ function CreatePageInner() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [planCheck, setPlanCheck] = useState<PlanCheck | null>(null);
   // Set when arriving via a resume's "Update profile & regenerate"
-  // (/create?regen=<id>). Sent to the API, which alone decides whether the
-  // regeneration is free (same JD, within 24 h — lib/regen.ts) and records
-  // the lineage.
+  // (/create?regen=<id>). Sent to the API, which records the lineage. A
+  // regeneration needs a credit like any generation (migration 018).
   //
   // Read from the router, NOT window.location. On a client-side <Link>
   // navigation the App Router renders the new page before it pushes the new
@@ -337,6 +337,7 @@ function CreatePageInner() {
 
   const [generatedResume, setGeneratedResume] = useState<GeneratedResume | null>(null);
   const [savedResumeId, setSavedResumeId] = useState<string | null>(null);
+  const [isFreePreview, setIsFreePreview] = useState(false);
 
   // Restored like the JD text: the choice was saved on click but never read
   // back, so it reverted to Classic on the next visit and in Review.
@@ -423,7 +424,7 @@ function CreatePageInner() {
       jdRef.current?.focus();
       return;
     }
-    if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed && !regenParentId) {
+    if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed) {
       toast.error(noCreditsMessage(planCheck.reason), { duration: 6000 });
       return;
     }
@@ -435,6 +436,7 @@ function CreatePageInner() {
     setGenProgress(3);
     setGeneratedResume(null);
     setSavedResumeId(null);
+    setIsFreePreview(false);
 
     let accumulated = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -508,7 +510,8 @@ function CreatePageInner() {
       }
 
       if (res.status === 402) {
-        const msg = noCreditsMessage(data.reason === "CREDITS_EXHAUSTED" ? "CREDITS_EXHAUSTED" : "NO_PLAN");
+        // The server's message (free preview used / email not verified) is authoritative.
+        const msg = typeof data.message === "string" ? data.message : noCreditsMessage(data.reason === "EMAIL_NOT_VERIFIED" ? "NO_PLAN" : "CREDITS_EXHAUSTED");
         setGenError(msg);
         toast.error(msg);
         setGenerating(false);
@@ -543,7 +546,9 @@ function CreatePageInner() {
       }
 
       setGenStageIdx(GEN_STAGES.length - 1);
-      if (data.is_free_regen) toast.success("Free regeneration — no credit used.");
+      // The free AI resume preview: viewable, not downloadable.
+      setIsFreePreview(!!data.free_preview);
+      if (data.free_preview) toast.info(FREE_PREVIEW_DOWNLOAD_MESSAGE, { duration: 8000 });
       setGenProgress(100);
 
       // The server saved the resume in the same transaction that charged the
@@ -584,7 +589,7 @@ function CreatePageInner() {
       setShowMissingPopup(true);
       return;
     }
-    if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed && !regenParentId) {
+    if (userEmail !== CREATOR_EMAIL && planCheck && !planCheck.allowed) {
       toast.error(noCreditsMessage(planCheck.reason), { duration: 6000 });
       return;
     }
@@ -608,7 +613,8 @@ function CreatePageInner() {
     jdReady &&
     completeness.complete &&
     // A regeneration may be free even with no credits left; the server decides.
-    (isCreator || !planCheck || planCheck.allowed || !!regenParentId) &&
+    // A regeneration needs a credit like any generation (migration 018).
+    (isCreator || !planCheck || planCheck.allowed) &&
     !generating;
 
   const revealStage = Math.min(genStageIdx + 1, 4) as 1 | 2 | 3 | 4;
@@ -966,7 +972,7 @@ function CreatePageInner() {
 
             {/* Mobile-only generate button */}
             <div className="lg:hidden mt-auto pt-6">
-              {planCheck && !planCheck.allowed && !isCreator && !regenParentId && (
+              {planCheck && !planCheck.allowed && !isCreator && (
                 <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800 flex items-center justify-between gap-2">
                   <span>{noCreditsMessage(planCheck.reason)}</span>
                 </div>
@@ -1021,7 +1027,7 @@ function CreatePageInner() {
 
             <div className="flex-1" />
 
-            {planCheck && !planCheck.allowed && !isCreator && !regenParentId && (
+            {planCheck && !planCheck.allowed && !isCreator && (
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
                 <span>{noCreditsMessage(planCheck.reason)}</span>
               </div>
@@ -1208,6 +1214,7 @@ function CreatePageInner() {
                 Generate my resume →
               </Button>
             </div>
+            {!isCreator && <p className="text-xs text-center text-[#6b6b6b] mt-2">{FREE_PREVIEW_RULE}</p>}
             {loadError ? (
               <p className="text-xs text-center text-amber-700 mt-3">
                 {loadError}{" "}
@@ -1331,8 +1338,14 @@ function CreatePageInner() {
                 )}
 
                 <div className="flex flex-col gap-2">
+                  {isFreePreview && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      {FREE_PREVIEW_DOWNLOAD_MESSAGE}{" "}
+                      <Link href="/pricing" className="underline font-medium">See pricing →</Link>
+                    </p>
+                  )}
                   <Button size="lg" className="w-full" onClick={() => router.push(`/preview/${savedResumeId}`)}>
-                    View & download PDF →
+                    {isFreePreview ? "View your free preview →" : "View & download PDF →"}
                   </Button>
                   <Button
                     variant="outline"

@@ -2,8 +2,6 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { PlanType } from "@/lib/plan-config";
 import { PLAN_ALLOTMENTS } from "@/lib/plan-config";
-import { isFreeRegen, normaliseJd, MAX_LINEAGE_HOPS, type LineageNode } from "@/lib/regen";
-import { resumeDownloadAllowed } from "@/lib/download-entitlement";
 
 export type ActivePlan = {
   id: string;
@@ -50,12 +48,8 @@ export async function canGenerateResume(
 /**
  * Whether `resumeId` exists AND belongs to `userId`.
  *
- * Deliberately distinct from canGenerateFreeRegen(), which conflates three
- * different answers into one boolean: "not yours", "does not exist", and
- * "yours but older than 24h" all return false. Lineage needs to know only
- * whether the caller owns the parent — a regeneration after the free window
- * is still a regeneration and should still be recorded, it just costs a
- * credit.
+ * Used only to record regeneration lineage: a regeneration costs a credit
+ * like any generation (migration 018).
  *
  * The `.eq("user_id", userId)` filter is the ownership check, matching how
  * preview and download-pdf scope their reads.
@@ -69,47 +63,6 @@ export async function userOwnsResume(userId: string, resumeId: string): Promise<
     .eq("user_id", userId)
     .maybeSingle();
   return !!data;
-}
-
-/**
- * True when regenerating from `parentResumeId` should not consume a credit:
- * the parent is the user's, the JD is the same, and it is within 24 h of the
- * paid original in that same-JD lineage (lib/regen.ts#isFreeRegen).
- *
- * Previously this checked only the parent's age. Any generation within 24 h
- * of any resume would have been free once the client sent a parent id, and
- * regenerating a regeneration would have restarted the window forever.
- */
-export async function canGenerateFreeRegen(
-  userId: string,
-  parentResumeId: string,
-  jdText: string
-): Promise<boolean> {
-  const supabase = await createClient();
-  const chain: LineageNode[] = [];
-  let nextId: string | null = parentResumeId;
-
-  // Walk parent → ancestors (all scoped to this user) until the JD changes,
-  // the lineage ends, or the hop limit. See lib/regen.ts#isFreeRegen.
-  for (let hop = 0; nextId; hop++) {
-    if (hop > MAX_LINEAGE_HOPS) {
-      // More same-JD lineage above than we will walk: the paid original was
-      // not found, so the window cannot be anchored. Charge rather than guess.
-      return false;
-    }
-    const { data }: { data: (LineageNode & { id: string }) | null } = await supabase
-      .from("resumes")
-      .select("id, jd_text, created_at, regen_of_resume_id")
-      .eq("id", nextId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!data) break;
-    chain.push(data);
-    if (normaliseJd(data.jd_text) !== normaliseJd(jdText)) break;
-    nextId = data.regen_of_resume_id ?? null;
-  }
-
-  return isFreeRegen(chain, jdText);
 }
 
 /**
@@ -164,30 +117,32 @@ export async function refundCredit(userId: string): Promise<boolean> {
 export type DownloadDecision = "allowed" | "payment_required" | "not_found";
 
 /**
- * Whether the user may download a specific resume PDF.
+ * Whether the user may download a specific resume PDF (migration 018).
  *
  * Ownership first: a resume that does not exist or is not the caller's is
  * "not_found" whatever the caller's plan — the `.eq("user_id", userId)` filter
- * is the ownership check, as in preview. Only then entitlement
- * (lib/download-entitlement.ts), which no longer requires a credit to be LEFT:
- * the resume that used the last credit stays downloadable.
+ * is the ownership check. Then only a resume_entitlements row (a PAID credit
+ * covers this resume) allows it. Nothing here spends a credit; a missing or
+ * unreadable entitlement table fails closed (payment_required).
  */
 export async function canDownloadResume(userId: string, resumeId: string): Promise<DownloadDecision> {
   const supabase = await createClient();
   const { data: resume } = await supabase
     .from("resumes")
-    .select("created_at, downloaded_at")
+    .select("id")
     .eq("id", resumeId)
     .eq("user_id", userId)
     .maybeSingle();
   if (!resume) return "not_found";
 
-  const { data: plans } = await supabase
-    .from("user_plans")
-    .select("resumes_used, resumes_allotted, expires_at, purchased_at")
-    .eq("user_id", userId);
-
-  return resumeDownloadAllowed(resume, plans ?? []) ? "allowed" : "payment_required";
+  const { data: ent, error } = await supabase
+    .from("resume_entitlements")
+    .select("resume_id")
+    .eq("resume_id", resumeId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) console.error("[download] entitlement lookup failed:", error.message);
+  return ent ? "allowed" : "payment_required";
 }
 
 /** Insert a test plan row via the service role (bypasses RLS). */

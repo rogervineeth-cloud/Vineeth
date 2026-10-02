@@ -1,5 +1,6 @@
-// Server-only. Free Beta: every account gets 3 resume generations, once
-// (migration 015). The grant is a server-only SQL function that inserts one
+// Server-only. The free AI resume preview: every VERIFIED account gets ONE
+// free generation credit, once (migrations 015 + 018); callers check the
+// email is confirmed. Resumes made with it cannot be downloaded. The grant is a server-only SQL function that inserts one
 // 'beta' user_plans row per account at most — idempotent and race-safe — so
 // calling it on every page load or generation is fine.
 

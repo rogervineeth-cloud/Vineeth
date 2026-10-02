@@ -46,7 +46,7 @@ import { randomUUID } from "crypto";
 import { createFakeGenerationStore } from "./helpers/fake-generation-store";
 // Migration 013's store, in memory (same rules as the SQL functions);
 // charges go through this file's credit mock.
-const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+const mockGenerationStore = createFakeGenerationStore();
 jest.mock("@/lib/generation-idempotency", () => ({
   ...jest.requireActual("@/lib/generation-idempotency"),
   generationStore: () => mockGenerationStore,
@@ -91,10 +91,9 @@ const OK = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGenerationStore.reset();
+  // Migration 018: credits are plan rows in the store, reserved at begin.
+  mockGenerationStore.addPlan("user-1", "career", 25);
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1", email: "someone@example.com" } } });
-  mockCanGenerateResume.mockResolvedValue({ allowed: true });
-  mockCanGenerateFreeRegen.mockResolvedValue(false);
-  mockConsumeCredit.mockResolvedValue(true);
   mockUserOwnsResume.mockResolvedValue(true);
   mockMessagesCreate.mockResolvedValue(OK);
 });
@@ -111,22 +110,11 @@ describe("lineage — persistence", () => {
     expect(mockUserOwnsResume).not.toHaveBeenCalled();
   });
 
-  it("records lineage even when the free-regen window has closed", async () => {
-    // A regeneration after 24h is still a regeneration. It costs a credit, but
-    // the relationship is just as real and must still be recorded.
-    mockCanGenerateFreeRegen.mockResolvedValue(false);
+  it("records lineage, and a regeneration costs a credit like any generation (migration 018)", async () => {
     const body = await (await POST(request({ regen_of_resume_id: PARENT_ID }))).json();
     expect(body.regen_of_resume_id).toBe(PARENT_ID);
-    expect(body.is_free_regen).toBe(false);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
-  });
-
-  it("records lineage and charges nothing inside the free window", async () => {
-    mockCanGenerateFreeRegen.mockResolvedValue(true);
-    const body = await (await POST(request({ regen_of_resume_id: PARENT_ID }))).json();
-    expect(body.regen_of_resume_id).toBe(PARENT_ID);
-    expect(body.is_free_regen).toBe(true);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(body).not.toHaveProperty("is_free_regen");
+    expect(mockGenerationStore.charges).toHaveLength(1);
   });
 });
 
@@ -147,13 +135,11 @@ describe("lineage — ownership and security", () => {
     expect(mockUserOwnsResume).toHaveBeenCalledWith("user-1", PARENT_ID);
   });
 
-  it("does not grant a free regeneration on an unowned parent", async () => {
-    // Otherwise naming someone else's recent resume would be a free generation.
+  it("an unowned parent is charged and gets no lineage", async () => {
     mockUserOwnsResume.mockResolvedValue(false);
     const body = await (await POST(request({ regen_of_resume_id: OTHER_USERS_RESUME }))).json();
-    expect(body.is_free_regen).toBe(false);
-    expect(mockCanGenerateFreeRegen).not.toHaveBeenCalled();
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(body.regen_of_resume_id).toBeNull();
+    expect(mockGenerationStore.charges).toHaveLength(1);
   });
 
   it("reports the ignored parent so abuse is visible rather than silent", async () => {
@@ -175,7 +161,7 @@ describe("lineage — ownership and security", () => {
   it("still blocks an unowned-parent request when the caller has no credits", async () => {
     // The unowned parent must not become a way around the paywall.
     mockUserOwnsResume.mockResolvedValue(false);
-    mockCanGenerateResume.mockResolvedValue({ allowed: false, reason: "CREDITS_EXHAUSTED" });
+    mockGenerationStore.reset(); // no credit at all
     const res = await POST(request({ regen_of_resume_id: OTHER_USERS_RESUME }));
     expect(res.status).toBe(402);
     expect(mockMessagesCreate).not.toHaveBeenCalled();

@@ -37,8 +37,8 @@ type Select = { select(c: string): { eq(c: string, v: string): PromiseLike<{ dat
 
 /**
  * All of this account's plans. If there is no beta plan yet, claims it once
- * and reads again — so a new account sees its 3 free generations before its
- * first one. Throws on a failed read (callers show a load error).
+ * and reads again — so a new account sees its 1 free AI resume preview before
+ * its first generation. Throws on a failed read (callers show a load error).
  */
 export async function loadPlansEnsuringBeta(
   supabase: PlansQuery,

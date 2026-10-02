@@ -9,17 +9,19 @@
 //   job_hunter   — 12 AI-tailored resumes
 //   career       — 25 AI-tailored resumes (Best value)
 //
-//   beta         — FREE BETA (until payments launch): 3 AI-tailored resumes
-//                  per account, granted once by the server (migration 015,
-//                  lib/beta.ts). The paid SKUs below are kept for later but not
-//                  offered anywhere in the UI while FREE_BETA is on.
+//   beta         — the FREE AI RESUME PREVIEW: exactly 1 AI-tailored resume
+//                  per verified account, granted once by the server
+//                  (migrations 015 + 018, lib/beta.ts). It can be viewed but
+//                  NOT downloaded as a PDF.
 //
-// Each AI-tailored resume can be re-downloaded as a PDF unlimited times.
+// PDF downloads need a PAID credit: a resume generated with a paid credit can
+// be re-downloaded any number of times; a free preview needs one paid credit
+// spent on it, once (migration 018 unlock_resume_download).
 export type PlanType = "free" | "beta" | "single" | "fresher" | "job_hunter" | "career";
 
 export const PLAN_LABELS: Record<PlanType, string> = {
   free: "Free",
-  beta: "Free Beta",
+  beta: "Free preview",
   single: "Single",
   fresher: "Fresher",
   job_hunter: "Job Hunter",
@@ -28,7 +30,7 @@ export const PLAN_LABELS: Record<PlanType, string> = {
 
 export const PLAN_ALLOTMENTS: Record<PlanType, number> = {
   free: 0,
-  beta: 3,
+  beta: 1,
   single: 1,
   fresher: 5,
   job_hunter: 12,
@@ -67,12 +69,21 @@ export const ADDONS: readonly Addon[] = [
 ];
 
 /**
- * Free Beta: paid plans and checkout are hidden everywhere until payments
- * (Razorpay) are integrated. Every account gets BETA_CREDITS generations once.
+ * The free offer (migration 018): ONE free AI resume preview per verified
+ * account. It can be viewed; a PDF download requires a paid credit. Every
+ * later generation (including regenerations) requires a paid credit.
  */
 export const FREE_BETA = true;
-export const BETA_CREDITS = 3;
-export const FREE_BETA_LABEL = "Free Beta · 3 resume generations";
-/** Shown when an account has used its beta credits. No purchase is offered. */
-export const BETA_EXHAUSTED_MESSAGE =
-  "You've used your 3 free beta resume generations. Paid plans aren't available yet — we'll let you know when they are.";
+export const BETA_CREDITS = 1;
+export const FREE_PREVIEW_RULE = "1 free AI resume preview; PDF download requires a paid credit.";
+export const FREE_BETA_LABEL = "1 free AI resume preview · PDF download requires a paid credit";
+/** 402 from /api/generate-resume and the create page once the free preview is used. */
+export const FREE_PREVIEW_USED_MESSAGE =
+  "You've used your 1 free AI resume preview. More resumes and PDF downloads require a paid credit.";
+export const VERIFY_EMAIL_FOR_FREE_MESSAGE =
+  "Verify your email address to use your 1 free AI resume preview. PDF download requires a paid credit.";
+/** Shown when an account has no credit left. */
+export const BETA_EXHAUSTED_MESSAGE = FREE_PREVIEW_USED_MESSAGE;
+/** A free preview resume, where a download would be. */
+export const FREE_PREVIEW_DOWNLOAD_MESSAGE =
+  "This is your free AI resume preview. PDF download requires a paid credit.";

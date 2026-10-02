@@ -28,7 +28,7 @@ export async function GET(
     }
     if (decision !== "allowed") {
       return NextResponse.json(
-        { error: "PAYMENT_REQUIRED", message: "A paid plan is required to download.", upgrade_url: "/pricing" },
+        { error: "PAYMENT_REQUIRED", message: "PDF download requires a paid credit.", upgrade_url: "/pricing" },
         { status: 402 }
       );
     }

@@ -34,7 +34,8 @@ jest.mock("@/lib/supabase/server", () => ({
 
 import { supabaseGenerationStore, GENERATION_LEASE_SECONDS, type GeneratedResumeRow } from "@/lib/generation-idempotency";
 
-const SQL = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "013_generation_idempotency.sql"), "utf8");
+// The adapter calls migration 018's _v2 functions (credits reserved at begin).
+const SQL = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "018_free_preview_entitlement.sql"), "utf8");
 /** Parameter names of `create or replace function public.<name>(...)` in the migration. */
 function sqlParams(name: string): string[] {
   const m = SQL.match(new RegExp(`create or replace function public\\.${name}\\(([^)]*)\\)`, "i"));
@@ -52,19 +53,19 @@ beforeEach(() => { calls.length = 0; loadQuery.filters = []; });
 
 it("calls each RPC by its SQL name with exactly the SQL parameter names", async () => {
   const store = supabaseGenerationStore();
-  nextResult = { data: [{ outcome: "started", resume_id: null }], error: null };
-  await store.begin("u", "k", "f".repeat(64));
-  nextResult = { data: [{ outcome: "completed", resume_id: "r1" }], error: null };
-  await store.complete("u", "k", true, ROW);
+  nextResult = { data: [{ outcome: "started", resume_id: null, plan_type: "beta" }], error: null };
+  await store.begin("u", "k", "f".repeat(64), true);
+  nextResult = { data: [{ outcome: "completed", resume_id: "r1", entitled: false }], error: null };
+  await store.complete("u", "k", ROW, false);
   nextResult = { data: null, error: null };
   await store.fail("u", "k", "error");
 
-  expect(calls.map((c) => c.fn)).toEqual(["begin_resume_generation", "complete_resume_generation", "fail_resume_generation"]);
-  expect(Object.keys(calls[0].args).sort()).toEqual(sqlParams("begin_resume_generation").sort());
-  expect(Object.keys(calls[1].args).sort()).toEqual(sqlParams("complete_resume_generation").sort());
-  expect(Object.keys(calls[2].args).sort()).toEqual(sqlParams("fail_resume_generation").sort());
-  expect(calls[0].args).toMatchObject({ p_user_id: "u", p_request_key: "k", p_lease_seconds: GENERATION_LEASE_SECONDS });
-  expect(calls[1].args).toMatchObject({ p_charge: true, p_resume: ROW });
+  expect(calls.map((c) => c.fn)).toEqual(["begin_resume_generation_v2", "complete_resume_generation_v2", "fail_resume_generation_v2"]);
+  expect(Object.keys(calls[0].args).sort()).toEqual(sqlParams("begin_resume_generation_v2").sort());
+  expect(Object.keys(calls[1].args).sort()).toEqual(sqlParams("complete_resume_generation_v2").sort());
+  expect(Object.keys(calls[2].args).sort()).toEqual(sqlParams("fail_resume_generation_v2").sort());
+  expect(calls[0].args).toMatchObject({ p_user_id: "u", p_request_key: "k", p_lease_seconds: GENERATION_LEASE_SECONDS, p_charge: true });
+  expect(calls[1].args).toMatchObject({ p_resume: ROW, p_is_creator: false });
 });
 
 it("the lease the route asks for is within the SQL function's accepted range and above the route's maxDuration", () => {
@@ -77,37 +78,39 @@ it("the lease the route asks for is within the SQL function's accepted range and
 });
 
 it.each([
-  ["started", null, { outcome: "started" }],
-  ["in_progress", null, { outcome: "in_progress" }],
-  ["key_reused", null, { outcome: "key_reused" }],
-  ["replay", "r9", { outcome: "replay", resumeId: "r9" }],
-])("begin maps the PostgREST row %s", async (outcome, resume_id, expected) => {
-  nextResult = { data: [{ outcome, resume_id }], error: null };
-  await expect(supabaseGenerationStore().begin("u", "k", "f".repeat(64))).resolves.toEqual(expected);
+  ["started", null, { plan_type: "beta" }, { outcome: "started", planType: "beta" }],
+  ["started", null, { plan_type: null }, { outcome: "started", planType: null }],
+  ["in_progress", null, {}, { outcome: "in_progress" }],
+  ["key_reused", null, {}, { outcome: "key_reused" }],
+  ["payment_required", null, {}, { outcome: "payment_required" }],
+  ["replay", "r9", {}, { outcome: "replay", resumeId: "r9" }],
+])("begin maps the PostgREST row %s", async (outcome, resume_id, extra, expected) => {
+  nextResult = { data: [{ outcome, resume_id, ...extra }], error: null };
+  await expect(supabaseGenerationStore().begin("u", "k", "f".repeat(64), true)).resolves.toEqual(expected);
 });
 
 it.each([
-  ["completed", "r1", { outcome: "completed", resumeId: "r1" }],
-  ["replay", "r1", { outcome: "replay", resumeId: "r1" }],
-  ["payment_required", null, { outcome: "payment_required" }],
-  ["expired", null, { outcome: "expired" }],
-  ["unknown_request", null, { outcome: "unknown_request" }],
-])("complete maps the PostgREST row %s", async (outcome, resume_id, expected) => {
-  nextResult = { data: [{ outcome, resume_id }], error: null };
-  await expect(supabaseGenerationStore().complete("u", "k", false, ROW)).resolves.toEqual(expected);
+  ["completed", "r1", true, { outcome: "completed", resumeId: "r1", entitled: true }],
+  ["completed", "r1", false, { outcome: "completed", resumeId: "r1", entitled: false }],
+  ["replay", "r1", false, { outcome: "replay", resumeId: "r1", entitled: false }],
+  ["expired", null, false, { outcome: "expired" }],
+  ["unknown_request", null, false, { outcome: "unknown_request" }],
+])("complete maps the PostgREST row %s (entitled=%s)", async (outcome, resume_id, entitled, expected) => {
+  nextResult = { data: [{ outcome, resume_id, entitled }], error: null };
+  await expect(supabaseGenerationStore().complete("u", "k", ROW, false)).resolves.toEqual(expected);
 });
 
 it("errors and malformed replies throw (the route turns begin() failures into 503, before any charge)", async () => {
-  nextResult = { data: null, error: { message: "Could not find the function public.begin_resume_generation" } };
-  await expect(supabaseGenerationStore().begin("u", "k", "f".repeat(64))).rejects.toThrow(/begin_resume_generation: Could not find/);
+  nextResult = { data: null, error: { message: "Could not find the function public.begin_resume_generation_v2" } };
+  await expect(supabaseGenerationStore().begin("u", "k", "f".repeat(64), true)).rejects.toThrow(/begin_resume_generation_v2: Could not find/);
   nextResult = { data: [], error: null };
-  await expect(supabaseGenerationStore().begin("u", "k", "f".repeat(64))).rejects.toThrow(/empty RPC result/);
+  await expect(supabaseGenerationStore().begin("u", "k", "f".repeat(64), true)).rejects.toThrow(/empty RPC result/);
   nextResult = { data: [{ outcome: "surprise", resume_id: null }], error: null };
-  await expect(supabaseGenerationStore().complete("u", "k", true, ROW)).rejects.toThrow(/unexpected outcome surprise/);
+  await expect(supabaseGenerationStore().complete("u", "k", ROW, false)).rejects.toThrow(/unexpected outcome surprise/);
 });
 
-it("load() reads the resume scoped to the caller", async () => {
-  await expect(supabaseGenerationStore().load("u", "r1")).resolves.toMatchObject({ id: "r1" });
-  expect(loadQuery.table).toBe("resumes");
-  expect(loadQuery.filters).toEqual([["id", "r1"], ["user_id", "u"]]);
+it("load() reads the resume scoped to the caller, then its download entitlement", async () => {
+  await expect(supabaseGenerationStore().load("u", "r1")).resolves.toMatchObject({ id: "r1", entitled: true });
+  expect(loadQuery.table).toBe("resume_entitlements");
+  expect(loadQuery.filters).toEqual([["id", "r1"], ["user_id", "u"], ["resume_id", "r1"]]);
 });

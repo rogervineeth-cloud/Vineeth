@@ -21,19 +21,16 @@ jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn(async () => ({ auth: { getUser: mockGetUser } })),
   createServiceClient: jest.fn(async () => ({})),
 }));
-const mockConsumeCredit = jest.fn<Promise<boolean>, [string]>(async () => true);
-const mockCanGenerateFreeRegen = jest.fn<Promise<boolean>, [string, string, string]>(async () => false);
 const mockUserOwnsResume = jest.fn<Promise<boolean>, [string, string]>(async () => true);
 jest.mock("@/lib/plans", () => ({
-  canGenerateResume: jest.fn(async () => ({ allowed: true })),
-  canGenerateFreeRegen: (u: string, r: string, jd: string) => mockCanGenerateFreeRegen(u, r, jd),
   userOwnsResume: (u: string, r: string) => mockUserOwnsResume(u, r),
-  consumeCredit: (u: string) => mockConsumeCredit(u),
 }));
 jest.mock("@/lib/analytics", () => ({ track: jest.fn() }));
 
 import { createFakeGenerationStore } from "./helpers/fake-generation-store";
-const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+// Credits live in the store double (migration 018: reserved at begin).
+const mockGenerationStore = createFakeGenerationStore();
+const charged = () => mockGenerationStore.charges.length;
 let mockStoreBroken = false;
 jest.mock("@/lib/generation-idempotency", () => ({
   ...jest.requireActual("@/lib/generation-idempotency"),
@@ -79,9 +76,10 @@ beforeEach(() => {
   mockGenerationStore.reset();
   mockStoreBroken = false;
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1", email: "someone@example.com" } } });
-  mockConsumeCredit.mockResolvedValue(true);
-  mockCanGenerateFreeRegen.mockResolvedValue(false);
   mockUserOwnsResume.mockResolvedValue(true);
+  // A paid plan with plenty of credits, so these concurrency tests are about
+  // locking, not running out (credit limits: free-preview-entitlement.test.ts).
+  mockGenerationStore.addPlan("user-1", "career", 25);
   mockMessagesCreate.mockResolvedValue(REPLY);
 });
 
@@ -97,7 +95,7 @@ describe("two tabs / devices at once", () => {
     const res1 = await tab1;
     expect(res1.status).toBe(200);
     expect(model.calls()).toBe(1);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(charged()).toBe(1);
     expect(mockGenerationStore.resumes).toHaveLength(1);
     expect((await res1.json()).resume_id).toBe(mockGenerationStore.resumes[0].id);
   });
@@ -110,7 +108,7 @@ describe("two tabs / devices at once", () => {
     expect(others.map((r) => r.status)).toEqual([409, 409, 409, 409]);
     model.release();
     expect((await first).status).toBe(200);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(charged()).toBe(1);
     expect(mockGenerationStore.resumes).toHaveLength(1);
   });
 
@@ -122,7 +120,7 @@ describe("two tabs / devices at once", () => {
     model.release();
     expect((await a).status).toBe(200);
     expect((await b).status).toBe(200);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(2);
+    expect(charged()).toBe(2);
     expect(mockGenerationStore.resumes).toHaveLength(2);
   });
 });
@@ -152,7 +150,7 @@ describe("two tabs, same JD, different tab-local state (live QA regression)", ()
     model.release();
     expect((await tab1).status).toBe(200);
     expect(model.calls()).toBe(1);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(charged()).toBe(1);
     expect(mockGenerationStore.resumes).toHaveLength(1);
     expect(mockGenerationStore.attempts.filter((a) => a.status === "completed")).toHaveLength(1);
   });
@@ -165,7 +163,7 @@ describe("two tabs, same JD, different tab-local state (live QA regression)", ()
     const statuses = (await both).map((r) => r.status).sort();
     expect(statuses).toEqual([200, 409]);
     expect(model.calls()).toBe(1);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(charged()).toBe(1);
     expect(mockGenerationStore.resumes).toHaveLength(1);
   });
 });
@@ -187,14 +185,14 @@ describe("double submits and retries", () => {
     expect(replay).toMatchObject({ replayed: true, resume_id: done.resume_id });
     expect(replay.resume_json).toEqual(done.resume_json);
     expect(model.calls()).toBe(1);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(charged()).toBe(1);
     expect(mockGenerationStore.resumes).toHaveLength(1);
   });
 
   it("a deliberate new generation of the same JD after the first finishes still works", async () => {
     expect((await POST(req())).status).toBe(200);
     expect((await POST(req())).status).toBe(200);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(2);
+    expect(charged()).toBe(2);
     expect(mockGenerationStore.resumes).toHaveLength(2);
   });
 
@@ -203,12 +201,12 @@ describe("double submits and retries", () => {
     mockMessagesCreate.mockRejectedValueOnce(new Error("upstream timeout"));
     const failed = await POST(req({ request_key: key }));
     expect(failed.status).toBe(500);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(charged()).toBe(0);
     expect(mockGenerationStore.attempts[0]).toMatchObject({ status: "failed", failure: "error" });
 
     const retried = await POST(req({ request_key: key }));
     expect(retried.status).toBe(200);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(charged()).toBe(1);
     expect(mockGenerationStore.resumes).toHaveLength(1);
   });
 
@@ -219,11 +217,12 @@ describe("double submits and retries", () => {
     expect((await POST(req())).status).toBe(200);
   });
 
-  it("credits running out at completion: 402, nothing saved, lock released", async () => {
-    mockConsumeCredit.mockResolvedValueOnce(false);
+  it("no credit left: 402 BEFORE any model call, nothing saved, lock released", async () => {
+    mockGenerationStore.reset();
     const res = await POST(req());
     expect(res.status).toBe(402);
-    expect((await res.json()).reason).toBe("CREDITS_EXHAUSTED");
+    expect((await res.json()).error).toBe("payment_required");
+    expect(mockMessagesCreate).not.toHaveBeenCalled();
     expect(mockGenerationStore.resumes).toHaveLength(0);
     expect(mockGenerationStore.attempts[0]).toMatchObject({ status: "failed", failure: "credits_exhausted" });
   });
@@ -254,18 +253,16 @@ describe("rollout safety", () => {
     expect(res.status).toBe(503);
     expect((await res.json()).error).toMatch(/No credit was used/);
     expect(mockMessagesCreate).not.toHaveBeenCalled();
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(charged()).toBe(0);
   });
 });
 
 describe("what the server stores", () => {
-  it("a free regeneration completes uncharged, with the server-verified parent", async () => {
+  it("a regeneration is charged like any generation (no free regeneration), with the server-verified parent", async () => {
     const parent = randomUUID();
-    mockCanGenerateFreeRegen.mockResolvedValue(true);
     const res = await POST(req({ regen_of_resume_id: parent }));
     expect(res.status).toBe(200);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
-    expect(mockGenerationStore.attempts[0].charged).toBe(false);
+    expect(charged()).toBe(1);
     expect(mockGenerationStore.resumes[0].row.regen_of_resume_id).toBe(parent);
   });
 

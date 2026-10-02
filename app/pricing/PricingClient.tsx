@@ -223,9 +223,9 @@ export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
           <p className="text-[#6b6b6b]">All plans valid 1 year · No subscription · Pay once, use anytime</p>
         </div>
 
-        {/* Available now, separate from the paid plans: the Free Beta. */}
+        {/* Available now, separate from the paid plans: the free AI resume preview. */}
         <div className="mb-12">
-          <FreeBetaCard cta={signedIn ? { href: "/create", label: "Use your free generations →" } : { href: "/signup", label: "Start your free beta →" }} />
+          <FreeBetaCard cta={signedIn ? { href: "/create", label: "Use your free preview →" } : { href: "/signup", label: "Get your free preview →" }} />
         </div>
 
 
@@ -237,7 +237,7 @@ export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
 
         <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-[#6b6b6b] mb-1">Paid plans</h2>
         <p className="text-center text-[#6b6b6b] text-sm mb-8">
-          Payments aren&apos;t live yet — these plans can&apos;t be bought today. During the beta, use your 3 free resume generations.
+          Payments aren&apos;t live yet — these plans can&apos;t be bought today. PDF downloads and more AI resumes require a paid credit.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {PLANS.map((plan) => (

@@ -60,7 +60,7 @@ import { randomUUID } from "crypto";
 import { createFakeGenerationStore } from "./helpers/fake-generation-store";
 // Migration 013's store, in memory (same rules as the SQL functions);
 // charges go through this file's credit mock.
-const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+const mockGenerationStore = createFakeGenerationStore();
 jest.mock("@/lib/generation-idempotency", () => ({
   ...jest.requireActual("@/lib/generation-idempotency"),
   generationStore: () => mockGenerationStore,
@@ -159,10 +159,9 @@ function storedRow() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGenerationStore.reset();
+  // Migration 018: credits are plan rows in the store, reserved at begin.
+  mockGenerationStore.addPlan("user-1", "career", 25);
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1", email: "someone@example.com" } } });
-  mockCanGenerateResume.mockResolvedValue({ allowed: true });
-  mockCanGenerateFreeRegen.mockResolvedValue(false);
-  mockConsumeCredit.mockResolvedValue(true);
 });
 
 describe("generation pipeline — happy path", () => {
@@ -174,8 +173,8 @@ describe("generation pipeline — happy path", () => {
 
     expect(body.resume_json.tailored_role).toBe("Backend Engineer");
     expect(body.resume_json.ats_score).toBe(78);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
-    expect(mockConsumeCredit).toHaveBeenCalledWith("user-1");
+    expect(mockGenerationStore.charges).toHaveLength(1);
+    expect(mockGenerationStore.charges).toEqual(["career"]);
   });
 
   it("every column the server writes is defined — no NULL corruption", async () => {
@@ -224,7 +223,7 @@ describe("generation pipeline — model omits fields", () => {
     );
     const res = await POST(request());
     expect(res.status).toBe(500);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(mockGenerationStore.charges).toHaveLength(0);
   });
 
   it.each([
@@ -238,7 +237,7 @@ describe("generation pipeline — model omits fields", () => {
     );
     const res = await POST(request());
     expect(res.status).toBe(500);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(mockGenerationStore.charges).toHaveLength(0);
   });
 
   it("repairs the fields that CAN be defaulted honestly and still succeeds", async () => {
@@ -259,7 +258,7 @@ describe("generation pipeline — model omits fields", () => {
     expect(row.missing_keywords).toEqual([]);
     // Falls back to the user's own target role rather than inventing one.
     expect(row.tailored_role).toBe("Backend Engineer");
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(mockGenerationStore.charges).toHaveLength(1);
   });
 
   it("accepts a valid numeric-string score", async () => {
@@ -287,7 +286,7 @@ describe("generation pipeline — model omits fields", () => {
       );
       const res = await POST(request());
       expect(res.status).toBe(500);
-      expect(mockConsumeCredit).not.toHaveBeenCalled();
+      expect(mockGenerationStore.charges).toHaveLength(0);
     }
   );
 });
@@ -348,15 +347,15 @@ describe("generation pipeline — failure modes", () => {
     mockMessagesCreate.mockResolvedValue(completion("I'm sorry, I cannot help with that."));
     const res = await POST(request());
     expect(res.status).toBe(500);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(mockGenerationStore.charges).toHaveLength(0);
   });
 
   it("does not call the model at all when the caller has no credits", async () => {
-    mockCanGenerateResume.mockResolvedValue({ allowed: false, reason: "CREDITS_EXHAUSTED" });
+    mockGenerationStore.reset(); // no credit at all
     const res = await POST(request());
     expect(res.status).toBe(402);
     expect(mockMessagesCreate).not.toHaveBeenCalled();
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(mockGenerationStore.charges).toHaveLength(0);
   });
 });
 
@@ -366,28 +365,14 @@ describe("generation pipeline — free regeneration lineage", () => {
   // correct behaviour and is asserted separately below.
   const REGEN_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
 
-  it("does not consume a credit for a regen inside the free window", async () => {
-    mockCanGenerateFreeRegen.mockResolvedValue(true);
+  it("a regeneration consumes a credit like any generation (no free window, migration 018)", async () => {
     mockMessagesCreate.mockResolvedValue(GOOD_COMPLETION);
-
     const res = await POST(request({ regen_of_resume_id: REGEN_ID }));
     expect(res.status).toBe(200);
     const body = await res.json();
-
-    expect(body.is_free_regen).toBe(true);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
-    // Lineage is checked against the ORIGINAL resume, owned by this user.
-    expect(mockCanGenerateFreeRegen).toHaveBeenCalledWith("user-1", REGEN_ID);
-  });
-
-  it("falls back to consuming a credit once the free window has closed", async () => {
-    mockCanGenerateFreeRegen.mockResolvedValue(false);
-    mockMessagesCreate.mockResolvedValue(GOOD_COMPLETION);
-
-    const res = await POST(request({ regen_of_resume_id: REGEN_ID }));
-    expect(res.status).toBe(200);
-    expect((await res.json()).is_free_regen).toBe(false);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(body).not.toHaveProperty("is_free_regen");
+    expect(body.regen_of_resume_id).toBe(REGEN_ID);
+    expect(mockGenerationStore.charges).toEqual(["career"]);
   });
 
   it("rejects a regen id that is not a uuid rather than trusting it", async () => {
