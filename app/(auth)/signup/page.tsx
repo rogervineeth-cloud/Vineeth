@@ -116,7 +116,7 @@ export default function SignupPage() {
 
         <div className="bg-white rounded-xl border border-stone-200 p-8 shadow-sm">
           <h1 className="text-xl font-semibold text-[#1a1a1a] mb-1">Create your account</h1>
-          <p className="text-sm text-[#6b6b6b] mb-6">Free to start. Generate and preview your first resume.</p>
+          <p className="text-sm text-[#6b6b6b] mb-6">Free to start: your first AI resume is a free, view-only preview.</p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">

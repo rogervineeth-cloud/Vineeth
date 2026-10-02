@@ -160,9 +160,9 @@ describe("UI: Free Beta, nothing for sale", () => {
 
   it("the flag and the label", () => {
     expect(FREE_BETA).toBe(true);
-    expect(FREE_BETA_LABEL).toBe("1 free AI resume preview · PDF download requires a paid credit");
-    expect(FREE_BETA_FEATURES[0]).toBe("1 free AI-tailored resume preview per verified account");
-    expect(BETA_EXHAUSTED_MESSAGE).toMatch(/used your 1 free AI resume preview/);
+    expect(FREE_BETA_LABEL).toBe("First AI resume free (view-only) · then 1 paid credit per resume");
+    expect(FREE_BETA_FEATURES[0]).toBe("Your first AI-tailored resume free — a view-only preview (verified accounts)");
+    expect(BETA_EXHAUSTED_MESSAGE).toMatch(/used your free, view-only AI resume preview/);
     expect(BETA_EXHAUSTED_MESSAGE).not.toMatch(/buy|upgrade|₹|plan →/i);
   });
 
@@ -179,7 +179,7 @@ describe("UI: Free Beta, nothing for sale", () => {
   it("the Free Beta offer stays on the landing page and /pricing, separate from the (disabled) paid plans", () => {
     const landing = read("app/page.tsx");
     expect(landing).toMatch(/<FreeBetaCard cta=\{\{ href: "\/signup", label: "Get your free preview →" \}\} \/>/);
-    expect(landing).toMatch(/1 free AI resume preview · PDF download requires a paid credit/);
+    expect(landing).toMatch(/First AI resume free \(view-only\) · then 1 paid credit per resume, PDF included/);
     expect(read("app/pricing/PricingClient.tsx")).toMatch(/<FreeBetaCard/);
   });
 

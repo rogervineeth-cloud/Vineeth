@@ -139,10 +139,10 @@ describe("the pages render the restored pricing, with payments disabled", () => 
     expect(html).toContain("Add LinkedIn Rewrite — ₹399");
     expect(html).toContain(FREE_BETA_LABEL);
     expect(html).toContain("these plans can&#x27;t be bought today");
-    // Order: Free Beta (available now) → free ATS preview → "Paid plans" → paid cards → LinkedIn add-on.
+    // Order: Free Beta (available now) → free ATS review → "Paid plans" → paid cards → LinkedIn add-on.
     const at = (s: string) => html.indexOf(s);
-    expect(at(FREE_BETA_LABEL)).toBeLessThan(at("Free ATS preview"));
-    expect(at("Free ATS preview")).toBeLessThan(at(">Paid plans<"));
+    expect(at(FREE_BETA_LABEL)).toBeLessThan(at("Free ATS review"));
+    expect(at("Free ATS review")).toBeLessThan(at(">Paid plans<"));
     expect(at(">Paid plans<")).toBeLessThan(at('id="single"'));
     expect(at('id="career"')).toBeLessThan(at("LinkedIn Profile Rewrite</p>"));
   });

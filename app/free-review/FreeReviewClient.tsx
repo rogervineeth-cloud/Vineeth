@@ -110,13 +110,13 @@ export default function FreeReviewPage() {
         <div className="text-center mb-8">
           <p className="inline-flex items-center gap-2 text-xs font-semibold text-[#1f5c3a] bg-[#1f5c3a]/10 border border-[#1f5c3a]/25 rounded-full px-3 py-1 mb-4">
             <Sparkles className="w-3 h-3" />
-            Free ATS preview · No card required
+            Free ATS review · No card required
           </p>
           <h1 className="font-serif italic text-4xl text-[#1a1a1a] mb-3">
             Score your resume against any JD
           </h1>
           <p className="text-[#6b6b6b] text-sm max-w-xl mx-auto">
-            One free ATS preview per account. Deterministic keyword + structure check —
+            One free ATS review per account. Deterministic keyword + structure check —
             no AI, no data sent to any LLM. Sign up takes 10 seconds and never asks for a card.
           </p>
         </div>
@@ -124,7 +124,7 @@ export default function FreeReviewPage() {
         {gate === "needs_signup" && (
           <div className="mb-6 rounded-xl border border-[#1f5c3a]/30 bg-[#1f5c3a]/5 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
             <div>
-              <p className="text-sm font-semibold text-[#1a1a1a]">Sign up to run your free preview</p>
+              <p className="text-sm font-semibold text-[#1a1a1a]">Sign up to run your free ATS review</p>
               <p className="text-xs text-[#6b6b6b] mt-1">Account required so we can give you exactly one free review. No card asked.</p>
             </div>
             <Button asChild className="bg-[#1f5c3a] hover:bg-[#174d30]">
@@ -136,8 +136,8 @@ export default function FreeReviewPage() {
         {gate === "free_used" && (
           <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
             <div>
-              <p className="text-sm font-semibold text-[#1a1a1a]">You&apos;ve used your free preview</p>
-              <p className="text-xs text-[#6b6b6b] mt-1">Every verified account gets 1 free AI-tailored resume preview — no card needed. PDF download requires a paid credit.</p>
+              <p className="text-sm font-semibold text-[#1a1a1a]">You&apos;ve used your free ATS review</p>
+              <p className="text-xs text-[#6b6b6b] mt-1">Next: your first AI-tailored resume is free as a view-only preview (verified accounts, no card). Unlocking its PDF costs 1 paid credit.</p>
             </div>
             <Button asChild className="bg-[#1f5c3a] hover:bg-[#174d30]">
               <Link href="/create">Generate a tailored resume →</Link>
@@ -194,7 +194,7 @@ export default function FreeReviewPage() {
                 </p>
                 <p className="text-xs text-[#6b6b6b] mt-1">
                   This is a free deterministic score. To generate an AI-tailored resume
-                  for this JD, use your 1 free AI resume preview below (PDF download requires a paid credit).
+                  for this JD, use your free, view-only AI resume preview below (unlocking its PDF costs 1 paid credit).
                 </p>
               </div>
             </div>

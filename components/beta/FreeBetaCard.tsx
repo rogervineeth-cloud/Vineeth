@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BETA_CREDITS, FREE_BETA_LABEL } from "@/lib/plan-config";
+import { FREE_BETA_LABEL } from "@/lib/plan-config";
 
 // The free offer, as shown on the landing page and /pricing. What it promises
 // is what the server enforces (migration 018, lib/beta.ts): ONE free AI
-// resume preview per verified account, viewable but not downloadable; every
-// PDF download and every further resume needs a paid credit.
+// resume per verified account, a view-only preview; every later Generate or
+// Regenerate costs 1 paid credit (PDF included, re-downloads free); 1 paid
+// credit unlocks the preview's PDF.
 export const FREE_BETA_FEATURES = [
-  `${BETA_CREDITS} free AI-tailored resume preview per verified account`,
-  "View your preview online — PDF download requires a paid credit",
+  `Your first AI-tailored resume free — a view-only preview (verified accounts)`,
+  "Unlock the preview's PDF any time with 1 paid credit",
+  "Every later Generate or Regenerate: 1 paid credit, PDF included",
+  "Resumes made with paid credits download again at no extra credit",
   "1 free ATS review of any resume",
   "No card required",
 ] as const;
@@ -31,7 +34,7 @@ export function FreeBetaCard({ cta }: { cta: { href: string; label: string } }) 
         ))}
       </ul>
       <p className="text-xs text-[#6b6b6b]">
-        More resumes and every PDF download require paid credits. Payments are coming soon.
+        Paid credits aren&apos;t on sale yet — payments are coming soon.
       </p>
       <Button asChild className="bg-[#1f5c3a] hover:bg-[#174d30]">
         <Link href={cta.href}>{cta.label}</Link>

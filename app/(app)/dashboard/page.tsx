@@ -263,7 +263,7 @@ export default function DashboardPage() {
                   </div>
                   {!entitled.has(resume.id) && (
                     <p className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 self-start">
-                      Free preview · PDF download requires a paid credit
+                      Free view-only preview · 1 paid credit unlocks the PDF
                     </p>
                   )}
                   {truncated && <p className="text-xs text-[#6b6b6b] leading-relaxed flex-1">{truncated}</p>}
@@ -301,7 +301,7 @@ export default function DashboardPage() {
                       );
                       return (
                         <Button asChild size="sm" variant="ghost" className="flex-1 text-xs h-8 [@media(pointer:coarse)]:h-11">
-                          <Link href="/pricing" aria-label={`PDF download of ${name} requires a paid credit — see pricing`}>Get a paid credit</Link>
+                          <Link href="/pricing" aria-label={`Unlocking the PDF of ${name} costs 1 paid credit — see pricing`}>Get a paid credit</Link>
                         </Button>
                       );
                     })()}
