@@ -12,7 +12,7 @@ const faqs = [
   { q: "What if I don't have LinkedIn?", a: "No problem. You can build from scratch using our guided manual form, or upload an existing resume to get started." },
   { q: "Can I edit after generating?", a: "Yes, freely. Re-downloads of the same resume don't count as new credits." },
   { q: "What is free?", a: "One AI-tailored resume preview per verified account — you can view it online — plus one free ATS review. PDF download requires a paid credit." },
-  { q: "What needs a paid credit?", a: "Every PDF download and every AI resume after your free preview, including regenerations. A resume you've paid for can be downloaded again any time at no extra cost. Payments are coming soon." },
+  { q: "What needs a paid credit?", a: "Every AI resume after your free preview, including every regeneration, uses 1 paid credit. To download the free preview, spend 1 paid credit once. Resumes generated with a paid credit can be downloaded again any time at no extra cost. Payments are coming soon." },
   { q: "How long are credits valid?", a: "One year from when they're added to your account." },
   { q: "What is the LinkedIn Profile Rewrite?", a: "An AI-rewritten LinkedIn Headline, About section, and top Experience entries. It isn't available yet." },
 ];
