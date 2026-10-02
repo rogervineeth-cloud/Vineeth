@@ -9,7 +9,8 @@
  *   - credits are reserved BEFORE the model call: concurrent requests on one
  *     credit -> exactly one 'started', the rest payment_required/in_progress;
  *   - a failed attempt releases its reservation; a successful one keeps it;
- *   - paid credits are used before the free one;
+ *   - the free preview credit is used FIRST, even when paid credits exist;
+ *     every later generation (incl. regenerations) consumes a paid credit;
  *   - the free resume gets no download entitlement; a paid one does;
  *   - unlocking a free resume spends exactly one PAID credit, once (repeat
  *     and concurrent unlocks are free), never the free credit;
@@ -129,14 +130,50 @@ d("migration 018 (free preview + entitlements) on PostgreSQL", () => {
     expect(complete(u, key)[0]).toBe("expired");
   });
 
-  it("paid credits are used before the free one, and a paid generation IS downloadable", () => {
+  it("bought credits first, then generated: the FIRST generation is still the free (non-downloadable) preview; the next uses a paid credit and IS downloadable", () => {
+    const u = newUser(); addPaid(u, "fresher", 5); grant(u);
+    const k1 = randomUUID();
+    expect(pg!.psql(begin(u, k1))).toBe("started|beta");
+    const [, freeResume, freeEnt] = complete(u, k1);
+    expect(freeEnt).toBe("false");
+    expect(entitled(freeResume)).toBe(false);
+    const k2 = randomUUID();
+    expect(pg!.psql(begin(u, k2))).toBe("started|fresher");
+    const [, paidResume, paidEnt] = complete(u, k2);
+    expect(paidEnt).toBe("true");
+    expect(entitled(paidResume)).toBe(true);
+    expect(plans(u)).toBe("fresher:1/5,beta:1/1");
+  });
+
+  it("every regeneration of the same resume/JD consumes one paid credit (no free regeneration)", () => {
     const u = newUser(); grant(u); addPaid(u, "fresher", 5);
-    const key = randomUUID();
-    expect(pg!.psql(begin(u, key))).toBe("started|fresher");
-    const [, resume, ent] = complete(u, key);
-    expect(ent).toBe("true");
-    expect(entitled(resume)).toBe(true);
-    expect(plans(u)).toBe("beta:0/1,fresher:1/5");
+    const fp = "e".repeat(64); // the same JD every time
+    const k0 = randomUUID();
+    expect(pg!.psql(begin(u, k0, fp))).toBe("started|beta");
+    complete(u, k0);
+    for (let i = 1; i <= 3; i++) {
+      const k = randomUUID();
+      expect(pg!.psql(begin(u, k, fp))).toBe("started|fresher");
+      expect(complete(u, k)[2]).toBe("true");
+    }
+    expect(plans(u)).toBe("beta:1/1,fresher:3/5");
+  });
+
+  it("concurrent first requests with free + paid credits: one runs on the free credit, the other on a paid one", async () => {
+    const u = newUser(); grant(u); addPaid(u, "single", 1);
+    const res = await pg!.concurrently([begin(u, randomUUID()), begin(u, randomUUID()), begin(u, randomUUID())]);
+    expect(res.map((r) => r.out).sort()).toEqual(["payment_required|", "started|beta", "started|single"]);
+  });
+
+  it("a failed first attempt gives the free credit back, so the first SUCCESSFUL generation is still the free one", () => {
+    const u = newUser(); addPaid(u, "single", 1); grant(u);
+    const k1 = randomUUID();
+    expect(pg!.psql(begin(u, k1, "1".repeat(64)))).toBe("started|beta");
+    fail(u, k1);
+    const k2 = randomUUID();
+    expect(pg!.psql(begin(u, k2))).toBe("started|beta");
+    expect(complete(u, k2)[2]).toBe("false");
+    expect(plans(u)).toBe("single:0/1,beta:1/1");
   });
 
   it("replaying a completed attempt charges nothing more", () => {

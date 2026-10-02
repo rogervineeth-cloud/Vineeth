@@ -14,8 +14,13 @@
 --   * exactly ONE free AI resume generation per verified account;
 --   * a free-generated resume can NEVER be downloaded as a PDF unless a PAID
 --     credit is spent on it (an explicit, one-time "unlock");
---   * every later generation, and every regeneration, needs a paid credit;
---     the old "same JD within 24 h is free" rule is gone;
+--   * every AI generation consumes exactly one credit — including every
+--     regeneration of the same resume or job description; the old "same JD
+--     within 24 h is free" rule is gone. The ONLY no-cost generation is the
+--     account's first successful verified free preview;
+--   * that first successful generation ALWAYS uses the free preview credit,
+--     even if the user already bought paid credits; every later generation
+--     consumes a paid credit;
 --   * a resume covered by a paid credit may be re-downloaded any number of
 --     times without another charge.
 --
@@ -26,8 +31,11 @@
 --   2. Credits are RESERVED BEFORE THE MODEL CALL (begin_resume_generation_v2)
 --      under a per-user lock on user_plans. Two concurrent requests can never
 --      both run a model call on the same credit — the second gets
---      payment_required with no AI call. Paid credits are used before the free
---      one. A failed attempt (model error, timeout, lease expiry) releases its
+--      payment_required with no AI call. The free preview credit is used
+--      FIRST (so the first successful generation is always the free, non-
+--      downloadable preview, even for a user who already bought credits);
+--      paid credits after it. A failed attempt (model error, timeout, lease
+--      expiry) releases its
 --      reservation: the invariant is "at most one SUCCESSFUL free generation",
 --      and never two free model calls at once.
 --   3. resume_entitlements (server-only writes) records which resumes may be
@@ -214,14 +222,16 @@ begin
     return query select 'started'::text, null::uuid, null::text; return;
   end if;
 
-  -- Reserve one credit now, before any model call. Paid credits first
-  -- (newest purchase first, as in 013); the free preview credit last.
+  -- Reserve one credit now, before any model call. The free preview credit
+  -- FIRST — the account's first successful generation is always the free,
+  -- non-downloadable preview, even if paid credits were bought before it —
+  -- then paid credits (newest purchase first, as in 013).
   select p.id, p.plan_type into v_plan, v_type
     from public.user_plans p
    where p.user_id = p_user_id
      and p.expires_at > now()
      and coalesce(p.resumes_used, 0) < p.resumes_allotted
-   order by (p.plan_type = 'beta') asc, p.purchased_at desc
+   order by (p.plan_type = 'beta') desc, p.purchased_at desc
    limit 1;
   if v_plan is null then
     update public.generation_requests g

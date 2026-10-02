@@ -3,8 +3,8 @@
 // 013's attempt table).
 //
 // The route calls begin() before the model (locks the attempt and, when
-// charging, reserves one credit — paid first, then the single free preview
-// credit; none left -> payment_required, no model call), then complete()
+// charging, reserves one credit — the single free preview credit first, then
+// paid credits; none left -> payment_required, no model call), then complete()
 // (save the resume; a download entitlement only if a PAID credit was used)
 // or fail() (release the lock and the reserved credit). The store is an
 // interface so route tests can run the same flow against an in-memory double;

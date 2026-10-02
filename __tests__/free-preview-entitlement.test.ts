@@ -132,20 +132,33 @@ describe("one free AI resume per verified account", () => {
 });
 
 describe("paid credits", () => {
-  it("a paid credit is used first: generation works and the resume IS downloadable; the free preview stays unused", async () => {
+  it("credits bought BEFORE the first generation: the first is still the free preview (not downloadable), paid credits untouched", async () => {
     mockStore.addPlan(USER.id, "single", 1);
     const res = await POST(req());
-    expect(await res.json()).toMatchObject({ entitled: true, free_preview: false });
-    expect(mockStore.charges).toEqual(["single"]);
-    expect(free()).toMatchObject({ used: 0 });
+    expect(await res.json()).toMatchObject({ entitled: false, free_preview: true });
+    expect(mockStore.charges).toEqual(["beta"]);
+    expect(mockStore.plans.find((p) => p.planType === "single")).toMatchObject({ used: 0 });
   });
 
-  it("when paid credits run out, the next generation uses the free preview (not downloadable), then 402", async () => {
+  it("every later generation consumes a paid credit and is downloadable; out of credits -> 402 before the model", async () => {
     mockStore.addPlan(USER.id, "single", 1);
-    expect((await (await POST(req({ jd_text: JD(1) }))).json()).entitled).toBe(true);
-    expect((await (await POST(req({ jd_text: JD(2) }))).json()).free_preview).toBe(true);
+    expect((await (await POST(req({ jd_text: JD(1) }))).json()).free_preview).toBe(true);
+    expect((await (await POST(req({ jd_text: JD(2) }))).json()).entitled).toBe(true);
     expect((await POST(req({ jd_text: JD(3) }))).status).toBe(402);
+    expect(mockStore.charges).toEqual(["beta", "single"]);
     expect(mockMessagesCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("every regeneration of the same resume/JD consumes one paid credit", async () => {
+    mockStore.addPlan(USER.id, "fresher", 5);
+    const first = await (await POST(req())).json();
+    expect(first.free_preview).toBe(true);
+    for (let i = 0; i < 3; i++) {
+      const res = await POST(req({ regen_of_resume_id: first.resume_id }));
+      expect(await res.json()).toMatchObject({ entitled: true, free_preview: false });
+    }
+    expect(mockStore.charges).toEqual(["beta", "fresher", "fresher", "fresher"]);
+    expect(mockStore.plans.find((p) => p.planType === "fresher")).toMatchObject({ used: 3 });
   });
 
   it("the creator account is not charged and can download", async () => {

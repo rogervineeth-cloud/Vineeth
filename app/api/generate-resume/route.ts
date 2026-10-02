@@ -170,8 +170,10 @@ export async function POST(req: NextRequest) {
     parsed.data.user_profile.projects = usable.projects;
     // ── Idempotency + credit reservation (migrations 013, 018) ───────────
     // Before any model call: claim this attempt AND reserve one credit, under
-    // a per-user database lock — paid credits first, then the single free
-    // preview credit. No credit -> 402 here, with no model call, whatever the
+    // a per-user database lock — the single free preview credit first (the
+    // first successful generation is always the free, non-downloadable
+    // preview), then paid credits: one per generation, regenerations
+    // included. No credit -> 402 here, with no model call, whatever the
     // browser shows (direct API calls, other tabs, concurrent requests and
     // regenerations all land here). A generation for the same JD already
     // running is refused; a retry of a finished attempt gets its resume back.

@@ -5,8 +5,8 @@
  *   - UNIQUE (user_id, request_key): one attempt, one outcome;
  *   - one PENDING attempt per (user_id, fingerprint);
  *   - begin() RESERVES one credit before the model (serialised per store —
- *     the SQL serialises per user): paid plans first (newest purchase), then
- *     the single free 'beta' credit; none -> payment_required;
+ *     the SQL serialises per user): the single free 'beta' credit FIRST,
+ *     then paid plans (newest purchase); none -> payment_required;
  *   - fail() releases the reservation; complete() keeps it, saves the resume
  *     and records a download entitlement only for a PAID credit (or creator).
  */
@@ -80,7 +80,7 @@ export function createFakeGenerationStore(): FakeGenerationStore {
         if (!charge) { store.started++; return { outcome: "started", planType: null }; }
         const plan = store.plans
           .filter((p) => p.userId === userId && p.used < p.allotted)
-          .sort((x, y) => Number(x.planType === "beta") - Number(y.planType === "beta") || y.purchasedAt - x.purchasedAt)[0];
+          .sort((x, y) => Number(y.planType === "beta") - Number(x.planType === "beta") || y.purchasedAt - x.purchasedAt)[0];
         if (!plan) { a.status = "failed"; a.failure = "credits_exhausted"; return { outcome: "payment_required" }; }
         plan.used++;
         a.reservedPlanId = plan.id;
