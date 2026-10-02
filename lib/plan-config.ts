@@ -75,15 +75,23 @@ export const ADDONS: readonly Addon[] = [
  */
 export const FREE_BETA = true;
 export const BETA_CREDITS = 1;
-export const FREE_PREVIEW_RULE = "1 free AI resume preview; PDF download requires a paid credit.";
-export const FREE_BETA_LABEL = "1 free AI resume preview · PDF download requires a paid credit";
+//
+// Customer-facing copy must say exactly this (tests: __tests__/credit-copy.test.ts):
+//   * the first AI resume of a verified account is a free, VIEW-ONLY preview;
+//   * every later Generate and every Regenerate costs 1 paid credit (its PDF included);
+//   * spending 1 paid credit unlocks the free preview's PDF (once);
+//   * resumes generated with paid credits can be downloaded again at no extra credit.
+// Never "every PDF download needs a credit", never a free regeneration.
+export const FREE_PREVIEW_RULE =
+  "Your first AI resume is a free, view-only preview. Every later Generate or Regenerate costs 1 paid credit, PDF included; 1 paid credit also unlocks the free preview's PDF.";
+export const FREE_BETA_LABEL = "First AI resume free (view-only) · then 1 paid credit per resume";
 /** 402 from /api/generate-resume and the create page once the free preview is used. */
 export const FREE_PREVIEW_USED_MESSAGE =
-  "You've used your 1 free AI resume preview. More resumes and PDF downloads require a paid credit.";
+  "You've used your free, view-only AI resume preview. Each new Generate or Regenerate costs 1 paid credit, PDF included.";
 export const VERIFY_EMAIL_FOR_FREE_MESSAGE =
-  "Verify your email address to use your 1 free AI resume preview. PDF download requires a paid credit.";
+  "Verify your email address to get your free, view-only AI resume preview.";
 /** Shown when an account has no credit left. */
 export const BETA_EXHAUSTED_MESSAGE = FREE_PREVIEW_USED_MESSAGE;
 /** A free preview resume, where a download would be. */
 export const FREE_PREVIEW_DOWNLOAD_MESSAGE =
-  "This is your free AI resume preview. PDF download requires a paid credit.";
+  "This is your free, view-only AI resume preview. Spend 1 paid credit to unlock its PDF — once; downloading again is free.";

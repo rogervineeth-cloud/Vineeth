@@ -122,7 +122,7 @@ describe("/api/generate-resume guard", () => {
     expect(body).toEqual({
       error: "payment_required",
       reason: "EMAIL_NOT_VERIFIED",
-      message: "Verify your email address to use your 1 free AI resume preview. PDF download requires a paid credit.",
+      message: "Verify your email address to get your free, view-only AI resume preview.",
       checkoutUrl: "/pricing",
     });
 

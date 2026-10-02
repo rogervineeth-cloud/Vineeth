@@ -134,7 +134,7 @@ describe("GET /api/download-pdf/[id] (direct API and the dashboard button use th
   it("a free preview is refused (402) even though the user holds paid credits — downloads never spend credits", async () => {
     const res = await download(FREE_RESUME);
     expect(res.status).toBe(402);
-    expect((await res.json()).message).toBe("PDF download requires a paid credit.");
+    expect((await res.json()).message).toBe("This resume's PDF isn't unlocked. Spend 1 paid credit to unlock it — once; downloading again is free.");
     expect(mockRender).not.toHaveBeenCalled();
     expect(credits()).toBe("fresher:1/5");
   });
@@ -190,7 +190,7 @@ describe("POST /api/resumes/[id]/unlock", () => {
     db.user_plans = [plan({ plan_type: "beta", resumes_used: 0 })];
     const res = await doUnlock(FREE_RESUME);
     expect(res.status).toBe(402);
-    expect((await res.json()).message).toBe("PDF download requires a paid credit.");
+    expect((await res.json()).message).toBe("Unlocking this resume's PDF costs 1 paid credit, and you have none left.");
     expect(db.resume_entitlements.some((e) => e.resume_id === FREE_RESUME)).toBe(false);
     expect((await download(FREE_RESUME)).status).toBe(402);
   });

@@ -136,13 +136,13 @@ function FreeReviewBanner({ signedIn }: { signedIn: boolean }) {
         <div className="flex-1">
           <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#1f5c3a] bg-[#1f5c3a]/10 rounded-full px-2 py-0.5 mb-2">
             <Sparkles className="w-3 h-3" />
-            Free ATS preview
+            Free ATS review
           </p>
           <p className="text-base font-semibold text-[#1a1a1a]">
             Score your resume against any JD — free, in 30 seconds.
           </p>
           <p className="text-sm text-[#1a1a1a]/80 mt-1">
-            1 free ATS preview per account · Keyword gap, missing skills, structure check
+            1 free ATS review per account · Keyword gap, missing skills, structure check
             <span className="text-[#1f5c3a] font-medium"> · No card required</span>
           </p>
         </div>
@@ -237,7 +237,7 @@ export default function PricingClient({ pricingV2 }: { pricingV2: boolean }) {
 
         <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-[#6b6b6b] mb-1">Paid plans</h2>
         <p className="text-center text-[#6b6b6b] text-sm mb-8">
-          Payments aren&apos;t live yet — these plans can&apos;t be bought today. PDF downloads and more AI resumes require a paid credit.
+          Payments aren&apos;t live yet — these plans can&apos;t be bought today. After your free, view-only preview, each Generate or Regenerate costs 1 paid credit, PDF included (download it again at no extra credit); 1 paid credit also unlocks the free preview&apos;s PDF.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {PLANS.map((plan) => (

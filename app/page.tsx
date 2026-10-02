@@ -10,8 +10,8 @@ import { PAID_TIERS, LINKEDIN_ADDON } from "@/lib/pricing-display";
 const faqs = [
   { q: "Will my resume pass ATS?", a: "Yes. We use single-column, ATS-optimised formatting. Every resume includes a live ATS match score before you download." },
   { q: "What if I don't have LinkedIn?", a: "No problem. You can build from scratch using our guided manual form, or upload an existing resume to get started." },
-  { q: "Can I edit after generating?", a: "Yes, freely. Re-downloads of the same resume don't count as new credits." },
-  { q: "What is free?", a: "One AI-tailored resume preview per verified account — you can view it online — plus one free ATS review. PDF download requires a paid credit." },
+  { q: "Can I edit after generating?", a: "Yes, freely. Downloading a resume you've paid for again never costs another credit." },
+  { q: "What is free?", a: "Your first AI-tailored resume (verified accounts) as a view-only preview, plus one free ATS review. Unlocking the preview's PDF costs 1 paid credit, once." },
   { q: "What needs a paid credit?", a: "Every AI resume after your free preview, including every regeneration, uses 1 paid credit. To download the free preview, spend 1 paid credit once. Resumes generated with a paid credit can be downloaded again any time at no extra cost. Payments are coming soon." },
   { q: "How long are credits valid?", a: "One year from when they're added to your account." },
   { q: "What is the LinkedIn Profile Rewrite?", a: "An AI-rewritten LinkedIn Headline, About section, and top Experience entries. It isn't available yet." },
@@ -69,7 +69,7 @@ export default async function Home() {
               </div>
             </div>
             <p className="text-xs text-[#6b6b6b]">
-              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}1 free AI resume preview · PDF download requires a paid credit
+              {showResumeCount ? `${resumeCountDisplay} resumes generated · ` : ""}First AI resume free (view-only) · then 1 paid credit per resume, PDF included
             </p>
           </div>
 
@@ -153,11 +153,11 @@ export default async function Home() {
             <div className="flex-1">
               <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#1f5c3a] bg-[#1f5c3a]/10 rounded-full px-2 py-0.5 mb-2">
                 <Sparkles className="w-3 h-3" />
-                Free ATS preview
+                Free ATS review
               </p>
               <p className="text-base font-semibold text-[#1a1a1a]">Score your resume against any JD — free.</p>
               <p className="text-sm text-[#1a1a1a]/80 mt-1">
-                1 free preview per account · Keyword gap, missing skills, structure check
+                1 free ATS review per account · Keyword gap, missing skills, structure check
                 <span className="text-[#1f5c3a] font-medium"> · No card required</span>
               </p>
             </div>

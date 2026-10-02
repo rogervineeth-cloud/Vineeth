@@ -26,7 +26,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     if (outcome === "not_found") return NextResponse.json({ error: "Resume not found" }, { status: 404 });
     if (outcome === "payment_required") {
       return NextResponse.json(
-        { error: "payment_required", reason: "NO_PAID_CREDIT", message: "PDF download requires a paid credit.", checkoutUrl: "/pricing" },
+        { error: "payment_required", reason: "NO_PAID_CREDIT", message: "Unlocking this resume's PDF costs 1 paid credit, and you have none left.", checkoutUrl: "/pricing" },
         { status: 402 }
       );
     }

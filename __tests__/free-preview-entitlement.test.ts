@@ -184,7 +184,7 @@ describe("ATS review keeps its own free path and cannot reach the paid AI resume
 describe("UI says it plainly, everywhere, with a real next step", () => {
   const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, "..", ...p), "utf8");
   it("the rule text", () => {
-    expect(FREE_PREVIEW_RULE).toBe("1 free AI resume preview; PDF download requires a paid credit.");
+    expect(FREE_PREVIEW_RULE).toBe("Your first AI resume is a free, view-only preview. Every later Generate or Regenerate costs 1 paid credit, PDF included; 1 paid credit also unlocks the free preview's PDF.");
   });
   it("create: the rule under Generate; a free result says no PDF and links to pricing", () => {
     const create = read("app", "(app)", "create", "page.tsx");
@@ -201,14 +201,14 @@ describe("UI says it plainly, everywhere, with a real next step", () => {
     const dash = read("app", "(app)", "dashboard", "page.tsx");
     expect(dash).toMatch(/const act = downloadAction\(entitled\.has\(resume\.id\), credits\?\.paid \?\? 0\);/);
     expect(dash).toMatch(/Unlock PDF \(1 credit\)/);
-    expect(dash).toMatch(/<Link href="\/pricing" aria-label=\{`PDF download of \$\{name\} requires a paid credit — see pricing`\}>Get a paid credit<\/Link>/);
-    expect(dash).toMatch(/Free preview · PDF download requires a paid credit/);
+    expect(dash).toMatch(/<Link href="\/pricing" aria-label=\{`Unlocking the PDF of \$\{name\} costs 1 paid credit — see pricing`\}>Get a paid credit<\/Link>/);
+    expect(dash).toMatch(/Free view-only preview · 1 paid credit unlocks the PDF/);
     expect(dash).toMatch(/\{FREE_PREVIEW_RULE\}/);
   });
   it("pricing card and FAQ state the rule; no stale '3 free generations' or free-regeneration promise anywhere", () => {
     const card = read("components", "beta", "FreeBetaCard.tsx");
-    expect(card).toMatch(/View your preview online — PDF download requires a paid credit/);
-    expect(read("app", "page.tsx")).toMatch(/PDF download requires a paid credit/);
+    expect(card).toMatch(/Unlock the preview's PDF any time with 1 paid credit/);
+    expect(read("app", "page.tsx")).toMatch(/Unlocking the preview's PDF costs 1 paid credit, once/);
     for (const f of ["app/page.tsx", "app/pricing/PricingClient.tsx", "components/beta/FreeBetaCard.tsx", "app/(app)/profile/page.tsx", "app/free-review/FreeReviewClient.tsx", "app/(app)/create/page.tsx"]) {
       expect(read(f)).not.toMatch(/3 free|3 AI-tailored resume generations|free within 24 h|Free regeneration|Unlimited PDF downloads of the resumes you generate/);
     }

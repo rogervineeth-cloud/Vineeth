@@ -66,7 +66,7 @@ type PlanCheck =
 function noCreditsMessage(reason: "NO_PLAN" | "CREDITS_EXHAUSTED"): string {
   return reason === "CREDITS_EXHAUSTED"
     ? BETA_EXHAUSTED_MESSAGE
-    : "Your 1 free AI resume preview needs a verified email address. Verify your email, then refresh this page.";
+    : "Your free, view-only AI resume preview needs a verified email address. Verify your email, then refresh this page.";
 }
 
 
