@@ -1,10 +1,9 @@
-// Free regeneration: "Regenerating uses 1 credit (free within 24 h of the
-// same JD)" — the promise the profile page makes when a user arrives from a
-// resume preview.
-//
-// Pure helpers shared by the client (carrying the parent id from preview →
-// profile → create) and the server (deciding whether it is free). The
-// database walk lives in lib/plans.ts#canGenerateFreeRegen.
+// Regeneration lineage helpers. NOTE (migration 018): regeneration is NO
+// LONGER FREE — every generation needs a credit, and /api/generate-resume
+// does not consult isFreeRegen. The parent id is still carried from
+// preview → profile → create and recorded as lineage. isFreeRegen and the
+// 24-hour window below are kept only for the existing unit tests of the old
+// rule; nothing in the app uses them to skip a charge.
 //
 // PRODUCTION QA, 2026-09-23: a same-JD regeneration two minutes after the
 // original was charged. The parent id never reached the server — the profile

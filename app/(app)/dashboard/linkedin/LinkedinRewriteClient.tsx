@@ -74,7 +74,7 @@ export default function LinkedinRewriteClient() {
           // Free Beta: the rewrite is not part of the beta and cannot be bought
           // yet, so this says so instead of linking to a purchase.
           <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            LinkedIn Profile Rewrite isn&apos;t part of the free beta yet.
+            LinkedIn Profile Rewrite isn&apos;t available yet.
           </div>
         )}
 

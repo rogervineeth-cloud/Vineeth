@@ -46,12 +46,13 @@ describe("ensureBetaCredits (server)", () => {
     await expect(ensureBetaCredits(USER)).resolves.toBe("unavailable");
   });
 
-  it("the function name and parameter match migration 015", () => {
-    const sql = read("supabase", "migrations", "015_free_beta_credits.sql");
+  it("the function name and parameter match migrations 015/018 (018 grants exactly 1)", () => {
+    expect(read("supabase", "migrations", "015_free_beta_credits.sql")).toMatch(/values \(p_user_id, 'beta', 3, 0,/);
+    const sql = read("supabase", "migrations", "018_free_preview_entitlement.sql");
     expect(sql).toMatch(/create or replace function public\.grant_beta_credits\(p_user_id uuid\)/);
     expect(sql).toMatch(new RegExp(`values \\(p_user_id, 'beta', ${BETA_CREDITS}, 0,`));
     expect(PLAN_ALLOTMENTS.beta).toBe(BETA_CREDITS);
-    expect(BETA_CREDITS).toBe(3);
+    expect(BETA_CREDITS).toBe(1);
   });
 });
 
@@ -62,8 +63,16 @@ describe("POST /api/beta/claim", () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it("grants for the session's own account only, idempotently", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: USER } } });
+  it("an unverified account gets nothing (403), no grant attempted", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: USER, email_confirmed_at: null } } });
+    const res = await claim();
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ status: "email_not_verified" });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it("grants for the session's own (verified) account only, idempotently", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: USER, email_confirmed_at: "2026-10-01T00:00:00Z" } } });
     mockRpc.mockResolvedValueOnce({ data: true, error: null }).mockResolvedValueOnce({ data: false, error: null });
     expect(await (await claim()).json()).toEqual({ status: "granted" });
     expect(await (await claim()).json()).toEqual({ status: "existing" });
@@ -71,7 +80,7 @@ describe("POST /api/beta/claim", () => {
   });
 
   it("503 when the grant is unavailable", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: USER } } });
+    mockGetUser.mockResolvedValue({ data: { user: { id: USER, email_confirmed_at: "2026-10-01T00:00:00Z" } } });
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
     expect((await claim()).status).toBe(503);
   });
@@ -79,27 +88,24 @@ describe("POST /api/beta/claim", () => {
 
 describe("generate route grants the beta credits before its credit check", () => {
   const route = read("app", "api", "generate-resume", "route.ts");
-  it("ensureBetaCredits runs inside the charged path, before canGenerateResume", () => {
-    const block = route.slice(route.indexOf("if (!isCreator && !isFreeRegen) {"), route.indexOf("return NextResponse.json(", route.indexOf("if (!isCreator && !isFreeRegen) {")));
-    expect(block.indexOf("await ensureBetaCredits(userId);")).toBeGreaterThan(-1);
-    expect(block.indexOf("await ensureBetaCredits(userId);")).toBeLessThan(block.indexOf("canGenerateResume(userId)"));
+  it("ensureBetaCredits runs only for verified non-creator accounts, before the credit reservation", () => {
+    expect(route).toMatch(/const emailVerified = !!authUser\.email_confirmed_at;\s*if \(!isCreator && emailVerified\) await ensureBetaCredits\(userId\);/);
+    expect(route.indexOf("await ensureBetaCredits(userId);")).toBeLessThan(route.indexOf("store.begin(userId, request_key, fingerprint, !isCreator)"));
+    expect(route).not.toMatch(/canGenerateResume|canGenerateFreeRegen/);
   });
 
   it("end to end: a new account (no plan) generates after the grant; with the grant unavailable it still gets 402", async () => {
     jest.resetModules();
-    const plans: { allowed: boolean }[] = [];
-    jest.doMock("@/lib/plans", () => ({
-      canGenerateResume: jest.fn(async () => plans.shift() ?? { allowed: false, reason: "NO_PLAN" }),
-      canGenerateFreeRegen: jest.fn(async () => false),
-      userOwnsResume: jest.fn(async () => false),
-    }));
+    jest.doMock("@/lib/plans", () => ({ userOwnsResume: jest.fn(async () => false) }));
+    // The store's begin RPC fails like an unapplied migration (no credits are invented).
     const { POST } = await import("@/app/api/generate-resume/route");
-    mockGetUser.mockResolvedValue({ data: { user: { id: USER, email: "new@example.com" } } });
+    mockGetUser.mockResolvedValue({ data: { user: { id: USER, email: "new@example.com", email_confirmed_at: "2026-10-01T00:00:00Z" } } });
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "not applied" } });
     const body = JSON.stringify({ request_key: "3f1c7a0e-8f53-4d6a-9a53-2d7f1e6b1c11", jd_text: "x".repeat(220),
       user_profile: { full_name: "New User", email: "new@example.com", projects: [{ name: "P", description: "Built P.", tech: [] }] } });
     const res = await POST(new Request("http://localhost/api/generate-resume", { method: "POST", headers: { "Content-Type": "application/json" }, body }) as unknown as NextRequest);
-    expect(res.status).toBe(402);
+    // grant unavailable -> begin finds no credit (or fails closed): never a model call.
+    expect([402, 503]).toContain(res.status);
     expect(mockRpc).toHaveBeenCalledWith("grant_beta_credits", { p_user_id: USER });
   });
 });
@@ -154,9 +160,9 @@ describe("UI: Free Beta, nothing for sale", () => {
 
   it("the flag and the label", () => {
     expect(FREE_BETA).toBe(true);
-    expect(FREE_BETA_LABEL).toBe("Free Beta · 3 resume generations");
-    expect(FREE_BETA_FEATURES[0]).toBe("3 AI-tailored resume generations per account");
-    expect(BETA_EXHAUSTED_MESSAGE).toMatch(/used your 3 free beta resume generations/);
+    expect(FREE_BETA_LABEL).toBe("1 free AI resume preview · PDF download requires a paid credit");
+    expect(FREE_BETA_FEATURES[0]).toBe("1 free AI-tailored resume preview per verified account");
+    expect(BETA_EXHAUSTED_MESSAGE).toMatch(/used your 1 free AI resume preview/);
     expect(BETA_EXHAUSTED_MESSAGE).not.toMatch(/buy|upgrade|₹|plan →/i);
   });
 
@@ -172,17 +178,17 @@ describe("UI: Free Beta, nothing for sale", () => {
 
   it("the Free Beta offer stays on the landing page and /pricing, separate from the (disabled) paid plans", () => {
     const landing = read("app/page.tsx");
-    expect(landing).toMatch(/<FreeBetaCard cta=\{\{ href: "\/signup"/);
-    expect(landing).toMatch(/Free Beta · 3 resume generations · No card needed/);
+    expect(landing).toMatch(/<FreeBetaCard cta=\{\{ href: "\/signup", label: "Get your free preview →" \}\} \/>/);
+    expect(landing).toMatch(/1 free AI resume preview · PDF download requires a paid credit/);
     expect(read("app/pricing/PricingClient.tsx")).toMatch(/<FreeBetaCard/);
   });
 
   it("dashboard and create page show beta state from the server's plans (claiming first), and a spent beta says so", () => {
     for (const f of ["app/(app)/dashboard/page.tsx", "app/(app)/create/page.tsx"]) {
       expect(src[f]).toMatch(/loadPlansEnsuringBeta\(supabase/);
-      expect(src[f]).toMatch(/BETA_EXHAUSTED_MESSAGE/);
     }
-    expect(src["app/(app)/dashboard/page.tsx"]).toMatch(/FREE_BETA_LABEL/);
+    expect(src["app/(app)/create/page.tsx"]).toMatch(/BETA_EXHAUSTED_MESSAGE/);
+    expect(src["app/(app)/dashboard/page.tsx"]).toMatch(/FREE_PREVIEW_RULE/);
   });
 });
 

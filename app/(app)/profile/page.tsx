@@ -784,7 +784,7 @@ function ProfilePageInner() {
             <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
               <strong>Updating your profile?</strong> Make your changes here, then{" "}
               <Link href={generateHref} className="underline underline-offset-2 font-semibold">generate a new resume</Link>.
-              {fromResumeId && <span className="ml-1">Regenerating uses 1 credit (free within 24 h of the same JD).</span>}
+              {fromResumeId && <span className="ml-1">Regenerating uses 1 paid credit.</span>}
             </div>
           )}
           {/* Scroll anchor — the form card scrolls into view on step change */}

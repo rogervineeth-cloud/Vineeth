@@ -1,5 +1,13 @@
 /**
- * Free same-JD regeneration — production QA, 2026-09-23.
+ * Regeneration lineage — and, since migration 018, NO FREE REGENERATION.
+ *
+ * Product rule (final): exactly one free AI resume per verified account;
+ * every later generation, including a same-JD regeneration within 24 h,
+ * needs a paid credit. The route no longer consults the old 24-hour rule.
+ * The lineage wiring below (parent id carried preview → profile → create →
+ * API, ownership checked server-side) is still required and still tested.
+ *
+ * History — free same-JD regeneration, production QA, 2026-09-23.
  *
  * Resume dc25fa97 (14:02:04) → preview → "Update profile & regenerate" →
  * profile banner "Regenerating uses 1 credit (free within 24 h of the same
@@ -25,7 +33,6 @@ import {
   normaliseJd,
   isFreeRegen,
   FREE_REGEN_WINDOW_MS,
-  MAX_LINEAGE_HOPS,
   type LineageNode,
 } from "@/lib/regen";
 
@@ -60,16 +67,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createServiceClient: jest.fn(async () => ({})),
 }));
 
-const mockCanGenerateResume: jest.Mock = jest.fn();
-const mockConsumeCredit: jest.Mock = jest.fn(async () => true);
-jest.mock("@/lib/plans", () => {
-  const actual = jest.requireActual("@/lib/plans");
-  return {
-    ...actual, // REAL canGenerateFreeRegen and userOwnsResume
-    canGenerateResume: (u: string) => mockCanGenerateResume(u),
-    consumeCredit: (u: string) => mockConsumeCredit(u),
-  };
-});
+jest.mock("@/lib/plans", () => jest.requireActual("@/lib/plans")); // REAL userOwnsResume
 
 const mockMessagesCreate = jest.fn();
 jest.mock("@anthropic-ai/sdk", () => ({
@@ -80,15 +78,14 @@ jest.mock("@/lib/analytics", () => ({ track: jest.fn() }));
 
 import { randomUUID } from "crypto";
 import { createFakeGenerationStore } from "./helpers/fake-generation-store";
-// Migration 013's store, in memory (same rules as the SQL functions);
-// charges go through this file's credit mock.
-const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+// Migrations 013 + 018 in memory: credits reserved at begin.
+const mockGenerationStore = createFakeGenerationStore();
+const charged = () => mockGenerationStore.charges.length;
 jest.mock("@/lib/generation-idempotency", () => ({
   ...jest.requireActual("@/lib/generation-idempotency"),
   generationStore: () => mockGenerationStore,
 }));
 import { POST } from "@/app/api/generate-resume/route";
-import { canGenerateFreeRegen } from "@/lib/plans";
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -136,123 +133,73 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGenerationStore.reset();
   resumesTable = [];
-  mockGetUser.mockResolvedValue({ data: { user: { id: USER, email: "qa.user@example.com" } } });
-  mockCanGenerateResume.mockResolvedValue({ allowed: true });
-  mockConsumeCredit.mockResolvedValue(true);
+  mockGetUser.mockResolvedValue({ data: { user: { id: USER, email: "qa.user@example.com", email_confirmed_at: "2026-09-01T00:00:00Z" } } });
   mockMessagesCreate.mockResolvedValue(reply());
 });
 
-// ── Route, end to end over the real free-regen logic ──────────────────────
+// ── Route: a regeneration is charged like any generation ───────────────
 
-describe("route — same-JD regeneration is free", () => {
-  it("reproduction case: same JD 2 minutes later → free, lineage recorded, no credit", async () => {
+describe("route — regeneration is never free (migration 018)", () => {
+  it("the 2026-09-23 case (same JD, 2 minutes later) now spends a paid credit; lineage recorded", async () => {
+    mockGenerationStore.addPlan(USER, "fresher", 5);
     resumesTable = [row(PARENT, JD, 2 * MIN)];
     const res = await POST(request({ regen_of_resume_id: PARENT }));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.is_free_regen).toBe(true);
     expect(body.regen_of_resume_id).toBe(PARENT);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
-    expect(mockCanGenerateResume).not.toHaveBeenCalled();
+    expect(body).not.toHaveProperty("is_free_regen");
+    expect(mockGenerationStore.charges).toEqual(["fresher"]);
   });
 
-  it("works with no credits left (Single plan = 1 credit, already spent)", async () => {
+  it("no credit left: a same-JD regeneration within 24 h is refused with 402 BEFORE the AI call", async () => {
+    mockGenerationStore.addPlan(USER, "single", 1).used = 1;
     resumesTable = [row(PARENT, JD, 10 * MIN)];
-    mockCanGenerateResume.mockResolvedValue({ allowed: false, reason: "CREDITS_EXHAUSTED" });
-    const res = await POST(request({ regen_of_resume_id: PARENT }));
-    expect(res.status).toBe(200);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
-  });
-
-  it("whitespace-only JD differences still count as the same JD", async () => {
-    resumesTable = [row(PARENT, `  ${JD.replace(/ /g, "  ")}\n`, 5 * MIN)];
-    const res = await POST(request({ regen_of_resume_id: PARENT }));
-    expect((await res.json()).is_free_regen).toBe(true);
-  });
-});
-
-describe("route — everything else is charged", () => {
-  it("a different JD costs a credit (lineage still recorded)", async () => {
-    resumesTable = [row(PARENT, OTHER_JD, 5 * MIN)];
-    const body = await (await POST(request({ regen_of_resume_id: PARENT }))).json();
-    expect(body.is_free_regen).toBe(false);
-    expect(body.regen_of_resume_id).toBe(PARENT);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
-  });
-
-  it("a different JD with no credits left is refused with 402 before the AI call", async () => {
-    resumesTable = [row(PARENT, OTHER_JD, 5 * MIN)];
-    mockCanGenerateResume.mockResolvedValue({ allowed: false, reason: "CREDITS_EXHAUSTED" });
     const res = await POST(request({ regen_of_resume_id: PARENT }));
     expect(res.status).toBe(402);
     expect(mockMessagesCreate).not.toHaveBeenCalled();
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(charged()).toBe(0);
   });
 
-  it("the same JD after 24 h costs a credit", async () => {
-    resumesTable = [row(PARENT, JD, 25 * HOUR)];
+  it("after the free preview, regenerating it is refused (no second free AI call)", async () => {
+    mockGenerationStore.addPlan(USER, "beta", 1).used = 1;
+    resumesTable = [row(PARENT, JD, 1 * MIN)];
+    const res = await POST(request({ regen_of_resume_id: PARENT }));
+    expect(res.status).toBe(402);
+    expect((await res.json()).reason).toBe("FREE_PREVIEW_USED");
+    expect(mockMessagesCreate).not.toHaveBeenCalled();
+  });
+
+  it("whitespace-identical and different JDs alike cost a credit", async () => {
+    mockGenerationStore.addPlan(USER, "career", 25);
+    resumesTable = [row(PARENT, `  ${JD.replace(/ /g, "  ")}\n`, 5 * MIN)];
     await POST(request({ regen_of_resume_id: PARENT }));
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    resumesTable = [row(PARENT, OTHER_JD, 5 * MIN)];
+    await POST(request({ regen_of_resume_id: PARENT }));
+    expect(charged()).toBe(2);
   });
 
   it("another user's resume is ignored: charged, no lineage", async () => {
+    mockGenerationStore.addPlan(USER, "career", 25);
     resumesTable = [row(PARENT, JD, 5 * MIN, null, OTHER_USER)];
     const body = await (await POST(request({ regen_of_resume_id: PARENT }))).json();
-    expect(body.is_free_regen).toBe(false);
     expect(body.regen_of_resume_id).toBeNull();
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(charged()).toBe(1);
   });
 
-  it("no parent id: an ordinary charged generation", async () => {
+  it("no parent id: an ordinary charged generation; 24 h later the same", async () => {
+    mockGenerationStore.addPlan(USER, "career", 25);
     await POST(request());
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    resumesTable = [row(PARENT, JD, 25 * HOUR)];
+    await POST(request({ regen_of_resume_id: PARENT }));
+    expect(charged()).toBe(2);
+  });
+
+  it("the route no longer imports or consults the old free-regeneration rule", () => {
+    const route = fs.readFileSync(path.join(__dirname, "..", "app", "api", "generate-resume", "route.ts"), "utf8");
+    expect(route).not.toMatch(/canGenerateFreeRegen|isFreeRegen|is_free_regen/);
+    expect(fs.readFileSync(path.join(__dirname, "..", "lib", "plans.ts"), "utf8")).not.toMatch(/canGenerateFreeRegen/);
   });
 });
-
-// ── canGenerateFreeRegen: the lineage walk ────────────────────────────────
-
-describe("canGenerateFreeRegen — the window is anchored to the paid original", () => {
-  it("regenerating a regeneration cannot restart the window", async () => {
-    // A (paid) 25h ago ← B 1h ago, same JD. The window is anchored at A, so a
-    // regen from B must pay — measuring from B would restart it indefinitely.
-    resumesTable = [row("a", JD, 25 * HOUR), row("b", JD, 1 * HOUR, "a")];
-    await expect(canGenerateFreeRegen(USER, "b", JD)).resolves.toBe(false);
-  });
-
-  it("within 24 h of the original, a regen of a regen is still free", async () => {
-    resumesTable = [row("a", JD, 3 * HOUR), row("b", JD, 1 * HOUR, "a")];
-    await expect(canGenerateFreeRegen(USER, "b", JD)).resolves.toBe(true);
-  });
-
-  it("a JD change in the lineage starts a new paid original", async () => {
-    // A (old JD, days ago) ← B (new JD, paid, 1h ago) → regen of B with B's JD is free.
-    resumesTable = [row("a", OTHER_JD, 72 * HOUR), row("b", JD, 1 * HOUR, "a")];
-    await expect(canGenerateFreeRegen(USER, "b", JD)).resolves.toBe(true);
-  });
-
-  it("an ancestor owned by someone else ends the walk (scoped to the user)", async () => {
-    resumesTable = [row("a", JD, 72 * HOUR, null, OTHER_USER), row("b", JD, 1 * HOUR, "a")];
-    await expect(canGenerateFreeRegen(USER, "b", JD)).resolves.toBe(true);
-  });
-
-  it("refuses when the same-JD lineage is longer than the hop limit", async () => {
-    const ids = Array.from({ length: MAX_LINEAGE_HOPS + 3 }, (_, i) => `n${i}`);
-    resumesTable = ids.map((id, i) => row(id, JD, 10 * MIN, ids[i + 1] ?? null));
-    await expect(canGenerateFreeRegen(USER, ids[0], JD)).resolves.toBe(false);
-  });
-
-  it("a lineage exactly at the hop limit is still resolved", async () => {
-    const ids = Array.from({ length: MAX_LINEAGE_HOPS + 1 }, (_, i) => `n${i}`);
-    resumesTable = ids.map((id, i) => row(id, JD, 10 * MIN, ids[i + 1] ?? null));
-    await expect(canGenerateFreeRegen(USER, ids[0], JD)).resolves.toBe(true);
-  });
-
-  it("unknown parent → not free", async () => {
-    await expect(canGenerateFreeRegen(USER, PARENT, JD)).resolves.toBe(false);
-  });
-});
-
-// ── lib/regen pure helpers ────────────────────────────────────────────────
 
 describe("lib/regen", () => {
   const node = (jd: string, agoMs: number): LineageNode => ({ jd_text: jd, created_at: ago(agoMs) });
@@ -333,8 +280,9 @@ describe("client wiring carries the parent from preview to the API", () => {
     expect(create).toMatch(/<Suspense fallback=\{.*\}>\s*<CreatePageInner \/>\s*<\/Suspense>/);
   });
 
-  it("create: its own plan gate lets a regeneration through to the server", () => {
-    expect((create.match(/!planCheck\.allowed && !regenParentId\)/g) ?? []).length).toBe(2);
-    expect(create).toMatch(/planCheck\.allowed \|\| !!regenParentId\)/);
+  it("create: a regeneration gets NO bypass of the credit gate (migration 018)", () => {
+    expect(create).not.toMatch(/!planCheck\.allowed && !regenParentId/);
+    expect(create).not.toMatch(/planCheck\.allowed \|\| !!regenParentId/);
+    expect(create).not.toMatch(/Free regeneration/);
   });
 });

@@ -61,7 +61,7 @@ import { randomUUID } from "crypto";
 import { createFakeGenerationStore } from "./helpers/fake-generation-store";
 // Migration 013's store, in memory (same rules as the SQL functions);
 // charges go through this file's credit mock.
-const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+const mockGenerationStore = createFakeGenerationStore();
 jest.mock("@/lib/generation-idempotency", () => ({
   ...jest.requireActual("@/lib/generation-idempotency"),
   generationStore: () => mockGenerationStore,
@@ -141,9 +141,9 @@ function profileSentToModel(): Record<string, unknown> {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGenerationStore.reset();
+  // Migration 018: credits are plan rows in the store, reserved at begin.
+  mockGenerationStore.addPlan("user-1", "career", 25);
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1", email: "paid.user@example.com" } } });
-  mockCanGenerateResume.mockResolvedValue({ allowed: true });
-  mockConsumeCredit.mockResolvedValue(true);
 });
 
 // ── Route ──────────────────────────────────────────────────────────────────
@@ -154,21 +154,21 @@ describe("every optional section may be empty on its own", () => {
     const res = await POST(request({ ...MINIMAL, education: [EDU] }));
     expect(res.status).toBe(200);
     expect(mockMessagesCreate).toHaveBeenCalledTimes(1);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(mockGenerationStore.charges).toHaveLength(1);
   });
 
   it("experience only (education and projects skipped) → generates", async () => {
     mockMessagesCreate.mockResolvedValueOnce(reply({ experience: [EXP] }));
     const res = await POST(request({ ...MINIMAL, experience: [EXP] }));
     expect(res.status).toBe(200);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(mockGenerationStore.charges).toHaveLength(1);
   });
 
   it("project only (experience and education skipped) → generates", async () => {
     mockMessagesCreate.mockResolvedValueOnce(reply({ projects: [PROJ] }));
     const res = await POST(request({ ...MINIMAL, projects: [PROJ] }));
     expect(res.status).toBe(200);
-    expect(mockConsumeCredit).toHaveBeenCalledTimes(1);
+    expect(mockGenerationStore.charges).toHaveLength(1);
   });
 
   it("empty or absent arrays are accepted when another section has content", async () => {
@@ -192,7 +192,7 @@ describe("every optional section may be empty on its own", () => {
 describe("refusals happen before the AI call and never consume a credit", () => {
   function expectNoChargeNoCall() {
     expect(mockMessagesCreate).not.toHaveBeenCalled();
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(mockGenerationStore.charges).toHaveLength(0);
   }
 
   it("reproduction: Basics + role with every optional section skipped", async () => {
@@ -231,7 +231,7 @@ describe("refusals happen before the AI call and never consume a credit", () => 
     mockMessagesCreate.mockRejectedValueOnce(new Error("upstream timeout"));
     const res = await POST(request({ ...MINIMAL, education: [EDU] }));
     expect(res.status).toBe(500);
-    expect(mockConsumeCredit).not.toHaveBeenCalled();
+    expect(mockGenerationStore.charges).toHaveLength(0);
   });
 });
 

@@ -7,16 +7,14 @@ import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, Lock } from "lucide-react";
-import { resumeDownloadAllowed } from "@/lib/download-entitlement";
+import { downloadAction, paidCreditsLeft, type DownloadAction } from "@/lib/download-entitlement";
+import { FREE_PREVIEW_DOWNLOAD_MESSAGE } from "@/lib/plan-config";
 import { formatGrade, descriptionBullets } from "@/lib/resume-format";
 
-// Free Beta: nothing is for sale, so a resume that cannot be downloaded says
-// so plainly — no plan cards, prices or "unlock" purchase button. Resumes
-// generated with beta credits are always downloadable
-// (lib/download-entitlement.ts), so this only affects resumes created
-// without any plan.
-const NOT_DOWNLOADABLE =
-  "This resume can't be downloaded on your account. Resumes you generate with your free beta generations can always be downloaded.";
+// Downloads (migration 018): only a resume covered by a PAID credit can be
+// downloaded. The free AI resume preview shows why and offers the real next
+// step: spend a paid credit on it (if the user has one), or see pricing.
+const NOT_DOWNLOADABLE = FREE_PREVIEW_DOWNLOAD_MESSAGE;
 
 type ResumeJson = {
   headline?: string;
@@ -77,7 +75,11 @@ export default function PreviewPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
-  const [canDownload, setCanDownload] = useState(false);
+  // download | unlock (has a paid credit) | upgrade (no paid credit)
+  const [action, setAction] = useState<DownloadAction>("upgrade");
+  const [paidLeft, setPaidLeft] = useState(0);
+  const [unlocking, setUnlocking] = useState(false);
+  const canDownload = action === "download";
 
   useEffect(() => {
     const supabase = createClient();
@@ -85,13 +87,12 @@ export default function PreviewPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      const [resumeRes, profileRes, plansRes] = await Promise.all([
+      const [resumeRes, profileRes, plansRes, entRes] = await Promise.all([
         supabase.from("resumes").select("*").eq("id", id).eq("user_id", user.id).single(),
         supabase.from("profiles").select("full_name,email,phone,current_city").eq("user_id", user.id).single(),
-        // All plans, not only unexpired ones: a plan held when this resume was
-        // created entitles its download even after it is exhausted or expired.
-        supabase.from("user_plans").select("resumes_used,resumes_allotted,expires_at,purchased_at")
-          .eq("user_id", user.id),
+        supabase.from("user_plans").select("plan_type,resumes_used,resumes_allotted,expires_at").eq("user_id", user.id),
+        // Covered by a paid credit? (server-written; RLS: own rows only)
+        supabase.from("resume_entitlements").select("resume_id").eq("resume_id", id).eq("user_id", user.id).maybeSingle(),
       ]);
 
       if (resumeRes.error || !resumeRes.data) {
@@ -112,21 +113,47 @@ export default function PreviewPage() {
         setProfile(profileRes.data as Profile);
       }
 
-      // Same rule the download route enforces.
-      setCanDownload(resumeDownloadAllowed(r, plansRes.data ?? []));
+      // Same rule the download route enforces (lib/download-entitlement.ts).
+      const paid = paidCreditsLeft(plansRes.data ?? []);
+      setPaidLeft(paid);
+      setAction(downloadAction(!!entRes.data, paid));
       setLoading(false);
     }
     load();
   }, [id, router]);
 
-  async function handleDownload() {
+  // Spends ONE paid credit on this resume, once (repeat downloads are free),
+  // then downloads it. The server decides; nothing is granted here.
+  async function handleUnlock() {
+    setUnlocking(true);
+    try {
+      const res = await fetch(`/api/resumes/${id}/unlock`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        if (body.status === "unlocked") setPaidLeft((n) => Math.max(0, n - 1));
+        setAction("download");
+        toast.success(body.status === "unlocked" ? "1 credit used — this resume is now downloadable." : "This resume is already downloadable.");
+        await handleDownload(true);
+        return;
+      }
+      if (res.status === 402) { setPaidLeft(0); setAction("upgrade"); }
+      toast.error(body.message ?? body.error ?? "Couldn't unlock this resume. No credit was used.");
+    } catch {
+      toast.error("Couldn't unlock this resume. No credit was used.");
+    } finally {
+      setUnlocking(false);
+    }
+  }
+
+  async function handleDownload(justUnlocked = false) {
+    if (!canDownload && !justUnlocked) { toast.error(NOT_DOWNLOADABLE); return; }
     if (!canDownload) { toast.error(NOT_DOWNLOADABLE); return; }
     setDownloading(true);
     try {
       const res = await fetch(`/api/download-pdf/${id}`);
       if (res.status === 402) {
         toast.error(NOT_DOWNLOADABLE, { duration: 6000 });
-        setCanDownload(false);
+        setAction(downloadAction(false, paidLeft));
         return;
       }
       if (!res.ok) {
@@ -273,16 +300,32 @@ export default function PreviewPage() {
             </div>
 
             {canDownload ? (
-              <Button size="lg" className="w-full mb-6" onClick={handleDownload} disabled={downloading}>
+              <Button size="lg" className="w-full mb-6" onClick={() => handleDownload()} disabled={downloading}>
                 {downloading
                   ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating PDF…</>
                   : <><Download className="w-4 h-4 mr-2" />Download PDF</>}
               </Button>
             ) : (
-              <p className="w-full mb-6 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-[#6b6b6b] flex items-start gap-2">
-                <Lock className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-                <span>{NOT_DOWNLOADABLE}</span>
-              </p>
+              <div className="w-full mb-6 flex flex-col gap-3">
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-start gap-2">
+                  <Lock className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>{NOT_DOWNLOADABLE}</span>
+                </p>
+                {action === "unlock" ? (
+                  <Button size="lg" className="w-full" onClick={handleUnlock} disabled={unlocking || downloading}>
+                    {unlocking
+                      ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Unlocking…</>
+                      : <><Download className="w-4 h-4 mr-2" />Use 1 paid credit to download</>}
+                  </Button>
+                ) : (
+                  <Button asChild size="lg" className="w-full">
+                    <Link href="/pricing">See pricing for paid credits →</Link>
+                  </Button>
+                )}
+                {action === "unlock" && (
+                  <p className="text-xs text-[#6b6b6b] text-center">You have {paidLeft} paid credit{paidLeft !== 1 ? "s" : ""}. Downloading again later is free.</p>
+                )}
+              </div>
             )}
 
             {resume.matched_keywords?.length > 0 && (

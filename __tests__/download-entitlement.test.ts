@@ -1,202 +1,208 @@
 /**
- * Release blocker: a resume generated with a plan's LAST credit could not be
- * downloaded. canDownloadResume allowed a download only with an active plan
- * that still had a credit left, or a previous download — so every Single
- * purchase (1 credit) generated a resume and then got 402 on its first
- * download. The preview page applied the same rule and showed the upgrade
- * modal instead of the Download button.
+ * PDF downloads (migration 018): only a resume covered by a PAID credit — a
+ * resume_entitlements row — can be downloaded. The free AI resume preview has
+ * none and can never be downloaded unless one paid credit is spent on it via
+ * POST /api/resumes/[id]/unlock (once; repeats and concurrent unlocks are
+ * free). The download route itself never spends a credit.
  *
- * The fix keeps ownership as the first gate (a resume that is not the
- * caller's, or does not exist, is 404 whatever their plan) and then entitles
- * a resume created while the user held a plan, even if that plan is now
- * exhausted or expired. See lib/download-entitlement.ts.
+ * Removed paths (each tested below as now refused): "downloaded once →
+ * re-downloads free", "any active plan → any resume", "a plan was held when
+ * the resume was created".
+ *
+ * Invariant: N downloads of an entitled resume = 0 extra credits; unlocking a
+ * free preview = exactly 1 paid credit, ever.
  */
-import * as fs from "fs";
-import * as path from "path";
 import { NextRequest } from "next/server";
-import { resumeDownloadAllowed, type DownloadPlan } from "@/lib/download-entitlement";
+import { downloadAction, paidCreditsLeft, freeCreditsLeft, type CreditPlan } from "@/lib/download-entitlement";
 
-// ── Fake Supabase with RLS: a user only ever sees their own rows ───────────
+// ── Fake Supabase with RLS (own rows only; the service client bypasses) ───
 type Row = Record<string, unknown>;
-const db: { user: { id: string } | null; resumes: Row[]; user_plans: Row[]; profiles: Row[]; updates: Row[] } = {
-  user: null, resumes: [], user_plans: [], profiles: [], updates: [],
+type Table = "resumes" | "user_plans" | "profiles" | "resume_entitlements";
+const db: { user: { id: string } | null; resumes: Row[]; user_plans: Row[]; profiles: Row[]; resume_entitlements: Row[]; updates: Row[]; planReads: number } = {
+  user: null, resumes: [], user_plans: [], profiles: [], resume_entitlements: [], updates: [], planReads: 0,
 };
 
-function query(table: "resumes" | "user_plans" | "profiles", service = false) {
+function query(table: Table, service = false) {
   const filters: [string, unknown][] = [];
-  const after: [string, string][] = [];
   let update: Row | null = null;
-  const rows = () =>
-    db[table]
-      .filter((r) => service || (db.user && r.user_id === db.user.id)) // RLS: own rows only (service role bypasses)
-      .filter((r) => filters.every(([c, v]) => r[c] === v))
-      .filter((r) => after.every(([c, v]) => String(r[c]) > v));
+  if (table === "user_plans") db.planReads++;
+  const rows = () => db[table]
+    .filter((r) => service || (db.user && r.user_id === db.user.id))
+    .filter((r) => filters.every(([c, v]) => r[c] === v));
   const q = {
     select: () => q,
     eq: (c: string, v: unknown) => { filters.push([c, v]); return q; },
-    gt: (c: string, v: string) => { after.push([c, v]); return q; },
-    order: () => q,
-    limit: () => q,
     update: (vals: Row) => { update = vals; return q; },
     maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
-    single: async () => {
-      const r = rows();
-      return r.length === 1 ? { data: r[0], error: null } : { data: null, error: { message: "not one row" } };
-    },
+    single: async () => { const r = rows(); return r.length === 1 ? { data: r[0], error: null } : { data: null, error: { message: "not one row" } }; },
     then: (resolve: (v: { data: Row[]; error: null }) => unknown) => {
-      if (update) {
-        for (const r of rows()) db.updates.push({ table, id: r.id, service, ...update });
-      }
+      if (update) for (const r of rows()) db.updates.push({ table, id: r.id, service, ...update });
       return Promise.resolve({ data: rows(), error: null }).then(resolve);
     },
   };
   return q;
 }
 
+// unlock_resume_download, as migration 018 defines it (serialised like the row locks).
+let rpcLock: Promise<unknown> = Promise.resolve();
+function unlockRpc(userId: string, resumeId: string) {
+  const run = () => {
+    const resume = db.resumes.find((r) => r.id === resumeId && r.user_id === userId);
+    if (!resume) return { outcome: "not_found", plan_id: null };
+    if (db.resume_entitlements.some((e) => e.resume_id === resumeId)) return { outcome: "already_entitled", plan_id: null };
+    const plan = db.user_plans
+      .filter((p) => p.user_id === userId && p.plan_type !== "beta" && Date.parse(String(p.expires_at)) > Date.now() && Number(p.resumes_used) < Number(p.resumes_allotted))
+      .sort((a, b) => String(b.purchased_at).localeCompare(String(a.purchased_at)))[0];
+    if (!plan) return { outcome: "payment_required", plan_id: null };
+    plan.resumes_used = Number(plan.resumes_used) + 1;
+    db.resume_entitlements.push({ resume_id: resumeId, user_id: userId, plan_id: plan.id, source: "unlock" });
+    return { outcome: "unlocked", plan_id: plan.id };
+  };
+  const next = rpcLock.then(run);
+  rpcLock = next.catch(() => undefined);
+  return next;
+}
+
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn(async () => ({
     auth: { getUser: async () => ({ data: { user: db.user } }) },
-    from: (t: "resumes" | "user_plans" | "profiles") => query(t),
+    from: (t: Table) => query(t),
   })),
-  // The server's own client: bypasses RLS (as service_role does). Since
-  // migration 014 the browser role cannot update resumes at all.
-  createServiceClient: jest.fn(async () => ({ from: (t: "resumes" | "user_plans" | "profiles") => query(t, true) })),
+  createServiceClient: jest.fn(async () => ({
+    from: (t: Table) => query(t, true),
+    rpc: async (fn: string, args: { p_user_id: string; p_resume_id: string }) => {
+      if (fn !== "unlock_resume_download") throw new Error(`unexpected rpc ${fn}`);
+      return { data: [await unlockRpc(args.p_user_id, args.p_resume_id)], error: null };
+    },
+  })),
 }));
 
 const mockRender = jest.fn(async () => new Uint8Array([37, 80, 68, 70]));
 jest.mock("@/lib/resume-pdf", () => ({ renderResumePdf: (...a: unknown[]) => mockRender(...(a as [])) }));
 
 import { GET as downloadPdf } from "@/app/api/download-pdf/[id]/route";
+import { POST as unlock } from "@/app/api/resumes/[id]/unlock/route";
 
 const OWNER = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
-const RESUME = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const T0 = "2026-09-27T06:00:00.000Z";           // plan purchased
-const T1 = "2026-09-27T06:05:00.000Z";           // resume generated
-const LATER = "2026-10-27T00:00:00.000Z";
+const FREE_RESUME = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const PAID_RESUME = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const YEAR = "2099-01-01T00:00:00.000Z";
 
-const plan = (over: Partial<DownloadPlan & { user_id: string }> = {}) => ({
-  user_id: OWNER, resumes_used: 1, resumes_allotted: 1, purchased_at: T0, expires_at: "2027-09-27T06:00:00.000Z", ...over,
-});
-const resume = (over: Row = {}) => ({
-  id: RESUME, user_id: OWNER, created_at: T1, downloaded_at: null, template: "classic",
+const resume = (id: string, over: Row = {}) => ({
+  id, user_id: OWNER, created_at: "2026-10-01T06:05:00.000Z", downloaded_at: null, template: "classic",
   resume_json: { summary: "Fictional QA summary", tailored_role: "QA Engineer", experience: [], skills: [], education: [], projects: [] },
   contact_snapshot: { full_name: "Aarav Menon", email: "aarav@example.com", phone: "", current_city: "" },
   ...over,
 });
-const call = (id = RESUME) =>
-  downloadPdf(new Request(`http://localhost/api/download-pdf/${id}`) as unknown as NextRequest, { params: Promise.resolve({ id }) });
+const plan = (over: Row) => ({ id: `plan-${Math.random()}`, user_id: OWNER, resumes_used: 0, resumes_allotted: 1, purchased_at: "2026-09-01T00:00:00.000Z", expires_at: YEAR, ...over });
+const download = (id: string) => downloadPdf(new Request(`http://localhost/api/download-pdf/${id}`) as unknown as NextRequest, { params: Promise.resolve({ id }) });
+const doUnlock = (id: string) => unlock(new Request(`http://localhost/api/resumes/${id}/unlock`, { method: "POST" }) as unknown as NextRequest, { params: Promise.resolve({ id }) });
+const credits = () => db.user_plans.filter((p) => p.plan_type !== "beta").map((p) => `${p.plan_type}:${p.resumes_used}/${p.resumes_allotted}`).join(",");
 
 beforeEach(() => {
   db.user = { id: OWNER };
-  db.resumes = [resume()];
-  db.user_plans = [];
+  db.resumes = [resume(FREE_RESUME), resume(PAID_RESUME)];
+  // The free preview credit used on FREE_RESUME; PAID_RESUME generated with a paid credit.
+  db.user_plans = [plan({ plan_type: "beta", resumes_used: 1 }), plan({ plan_type: "fresher", resumes_allotted: 5, resumes_used: 1 })];
+  db.resume_entitlements = [{ resume_id: PAID_RESUME, user_id: OWNER, plan_id: "p", source: "generation" }];
   db.profiles = [];
   db.updates = [];
+  db.planReads = 0;
   mockRender.mockClear();
 });
 
-// ── The rule ───────────────────────────────────────────────────────────────
-describe("resumeDownloadAllowed", () => {
-  const r = { created_at: T1, downloaded_at: null };
-  const now = new Date("2026-09-27T07:00:00.000Z");
-
-  it("Single plan, its only credit used by this resume → first download allowed", () => {
-    expect(resumeDownloadAllowed(r, [plan()], now)).toBe(true);
+describe("download rule (lib/download-entitlement.ts)", () => {
+  it("entitled → download; not entitled → unlock if a PAID credit is left, else upgrade", () => {
+    expect(downloadAction(true, 0)).toBe("download");
+    expect(downloadAction(false, 3)).toBe("unlock");
+    expect(downloadAction(false, 0)).toBe("upgrade");
   });
-  it("active plan with credits left → allowed (unchanged)", () => {
-    expect(resumeDownloadAllowed(r, [plan({ resumes_allotted: 3 })], now)).toBe(true);
-  });
-  it("already downloaded → allowed with no plan at all (unchanged)", () => {
-    expect(resumeDownloadAllowed({ ...r, downloaded_at: T1 }, [], now)).toBe(true);
-  });
-  it("plan exhausted AND since expired → still allowed for a resume made under it", () => {
-    expect(resumeDownloadAllowed(r, [plan({ expires_at: "2026-09-27T06:30:00.000Z" })], new Date(LATER))).toBe(true);
-  });
-  it("NULL resumes_used is treated as 0", () => {
-    expect(resumeDownloadAllowed(r, [plan({ resumes_used: null, purchased_at: LATER })], now)).toBe(true);
-  });
-  it("no plan ever, never downloaded → denied", () => {
-    expect(resumeDownloadAllowed(r, [], now)).toBe(false);
-  });
-  it("resume created BEFORE the only (exhausted) plan was bought → denied", () => {
-    expect(resumeDownloadAllowed({ ...r, created_at: "2026-09-01T00:00:00.000Z" }, [plan()], now)).toBe(false);
-  });
-  it("unparseable dates never grant", () => {
-    expect(resumeDownloadAllowed({ ...r, created_at: "garbage" }, [plan()], now)).toBe(false);
-    expect(resumeDownloadAllowed(r, [plan({ purchased_at: null })], now)).toBe(false);
+  it("the free preview credit never counts as a paid credit", () => {
+    const now = new Date("2026-10-02T00:00:00Z");
+    const plans: CreditPlan[] = [
+      { plan_type: "beta", resumes_allotted: 1, resumes_used: 0, expires_at: YEAR },
+      { plan_type: "single", resumes_allotted: 1, resumes_used: 0, expires_at: "2026-01-01T00:00:00Z" }, // expired
+    ];
+    expect(paidCreditsLeft(plans, now)).toBe(0);
+    expect(freeCreditsLeft(plans, now)).toBe(1);
+    expect(paidCreditsLeft([...plans, { plan_type: "fresher", resumes_allotted: 5, resumes_used: 2, expires_at: YEAR }], now)).toBe(3);
   });
 });
 
-// ── The route ──────────────────────────────────────────────────────────────
-describe("GET /api/download-pdf/[id]", () => {
-  it("owner, Single plan 1/1 used by this resume, first download → 200 PDF and marked downloaded", async () => {
-    db.user_plans = [plan()];
-    const res = await call();
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toBe("application/pdf");
-    expect(mockRender).toHaveBeenCalledTimes(1);
-    // Marked by the server (service role), scoped to the owner — not by the user's own session.
-    expect(db.updates).toEqual([expect.objectContaining({ table: "resumes", id: RESUME, service: true, downloaded_at: expect.any(String) })]);
-  });
-
-  it("a re-download of an already-downloaded resume does not rewrite downloaded_at", async () => {
-    db.resumes = [resume({ downloaded_at: T1 })];
-    expect((await call()).status).toBe(200);
-    expect(db.updates).toEqual([]);
-  });
-
-  it("owner with no plan ever and not downloaded → 402, nothing rendered", async () => {
-    const res = await call();
+describe("GET /api/download-pdf/[id] (direct API and the dashboard button use this)", () => {
+  it("a free preview is refused (402) even though the user holds paid credits — downloads never spend credits", async () => {
+    const res = await download(FREE_RESUME);
     expect(res.status).toBe(402);
-    expect((await res.json()).error).toBe("PAYMENT_REQUIRED");
+    expect((await res.json()).message).toBe("PDF download requires a paid credit.");
     expect(mockRender).not.toHaveBeenCalled();
+    expect(credits()).toBe("fresher:1/5");
   });
 
-  it("non-owner with no active credit → 404, nothing rendered or marked", async () => {
+  it("the old 'already downloaded → free re-download' path is gone", async () => {
+    db.resumes = [resume(FREE_RESUME, { downloaded_at: "2026-10-01T07:00:00.000Z" })];
+    expect((await download(FREE_RESUME)).status).toBe(402);
+  });
+
+  it("a paid resume downloads, and repeat downloads are free (no credit read or spent)", async () => {
+    for (let i = 0; i < 3; i++) expect((await download(PAID_RESUME)).status).toBe(200);
+    expect(mockRender).toHaveBeenCalledTimes(3);
+    expect(credits()).toBe("fresher:1/5");
+    expect(db.planReads).toBe(0);
+  });
+
+  it("non-owner → 404 even with an entitlement on their own account; unknown → 404; signed out → 401", async () => {
     db.user = { id: OTHER };
-    db.user_plans = [plan({ user_id: OTHER, purchased_at: T0 })]; // exhausted, bought before the owner's resume
-    const res = await call();
-    expect(res.status).toBe(404);
-    expect(mockRender).not.toHaveBeenCalled();
-    expect(db.updates).toEqual([]);
-  });
-
-  it("non-owner WITH active credits → still 404", async () => {
-    db.user = { id: OTHER };
-    db.user_plans = [plan({ user_id: OTHER, resumes_used: 0, resumes_allotted: 5 })];
-    const res = await call();
-    expect(res.status).toBe(404);
-    expect(mockRender).not.toHaveBeenCalled();
-  });
-
-  it("the owner's plan does not entitle anyone else", async () => {
-    db.user_plans = [plan({ resumes_used: 0, resumes_allotted: 5 })]; // OWNER's
-    db.user = { id: OTHER };
-    expect((await call()).status).toBe(404);
-  });
-
-  it("unknown resume id, no active credit → 404", async () => {
-    db.user_plans = [plan()];
-    const res = await call("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
-    expect(res.status).toBe(404);
-    expect(mockRender).not.toHaveBeenCalled();
-  });
-
-  it("signed out → 401 before any lookup", async () => {
+    expect((await download(PAID_RESUME)).status).toBe(404);
+    db.user = { id: OWNER };
+    expect((await download("cccccccc-cccc-4ccc-8ccc-cccccccccccc")).status).toBe(404);
     db.user = null;
-    expect((await call()).status).toBe(401);
+    expect((await download(PAID_RESUME)).status).toBe(401);
     expect(mockRender).not.toHaveBeenCalled();
   });
 });
 
-// ── The preview page applies the same rule (Jest has no DOM; read the source) ─
-describe("preview page download gate", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "app", "(app)", "preview", "[id]", "page.tsx"), "utf8");
-  it("uses resumeDownloadAllowed and loads every plan with purchased_at", () => {
-    expect(src).toMatch(/setCanDownload\(resumeDownloadAllowed\(r, plansRes\.data \?\? \[\]\)\)/);
-    const plansQuery = src.slice(src.indexOf('from("user_plans")'), src.indexOf('from("user_plans")') + 200);
-    expect(plansQuery).toMatch(/purchased_at/);
-    expect(plansQuery).not.toMatch(/expires_at", new Date/);
+describe("POST /api/resumes/[id]/unlock", () => {
+  it("spends exactly one PAID credit on a free preview, once; then it downloads; repeats are free", async () => {
+    const r1 = await doUnlock(FREE_RESUME);
+    expect(await r1.json()).toEqual({ status: "unlocked" });
+    expect(credits()).toBe("fresher:2/5");
+    expect((await doUnlock(FREE_RESUME)).status).toBe(200);
+    expect(credits()).toBe("fresher:2/5");
+    for (let i = 0; i < 2; i++) expect((await download(FREE_RESUME)).status).toBe(200);
+    expect(credits()).toBe("fresher:2/5");
+  });
+
+  it("concurrent unlocks of the same resume charge once", async () => {
+    const res = await Promise.all(Array.from({ length: 5 }, () => doUnlock(FREE_RESUME)));
+    const statuses = await Promise.all(res.map((r) => r.json()));
+    expect(statuses.filter((s) => s.status === "unlocked")).toHaveLength(1);
+    expect(statuses.filter((s) => s.status === "already_entitled")).toHaveLength(4);
+    expect(credits()).toBe("fresher:2/5");
+  });
+
+  it("an already-paid resume is never charged by unlock", async () => {
+    expect(await (await doUnlock(PAID_RESUME)).json()).toEqual({ status: "already_entitled" });
+    expect(credits()).toBe("fresher:1/5");
+  });
+
+  it("with only the free preview credit (no paid credit): 402, nothing unlocked", async () => {
+    db.user_plans = [plan({ plan_type: "beta", resumes_used: 0 })];
+    const res = await doUnlock(FREE_RESUME);
+    expect(res.status).toBe(402);
+    expect((await res.json()).message).toBe("PDF download requires a paid credit.");
+    expect(db.resume_entitlements.some((e) => e.resume_id === FREE_RESUME)).toBe(false);
+    expect((await download(FREE_RESUME)).status).toBe(402);
+  });
+
+  it("another user's resume → 404, no charge; signed out → 401; malformed id → 404", async () => {
+    db.user = { id: OTHER };
+    db.user_plans.push(plan({ user_id: OTHER, plan_type: "career", resumes_allotted: 25 }));
+    expect((await doUnlock(FREE_RESUME)).status).toBe(404);
+    expect(db.user_plans.find((p) => p.user_id === OTHER)!.resumes_used).toBe(0);
+    db.user = null;
+    expect((await doUnlock(FREE_RESUME)).status).toBe(401);
+    db.user = { id: OWNER };
+    expect((await doUnlock("not-a-uuid")).status).toBe(404);
   });
 });

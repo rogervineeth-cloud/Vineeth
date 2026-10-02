@@ -10,9 +10,9 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PLAN_LABELS, FREE_BETA_LABEL, BETA_EXHAUSTED_MESSAGE } from "@/lib/plan-config";
-import type { PlanType } from "@/lib/plan-config";
-import { loadPlansEnsuringBeta, summarisePlans, type PlanSummary } from "@/lib/beta-client";
+import { FREE_PREVIEW_RULE, FREE_PREVIEW_DOWNLOAD_MESSAGE } from "@/lib/plan-config";
+import { loadPlansEnsuringBeta } from "@/lib/beta-client";
+import { downloadAction, paidCreditsLeft, freeCreditsLeft } from "@/lib/download-entitlement";
 
 type Resume = {
   id: string;
@@ -33,34 +33,27 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function PlanBadge({ summary }: { summary: PlanSummary }) {
-  // Free Beta: no purchase controls anywhere. What is shown is what the server
-  // enforces (migration 015): 3 generations per account, granted once.
-  if (summary.state === "active") {
-    const { plan, remaining } = summary;
-    const label = plan.plan_type === "beta" ? FREE_BETA_LABEL : `${PLAN_LABELS[plan.plan_type as PlanType] ?? plan.plan_type} plan`;
-    return (
-      <div className="flex items-center gap-3 bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl px-5 py-3">
-        <div className="w-2 h-2 rounded-full bg-[#1f5c3a] shrink-0" aria-hidden="true" />
-        <div>
-          <p className="text-sm font-semibold text-[#1a1a1a]">{label}</p>
-          <p className="text-xs text-[#6b6b6b]">
-            {remaining} of {plan.resumes_allotted} resume generation{plan.resumes_allotted !== 1 ? "s" : ""} left · valid until {formatDate(plan.expires_at)}
-          </p>
-        </div>
-      </div>
-    );
-  }
+type Credits = { free: number; paid: number } | null;
+
+function PlanBadge({ credits }: { credits: Credits }) {
+  // What the server enforces (migration 018): 1 free AI resume preview per
+  // account (viewable, not downloadable); paid credits for more resumes and
+  // for PDF downloads. No disabled purchase control: pricing is linked.
   return (
-    <div className="flex items-center gap-3 bg-stone-100 border border-stone-200 rounded-xl px-5 py-3">
-      <div>
-        <p className="text-sm font-medium text-[#1a1a1a]">{FREE_BETA_LABEL}</p>
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-[#1f5c3a]/5 border border-[#1f5c3a]/20 rounded-xl px-5 py-3">
+      <div className="flex-1">
+        <p className="text-sm font-semibold text-[#1a1a1a]">{FREE_PREVIEW_RULE}</p>
         <p className="text-xs text-[#6b6b6b]">
-          {summary.state === "exhausted"
-            ? BETA_EXHAUSTED_MESSAGE
-            : "We couldn't load your free beta generations. Please refresh the page."}
+          {credits === null
+            ? "We couldn't load your credits. Please refresh the page."
+            : `Free AI resume preview: ${credits.free > 0 ? "1 available" : "used"} · Paid credits: ${credits.paid}`}
         </p>
       </div>
+      {credits !== null && credits.paid === 0 && (
+        <Button asChild size="sm" variant="outline" className="shrink-0">
+          <Link href="/pricing">See pricing →</Link>
+        </Button>
+      )}
     </div>
   );
 }
@@ -68,7 +61,10 @@ function PlanBadge({ summary }: { summary: PlanSummary }) {
 export default function DashboardPage() {
   const router = useRouter();
   const [resumes, setResumes] = useState<Resume[]>([]);
-  const [planSummary, setPlanSummary] = useState<PlanSummary | undefined>(undefined);
+  const [credits, setCredits] = useState<Credits | undefined>(undefined);
+  // Resumes covered by a paid credit (resume_entitlements; RLS: own rows).
+  const [entitled, setEntitled] = useState<Set<string>>(new Set());
+  const [unlocking, setUnlocking] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -118,7 +114,7 @@ export default function DashboardPage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push("/login"); return; }
 
-      const [resumesRes, plans] = await Promise.all([
+      const [resumesRes, plans, entRes] = await Promise.all([
         supabase
           .from("resumes")
           .select("id,tailored_role,ats_score,resume_json,created_at,downloaded_at")
@@ -127,12 +123,14 @@ export default function DashboardPage() {
         // All plans (not only unexpired), granting the Free Beta credits first
         // if this account has never had them.
         loadPlansEnsuringBeta(supabase, user.id).catch(() => null),
+        supabase.from("resume_entitlements").select("resume_id").eq("user_id", user.id),
       ]);
 
       if (resumesRes.error) toast.error("Couldn't load resumes.");
       else setResumes((resumesRes.data as Resume[]) ?? []);
 
-      setPlanSummary(plans ? summarisePlans(plans) : { state: "none" });
+      setCredits(plans ? { free: freeCreditsLeft(plans), paid: paidCreditsLeft(plans) } : null);
+      setEntitled(new Set(((entRes.data as { resume_id: string }[] | null) ?? []).map((e) => e.resume_id)));
       setLoading(false);
     });
   }, [router]);
@@ -144,9 +142,9 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/download-pdf/${resumeId}`);
       if (res.status === 402) {
-        // Free Beta: nothing to buy. Resumes generated with beta credits are
-        // always downloadable (lib/download-entitlement.ts).
-        toast.error("This resume can't be downloaded on your account.");
+        // Not covered by a paid credit (the server is the authority).
+        toast.error(FREE_PREVIEW_DOWNLOAD_MESSAGE, { action: { label: "See pricing", onClick: () => router.push("/pricing") }, duration: 6000 });
+        setEntitled((prev) => { const n = new Set(prev); n.delete(resumeId); return n; });
         return;
       }
       if (!res.ok) { toast.error("Download failed."); return; }
@@ -164,6 +162,31 @@ export default function DashboardPage() {
     }
   }
 
+  // Spends ONE paid credit on a free preview, once, then downloads it.
+  async function handleUnlock(e: React.MouseEvent, resumeId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setUnlocking(resumeId);
+    try {
+      const res = await fetch(`/api/resumes/${resumeId}/unlock`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 402) setCredits((c) => (c ? { ...c, paid: 0 } : c));
+        toast.error(body.message ?? body.error ?? "Couldn't unlock this resume. No credit was used.");
+        return;
+      }
+      if (body.status === "unlocked") setCredits((c) => (c ? { ...c, paid: Math.max(0, c.paid - 1) } : c));
+      setEntitled((prev) => new Set(prev).add(resumeId));
+      toast.success(body.status === "unlocked" ? "1 credit used — this resume is now downloadable." : "This resume is already downloadable.");
+    } catch {
+      toast.error("Couldn't unlock this resume. No credit was used.");
+      return;
+    } finally {
+      setUnlocking(null);
+    }
+    await handleQuickDownload(e, resumeId);
+  }
+
   const avgATS = resumes.length
     ? Math.round(resumes.reduce((s, r) => s + (r.ats_score ?? 0), 0) / resumes.length)
     : 0;
@@ -174,9 +197,9 @@ export default function DashboardPage() {
 
       <div className="max-w-5xl mx-auto px-6 py-12">
         {/* Plan badge */}
-        {planSummary !== undefined && (
+        {credits !== undefined && (
           <div className="mb-8">
-            <PlanBadge summary={planSummary} />
+            <PlanBadge credits={credits} />
           </div>
         )}
 
@@ -238,6 +261,11 @@ export default function DashboardPage() {
                     </Link>
                     <ATSBadge score={resume.ats_score ?? 0} />
                   </div>
+                  {!entitled.has(resume.id) && (
+                    <p className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 self-start">
+                      Free preview · PDF download requires a paid credit
+                    </p>
+                  )}
                   {truncated && <p className="text-xs text-[#6b6b6b] leading-relaxed flex-1">{truncated}</p>}
                   <p className="text-xs text-[#6b6b6b]">{formatDate(resume.created_at)}</p>
                   {/* Always visible and always tappable. They used to be fully
@@ -250,13 +278,33 @@ export default function DashboardPage() {
                         <Eye className="w-3 h-3 mr-1" aria-hidden="true" />View
                       </Link>
                     </Button>
-                    <Button size="sm" variant="ghost" className="flex-1 text-xs h-8 [@media(pointer:coarse)]:h-11"
-                      aria-label={`Download ${resume.tailored_role || "resume"} as PDF`}
-                      onClick={(e) => handleQuickDownload(e, resume.id)}
-                      disabled={downloading === resume.id}>
-                      <Download className="w-3 h-3 mr-1" aria-hidden="true" />
-                      {downloading === resume.id ? "…" : "Download"}
-                    </Button>
+                    {(() => {
+                      const act = downloadAction(entitled.has(resume.id), credits?.paid ?? 0);
+                      const name = resume.tailored_role || "resume";
+                      if (act === "download") return (
+                        <Button size="sm" variant="ghost" className="flex-1 text-xs h-8 [@media(pointer:coarse)]:h-11"
+                          aria-label={`Download ${name} as PDF`}
+                          onClick={(e) => handleQuickDownload(e, resume.id)}
+                          disabled={downloading === resume.id}>
+                          <Download className="w-3 h-3 mr-1" aria-hidden="true" />
+                          {downloading === resume.id ? "…" : "Download"}
+                        </Button>
+                      );
+                      if (act === "unlock") return (
+                        <Button size="sm" variant="ghost" className="flex-1 text-xs h-8 [@media(pointer:coarse)]:h-11"
+                          aria-label={`Use 1 paid credit to download ${name} as PDF`}
+                          onClick={(e) => handleUnlock(e, resume.id)}
+                          disabled={unlocking === resume.id || downloading === resume.id}>
+                          <Download className="w-3 h-3 mr-1" aria-hidden="true" />
+                          {unlocking === resume.id ? "…" : "Unlock PDF (1 credit)"}
+                        </Button>
+                      );
+                      return (
+                        <Button asChild size="sm" variant="ghost" className="flex-1 text-xs h-8 [@media(pointer:coarse)]:h-11">
+                          <Link href="/pricing" aria-label={`PDF download of ${name} requires a paid credit — see pricing`}>Get a paid credit</Link>
+                        </Button>
+                      );
+                    })()}
                     <Button size="sm" variant="ghost"
                       className="text-xs h-8 px-2 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:px-3 text-[#6b6b6b] hover:text-red-600 hover:bg-red-50"
                       aria-label={`Delete ${resume.tailored_role || "resume"}`}

@@ -67,6 +67,8 @@ function userTurns(): string {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGenerationStore.reset();
+  // Migration 018: credits are plan rows in the store, reserved at begin.
+  mockGenerationStore.addPlan("user-1", "career", 25);
   // No tailored_role: the server falls back to the first target role.
   mockMessagesCreate.mockResolvedValue({ content: [{ type: "text", text: '{"ats_score":70,"summary":"Backend Engineer building Node.js services on AWS."}' }] });
 });

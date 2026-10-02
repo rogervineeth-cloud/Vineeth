@@ -52,7 +52,7 @@ import { randomUUID } from "crypto";
 import { createFakeGenerationStore } from "./helpers/fake-generation-store";
 // Migration 013's store, in memory (same rules as the SQL functions);
 // charges go through this file's credit mock.
-const mockGenerationStore = createFakeGenerationStore({ charge: (u) => mockConsumeCredit(u) });
+const mockGenerationStore = createFakeGenerationStore();
 jest.mock("@/lib/generation-idempotency", () => ({
   ...jest.requireActual("@/lib/generation-idempotency"),
   generationStore: () => mockGenerationStore,
@@ -102,6 +102,8 @@ function makeRequest(body: unknown): NextRequest {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGenerationStore.reset();
+  // Migration 018: credits are plan rows in the store, reserved at begin.
+  mockGenerationStore.addPlan("user-1", "career", 25);
   // Default: a non-creator authenticated user.
   mockGetUser.mockResolvedValue({
     data: { user: { id: "user-1", email: "someone@example.com" } },
@@ -110,15 +112,17 @@ beforeEach(() => {
 
 describe("/api/generate-resume guard", () => {
   it("returns 402 with the spec'd JSON shape when the caller has no plan", async () => {
-    mockCanGenerateResume.mockResolvedValue({ allowed: false, reason: "NO_PLAN" });
+    mockGenerationStore.reset(); // no credit at all
 
     const res = await POST(makeRequest(VALID_BODY));
     expect(res.status).toBe(402);
 
     const body = await res.json();
+    // Unverified account (no email_confirmed_at): no free preview credit.
     expect(body).toEqual({
       error: "payment_required",
-      reason: "NO_PLAN",
+      reason: "EMAIL_NOT_VERIFIED",
+      message: "Verify your email address to use your 1 free AI resume preview. PDF download requires a paid credit.",
       checkoutUrl: "/pricing",
     });
 
@@ -127,12 +131,11 @@ describe("/api/generate-resume guard", () => {
     // And the analytics event must fire.
     expect(mockTrack).toHaveBeenCalledWith(
       "generate_attempt_blocked_free",
-      expect.objectContaining({ user_id: "user-1", reason: "NO_PLAN" })
+      expect.objectContaining({ user_id: "user-1", reason: "EMAIL_NOT_VERIFIED" })
     );
   });
 
   it("returns 200 and calls Anthropic when the caller has entitlement", async () => {
-    mockCanGenerateResume.mockResolvedValue({ allowed: true });
     mockMessagesCreate.mockResolvedValue({
       // A summary that opens with the candidate's identity and adds nothing
       // the profile lacks, so the evidence guards leave it as written.
@@ -152,7 +155,7 @@ describe("/api/generate-resume guard", () => {
     expect(typeof body.resume_json.tailored_role).toBe("string");
     expect(body.resume_json.tailored_role.length).toBeGreaterThan(0);
     expect(mockMessagesCreate).toHaveBeenCalledTimes(1);
-    expect(mockConsumeCredit).toHaveBeenCalledWith("user-1");
+    expect(mockGenerationStore.charges).toEqual(["career"]);
     expect(mockTrack).not.toHaveBeenCalledWith(
       "generate_attempt_blocked_free",
       expect.anything()
@@ -170,7 +173,6 @@ describe("/api/generate-resume guard", () => {
     // The assistant turn is prefilled with "{", so the model continues from
     // there and never echoes it back. Without re-adding it, extractJson would
     // latch onto the first NESTED brace and truncate the object.
-    mockCanGenerateResume.mockResolvedValue({ allowed: true });
     mockMessagesCreate.mockResolvedValue({
       content: [{ type: "text", text: '"summary":"Backend Engineer working with TypeScript and Node.js on AWS.","experience":[{"company":"Acme"}],"ats_score":72}' }],
     });
@@ -183,7 +185,6 @@ describe("/api/generate-resume guard", () => {
   });
 
   it("sends temperature 0 so output is deterministic", async () => {
-    mockCanGenerateResume.mockResolvedValue({ allowed: true });
     mockMessagesCreate.mockResolvedValue({
       content: [{ type: "text", text: '"ats_score":70}' }],
     });
@@ -194,7 +195,6 @@ describe("/api/generate-resume guard", () => {
   });
 
   it("authenticates via getUser(), never the forgeable getSession()", async () => {
-    mockCanGenerateResume.mockResolvedValue({ allowed: true });
     mockMessagesCreate.mockResolvedValue({
       content: [{ type: "text", text: '{"ats_score":70}' }],
     });
