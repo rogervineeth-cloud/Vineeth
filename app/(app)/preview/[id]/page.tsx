@@ -10,6 +10,7 @@ import { Download, Loader2, Lock } from "lucide-react";
 import { downloadAction, paidCreditsLeft, type DownloadAction } from "@/lib/download-entitlement";
 import { FREE_PREVIEW_DOWNLOAD_MESSAGE } from "@/lib/plan-config";
 import { formatGrade, descriptionBullets } from "@/lib/resume-format";
+import { TEMPLATE_IDS, TEMPLATE_STYLES, isTemplateId, DEFAULT_TEMPLATE } from "@/lib/templates";
 
 // Downloads (migration 018): only a resume covered by a PAID credit can be
 // downloaded. The free AI resume preview shows why and offers the real next
@@ -40,7 +41,13 @@ type Resume = {
   downloaded_at: string | null;
   /** Contact details frozen at generation time. NULL on resumes created before migration 009. */
   contact_snapshot: Profile | null;
+  /** The style picked at generation (migration 011); NULL renders Classic. */
+  template: string | null;
 };
+
+// Heading / accent colour of each PDF style, so this on-screen preview
+// matches the style chosen below (the PDF itself is drawn by lib/resume-pdf.ts).
+const STYLE_ACCENT: Record<string, string> = { classic: "text-[#2b2b2b]", modern: "text-[#1f5c3a]", compact: "text-[#2b2b2b]", executive: "text-[#1a1a1a]" };
 
 type Profile = {
   full_name: string;
@@ -79,6 +86,9 @@ export default function PreviewPage() {
   const [action, setAction] = useState<DownloadAction>("upgrade");
   const [paidLeft, setPaidLeft] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
+  // The PDF style for this download. Starts at the saved one; switching it
+  // changes the download only — nothing is saved and no credit is involved.
+  const [style, setStyle] = useState<string>(DEFAULT_TEMPLATE);
   const canDownload = action === "download";
 
   useEffect(() => {
@@ -103,6 +113,7 @@ export default function PreviewPage() {
 
       const r = resumeRes.data as Resume;
       setResume(r);
+      setStyle(r.template || DEFAULT_TEMPLATE);
       // Prefer the contact details captured when this resume was generated, so
       // later profile edits don't rewrite the identity on an already-generated
       // (and possibly already-downloaded) resume. Resumes created before
@@ -150,7 +161,9 @@ export default function PreviewPage() {
     if (!canDownload) { toast.error(NOT_DOWNLOADABLE); return; }
     setDownloading(true);
     try {
-      const res = await fetch(`/api/download-pdf/${id}`);
+      // An offered style travels as ?style=; a retired saved style (e.g.
+      // "executive") sends nothing, so the server renders the saved one.
+      const res = await fetch(`/api/download-pdf/${id}${isTemplateId(style) ? `?style=${style}` : ""}`);
       if (res.status === 402) {
         toast.error(NOT_DOWNLOADABLE, { duration: 6000 });
         setAction(downloadAction(false, paidLeft));
@@ -190,6 +203,10 @@ export default function PreviewPage() {
 
   if (!resume) return null;
   const rj = resume.resume_json;
+  const accent = STYLE_ACCENT[style] ?? STYLE_ACCENT.classic;
+  // Offered styles, plus a retired one the resume was saved with.
+  const styleOptions: string[] = resume.template && !isTemplateId(resume.template) ? [...TEMPLATE_IDS, resume.template] : [...TEMPLATE_IDS];
+  const styleLabel = (s: string) => (isTemplateId(s) ? TEMPLATE_STYLES[s].label : `${s.charAt(0).toUpperCase()}${s.slice(1)} (saved)`);
 
   return (
     <div className="min-h-screen bg-[#f7f3ea]">
@@ -217,14 +234,14 @@ export default function PreviewPage() {
 
               {rj.summary && (
                 <section className="mb-5">
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-[#1f5c3a] mb-2">Summary</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-widest ${accent} mb-2`}>Summary</h2>
                   <p className="text-sm text-[#1a1a1a] leading-relaxed">{rj.summary}</p>
                 </section>
               )}
 
               {rj.experience?.length > 0 && (
                 <section className="mb-5">
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-[#1f5c3a] mb-3">Experience</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-widest ${accent} mb-3`}>Experience</h2>
                   <div className="flex flex-col gap-4">
                     {rj.experience.map((exp, i) => (
                       <div key={i}>
@@ -246,7 +263,7 @@ export default function PreviewPage() {
 
               {rj.skills?.length > 0 && (
                 <section className="mb-5">
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-[#1f5c3a] mb-2">Skills</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-widest ${accent} mb-2`}>Skills</h2>
                   <div className="flex flex-wrap gap-1.5">
                     {rj.skills.map((skill, i) => (
                       <span key={i} className="text-xs bg-stone-100 text-[#1a1a1a] px-2 py-0.5 rounded-full border border-stone-200">{skill}</span>
@@ -257,7 +274,7 @@ export default function PreviewPage() {
 
               {rj.education?.length > 0 && (
                 <section className="mb-5">
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-[#1f5c3a] mb-3">Education</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-widest ${accent} mb-3`}>Education</h2>
                   {rj.education.map((edu, i) => (
                     <div key={i} className="mb-2">
                       <div className="flex items-baseline justify-between flex-wrap gap-1">
@@ -272,7 +289,7 @@ export default function PreviewPage() {
 
               {rj.projects?.length > 0 && (
                 <section>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-[#1f5c3a] mb-3">Projects</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-widest ${accent} mb-3`}>Projects</h2>
                   <div className="flex flex-col gap-3">
                     {rj.projects.map((proj, i) => (
                       <div key={i}>
@@ -298,6 +315,23 @@ export default function PreviewPage() {
             <div className="flex flex-col items-center mb-6">
               <ATSRing score={resume.ats_score ?? rj.ats_score ?? 0} />
             </div>
+
+            {/* PDF style: a native radio group, defaulting to the saved style. */}
+            <fieldset className="mb-5">
+              <legend className="text-xs font-semibold uppercase tracking-widest text-[#1a1a1a] mb-2">PDF style</legend>
+              <div className="flex flex-col gap-1.5">
+                {styleOptions.map((s) => (
+                  <label key={s} className={`flex items-start gap-2 rounded-lg border px-3 py-2 cursor-pointer text-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#1f5c3a] ${style === s ? "border-[#1f5c3a] bg-[#1f5c3a]/5" : "border-stone-200 hover:border-[#1f5c3a]/40"}`}>
+                    <input type="radio" name="pdf-style" value={s} checked={style === s} onChange={() => setStyle(s)} className="mt-1 accent-[#1f5c3a]" />
+                    <span>
+                      <span className="font-medium text-[#1a1a1a]">{styleLabel(s)}</span>
+                      {isTemplateId(s) && <span className="block text-xs text-[#6b6b6b]">{TEMPLATE_STYLES[s].description}</span>}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-[#6b6b6b] mt-2">All styles are single-column, ATS-readable text. Changing style never uses a credit.</p>
+            </fieldset>
 
             {canDownload ? (
               <Button size="lg" className="w-full mb-6" onClick={() => handleDownload()} disabled={downloading}>

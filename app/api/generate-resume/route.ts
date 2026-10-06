@@ -12,9 +12,11 @@ import { cleanTargetRoles } from "@/lib/target-roles";
 import { JD_MIN_CHARS } from "@/lib/jd-length";
 import { generationStore, generationFingerprint, type GeneratedResumeRow } from "@/lib/generation-idempotency";
 import { FREE_PREVIEW_USED_MESSAGE, VERIFY_EMAIL_FOR_FREE_MESSAGE } from "@/lib/plan-config";
+import { TEMPLATE_IDS } from "@/lib/templates";
 export const maxDuration = 60;
 const CREATOR_EMAIL = "rogervineeth@gmail.com";
-const TEMPLATES = new Set(["classic", "modern", "compact", "executive"]);
+// Only the styles offered today; a retired one (e.g. "executive") saves as null → Classic.
+const TEMPLATES = new Set<string>(TEMPLATE_IDS);
 const inputSchema = z.object({
   // One generation attempt. The browser makes a new one per click and reuses
   // it only to retry the identical request, so a retry never charges twice

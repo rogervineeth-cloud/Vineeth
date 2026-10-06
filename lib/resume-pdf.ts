@@ -30,12 +30,23 @@
 //     again with more generous spacing and slightly larger type; a page that
 //     spills a few lines onto a second sheet is tightened instead. Nothing is
 //     ever added to fill space.
+//
+//  6. Text and thin rules only. No filled shapes, images, icons, tables, text
+//     boxes, form fields or annotations — nothing a parser could mistake for
+//     content or skip over (tests extract the real text with pdf.js and check
+//     the drawing operators). Every word is real, selectable text.
+//
+// STYLES offered to users (lib/templates.ts TEMPLATE_IDS): Classic
+// (black/charcoal), Modern (restrained navy name + brand-green headings),
+// Compact (tighter spacing for experienced candidates). "executive" is still
+// rendered for resumes saved with it before it was retired from the picker.
 
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type Color } from "pdf-lib";
 import { formatGrade, descriptionBullets } from "@/lib/resume-format";
 
 export { formatGrade, descriptionBullets };
 
+/** Every style the renderer can draw ("executive": saved resumes only). */
 export type TemplateId = "classic" | "modern" | "compact" | "executive";
 
 export type ResumeJson = {
@@ -63,10 +74,14 @@ export type ContactDetails = {
 const PAGE_W = 595;
 const PAGE_H = 842;
 
-const GREEN = rgb(0.122, 0.361, 0.227); // #1f5c3a
-const BLACK = rgb(0.102, 0.102, 0.102); // #1a1a1a
-const GREY = rgb(0.42, 0.42, 0.42);
-const DIM = rgb(0.27, 0.27, 0.27);
+const GREEN = rgb(0.122, 0.361, 0.227); // #1f5c3a — the brand green
+const GREEN_RULE = rgb(0.62, 0.74, 0.67); // light brand green, for thin rules
+const NAVY = rgb(0.122, 0.165, 0.267);   // #1f2a44
+const BLACK = rgb(0.102, 0.102, 0.102);  // #1a1a1a
+const CHARCOAL = rgb(0.17, 0.17, 0.17);  // #2b2b2b
+const GREY = rgb(0.38, 0.38, 0.38);      // meta text, >= 6:1 on white
+const DIM = rgb(0.25, 0.25, 0.25);
+const RULE = rgb(0.72, 0.72, 0.72);
 const SUBTLE = rgb(0.82, 0.84, 0.87);
 
 type Theme = {
@@ -80,43 +95,44 @@ type Theme = {
   entryGap: number;    // vertical gap after each entry
   sectionGap: number;  // vertical gap before each section heading
   serif: boolean;
+  /** Section headings, bullet glyphs, project tech line. */
   accent: Color;
   nameColor: Color;
-  /** Solid rule under the name block. */
-  headerRule: boolean;
-  /** Filled accent bar to the left of each section heading. */
-  sectionBar: boolean;
+  /** Thin rule under the header block: colour and thickness. */
+  headerRule: { color: Color; thickness: number };
+  /** Thin rule under each section heading. */
+  sectionRule: Color;
   uppercaseSections: boolean;
 };
 
 // Section headings are always a step above body text (bold, accent,
 // uppercase); entry titles are body size in bold; meta is a step below.
 const THEMES: Record<TemplateId, Theme> = {
+  // Black and charcoal only: the most conservative, highest-contrast style.
   classic: {
-    margin: 50, nameSize: 20, contactSize: 9, sectionSize: 10.5, bodySize: 10, bulletSize: 9.5,
-    lineTight: 1.4, entryGap: 5, sectionGap: 9, serif: false, accent: GREEN, nameColor: BLACK,
-    headerRule: true, sectionBar: false, uppercaseSections: true,
+    margin: 50, nameSize: 21, contactSize: 9, sectionSize: 10.5, bodySize: 10, bulletSize: 9.75,
+    lineTight: 1.38, entryGap: 5, sectionGap: 9, serif: false, accent: CHARCOAL, nameColor: BLACK,
+    headerRule: { color: CHARCOAL, thickness: 0.9 }, sectionRule: RULE, uppercaseSections: true,
   },
-  // Denser: smaller type and tighter leading to fit more on one sheet.
+  // Restrained colour: navy name, brand-green headings and thin rules.
+  modern: {
+    margin: 50, nameSize: 22, contactSize: 9, sectionSize: 10.5, bodySize: 10, bulletSize: 9.75,
+    lineTight: 1.38, entryGap: 5, sectionGap: 9, serif: false, accent: GREEN, nameColor: NAVY,
+    headerRule: { color: GREEN, thickness: 0.9 }, sectionRule: GREEN_RULE, uppercaseSections: true,
+  },
+  // Less vertical whitespace for experienced candidates with more to show.
   compact: {
-    margin: 42, nameSize: 17, contactSize: 8.5, sectionSize: 9.5, bodySize: 9, bulletSize: 8.75,
-    lineTight: 1.3, entryGap: 3, sectionGap: 7, serif: false, accent: GREEN, nameColor: BLACK,
-    headerRule: true, sectionBar: false, uppercaseSections: true,
+    margin: 40, nameSize: 18, contactSize: 8.5, sectionSize: 9.5, bodySize: 9.25, bulletSize: 9,
+    lineTight: 1.26, entryGap: 3, sectionGap: 6.5, serif: false, accent: CHARCOAL, nameColor: BLACK,
+    headerRule: { color: CHARCOAL, thickness: 0.75 }, sectionRule: RULE, uppercaseSections: true,
   },
-  // Roomier, serif, larger name. Still single column.
+  // Retired from the picker; kept as it was for resumes already saved with it.
   executive: {
     margin: 54, nameSize: 23, contactSize: 9.5, sectionSize: 11, bodySize: 10.5, bulletSize: 10,
     lineTight: 1.45, entryGap: 6, sectionGap: 10, serif: true, accent: BLACK, nameColor: BLACK,
-    headerRule: true, sectionBar: false, uppercaseSections: true,
-  },
-  // Accent-forward: green name and a filled bar beside each heading.
-  modern: {
-    margin: 50, nameSize: 22, contactSize: 9, sectionSize: 10.5, bodySize: 10, bulletSize: 9.5,
-    lineTight: 1.4, entryGap: 5, sectionGap: 9, serif: false, accent: GREEN, nameColor: GREEN,
-    headerRule: false, sectionBar: true, uppercaseSections: true,
+    headerRule: { color: SUBTLE, thickness: 0.5 }, sectionRule: BLACK, uppercaseSections: true,
   },
 };
-
 export function resolveTemplate(id: string | null | undefined): TemplateId {
   return id === "modern" || id === "compact" || id === "executive" ? id : "classic";
 }
@@ -183,7 +199,9 @@ function ensureSpace(ctx: Ctx, needed: number) {
   if (ctx.y - needed >= ctx.theme.margin) return;
   ctx.page = ctx.doc.addPage([PAGE_W, PAGE_H]);
   ctx.pageIndex++;
-  ctx.y = PAGE_H - ctx.theme.margin;
+  // A baseline, so leave room for the first line's capitals: drawing it at
+  // the margin itself put continuation-page text above the top margin.
+  ctx.y = PAGE_H - ctx.theme.margin - (ctx.theme.bodySize + 1);
 }
 
 function text(
@@ -218,21 +236,15 @@ function drawSectionHeader(ctx: Ctx, title: string) {
   ensureSpace(ctx, gap(ctx, t.sectionGap) + (ctx.fit.sectionExtra ?? 0) + sectionSize(ctx) + 4 + body(ctx) * 2.5);
   ctx.y -= gap(ctx, t.sectionGap) + (ctx.fit.sectionExtra ?? 0);
   const label = t.uppercaseSections ? title.toUpperCase() : title;
-  let textX = t.margin;
-  if (t.sectionBar) {
-    ctx.page.drawRectangle({ x: t.margin, y: ctx.y - 1.5, width: 3, height: sectionSize(ctx) + 1, color: t.accent });
-    textX = t.margin + 8;
-  }
-  text(ctx, label, { x: textX, size: sectionSize(ctx), bold: true, color: t.accent, role: "section" });
+  text(ctx, label, { x: t.margin, size: sectionSize(ctx), bold: true, color: t.accent, role: "section" });
   ctx.y -= 4;
-  if (!t.sectionBar) {
-    ctx.page.drawLine({
-      start: { x: t.margin, y: ctx.y },
-      end: { x: t.margin + ctx.contentW, y: ctx.y },
-      thickness: 0.5,
-      color: t.accent,
-    });
-  }
+  // A thin full-width rule: a divider, never a box or a filled shape.
+  ctx.page.drawLine({
+    start: { x: t.margin, y: ctx.y },
+    end: { x: t.margin + ctx.contentW, y: ctx.y },
+    thickness: 0.5,
+    color: t.sectionRule,
+  });
   ctx.y -= gap(ctx, 5) + body(ctx) * 0.9;
 }
 
@@ -265,6 +277,30 @@ function drawMetaRow(ctx: Ctx, meta: string, color: Color = DIM) {
   ctx.y -= gap(ctx, 1);
 }
 
+/**
+ * Employer / institution on the left, location flush right — under the
+ * title's dates, so dates and locations share one right-hand edge. Falls back
+ * to a single wrapped line when both will not fit side by side. Left is drawn
+ * first, so the text stream still reads left to right.
+ */
+function drawSplitMetaRow(ctx: Ctx, left: string, right: string) {
+  left = left.trim();
+  right = right.trim();
+  if (!left && !right) return;
+  const size = metaSize(ctx) + 0.5;
+  const rightW = right ? ctx.regular.widthOfTextAtSize(right, size) : 0;
+  const leftW = left ? ctx.regular.widthOfTextAtSize(left, size) : 0;
+  if (leftW + rightW + 12 > ctx.contentW) {
+    drawMetaRow(ctx, join(left, right));
+    return;
+  }
+  const lh = lead(ctx, size);
+  ensureSpace(ctx, lh);
+  if (left) text(ctx, left, { x: ctx.theme.margin, size, color: DIM, role: "meta" });
+  if (right) text(ctx, right, { x: ctx.theme.margin + ctx.contentW - rightW, size, color: GREY, role: "meta" });
+  ctx.y -= lh + gap(ctx, 1);
+}
+
 function drawBullets(ctx: Ctx, bullets: string[]) {
   const size = bulletSize(ctx);
   const lh = lead(ctx, size) * 0.97;
@@ -274,7 +310,8 @@ function drawBullets(ctx: Ctx, bullets: string[]) {
     const lines = wrapText(trimmed, ctx.regular, size, ctx.contentW - 11);
     // Keep the glyph with its first line even if a page break lands here.
     ensureSpace(ctx, lh);
-    ctx.page.drawText("·", { x: ctx.theme.margin + 2, y: ctx.y, size, font: ctx.bold, color: ctx.theme.accent });
+    // A standard bullet character (real text), not a drawn shape.
+    ctx.page.drawText("\u2022", { x: ctx.theme.margin + 1.5, y: ctx.y + size * 0.06, size: size * 0.82, font: ctx.regular, color: ctx.theme.accent });
     for (const line of lines) {
       ensureSpace(ctx, lh);
       text(ctx, line, { x: ctx.theme.margin + 11, size, color: BLACK, role: "bullet" });
@@ -284,8 +321,9 @@ function drawBullets(ctx: Ctx, bullets: string[]) {
   }
 }
 
+const SEP = "  ·  ";
 const join = (...parts: Array<string | undefined | null>) =>
-  parts.map((p) => (p ?? "").trim()).filter(Boolean).join("  ·  ");
+  parts.map((p) => (p ?? "").trim()).filter(Boolean).join(SEP);
 
 // ── Sections ───────────────────────────────────────────────────────────────
 
@@ -301,7 +339,7 @@ function renderExperience(ctx: Ctx, rj: ResumeJson) {
   drawSectionHeader(ctx, "Experience");
   for (const exp of rj.experience) {
     drawTitleRow(ctx, exp.role || exp.company, exp.duration ?? "");
-    drawMetaRow(ctx, join(exp.role ? exp.company : "", exp.location));
+    drawSplitMetaRow(ctx, exp.role ? exp.company : "", exp.location ?? "");
     drawBullets(ctx, exp.bullets ?? []);
     ctx.y -= gap(ctx, ctx.theme.entryGap);
   }
@@ -310,7 +348,20 @@ function renderExperience(ctx: Ctx, rj: ResumeJson) {
 function renderSkills(ctx: Ctx, rj: ResumeJson) {
   if (!rj.skills?.length) return;
   drawSectionHeader(ctx, "Skills");
-  drawParagraph(ctx, rj.skills.join("  ·  "), { size: bulletSize(ctx) });
+  // Packed whole skills to a line, separators only between skills: plain
+  // word wrapping split "System Design" across lines and left a dangling
+  // separator at the end of one. A skill wider than the line still wraps.
+  const size = bulletSize(ctx);
+  const skills = rj.skills.map((sk) => sk.trim()).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const sk of skills) {
+    const candidate = current ? `${current}${SEP}${sk}` : sk;
+    if (!current || ctx.regular.widthOfTextAtSize(candidate, size) <= ctx.contentW) current = candidate;
+    else { lines.push(current); current = sk; }
+  }
+  if (current) lines.push(current);
+  for (const line of lines) drawParagraph(ctx, line, { size });
   ctx.y -= gap(ctx, ctx.theme.entryGap) * 0.5;
 }
 
@@ -319,7 +370,7 @@ function renderEducation(ctx: Ctx, rj: ResumeJson) {
   drawSectionHeader(ctx, "Education");
   for (const edu of rj.education) {
     drawTitleRow(ctx, edu.degree?.trim() || edu.institution, edu.year ?? "");
-    drawMetaRow(ctx, join(edu.degree?.trim() ? edu.institution : "", edu.location, formatGrade(edu.cgpa)));
+    drawSplitMetaRow(ctx, join(edu.degree?.trim() ? edu.institution : "", formatGrade(edu.cgpa)), edu.location ?? "");
     ctx.y -= gap(ctx, ctx.theme.entryGap);
   }
 }
@@ -329,7 +380,7 @@ function renderProjects(ctx: Ctx, rj: ResumeJson) {
   drawSectionHeader(ctx, "Projects");
   for (const proj of rj.projects) {
     drawTitleRow(ctx, proj.name, "");
-    if (proj.tech?.length) drawMetaRow(ctx, proj.tech.join("  ·  "), ctx.theme.accent);
+    if (proj.tech?.length) drawMetaRow(ctx, proj.tech.join("  ·  "), ctx.theme.accent === GREEN ? GREEN : DIM);
     drawBullets(ctx, descriptionBullets(proj.description ?? ""));
     ctx.y -= gap(ctx, ctx.theme.entryGap);
   }
@@ -345,6 +396,12 @@ const RENDERERS: Record<string, (ctx: Ctx, rj: ResumeJson) => void> = {
 
 /** Fallback when the generator gives no usable section_order. */
 const DEFAULT_ORDER = ["summary", "experience", "skills", "education", "projects"];
+/**
+ * Fallback for a resume with no experience entries (a fresher): what they
+ * have to show — education and projects — comes first. Decided only from the
+ * resume's own data; the generator's section_order, when present, wins.
+ */
+const FRESHER_ORDER = ["summary", "education", "projects", "skills", "experience"];
 
 /**
  * The order to render in: whatever the generator asked for, plus any section
@@ -362,7 +419,8 @@ export function resolveSectionOrder(rj: ResumeJson): string[] {
       requested.push(s);
     }
   }
-  return [...requested, ...DEFAULT_ORDER.filter((s) => !seen.has(s))];
+  const base = (rj.experience ?? []).some((e) => (e.company ?? "").trim() || (e.role ?? "").trim()) ? DEFAULT_ORDER : FRESHER_ORDER;
+  return [...requested, ...base.filter((s) => !seen.has(s))];
 }
 
 type Laid = { doc: PDFDocument; pages: number; fill: number; drawn: DrawnText[]; fit: Fit; sections: number };
@@ -400,15 +458,15 @@ async function layOut(rj: ResumeJson, contact: ContactDetails, theme: Theme, fit
   }
   ctx.y -= 4;
 
-  if (theme.headerRule) {
-    ctx.page.drawLine({
-      start: { x: theme.margin, y: ctx.y },
-      end: { x: theme.margin + ctx.contentW, y: ctx.y },
-      thickness: 0.5,
-      color: SUBTLE,
-    });
-  }
-  ctx.y -= 2;
+  ctx.page.drawLine({
+    start: { x: theme.margin, y: ctx.y },
+    end: { x: theme.margin + ctx.contentW, y: ctx.y },
+    thickness: theme.headerRule.thickness,
+    color: theme.headerRule.color,
+  });
+  // Clear air between the header rule and the first heading in every style
+  // (Compact's small section gap alone left the heading touching the rule).
+  ctx.y -= 5;
 
   // ── Body, in the generator's chosen order ────────────────────────────────
   let sections = 0;

@@ -314,7 +314,7 @@ describe("orderEarlyCareerSections", () => {
 // ── PDF: one page, complete, consistent ─────────────────────────────────────
 
 const PAGE_W = 595;
-const MARGINS: Record<string, number> = { classic: 50, modern: 50, compact: 42, executive: 54 };
+const MARGINS: Record<string, number> = { classic: 50, modern: 50, compact: 40, executive: 54 };
 const roleText = (drawn: DrawnText[], role: DrawnText["role"]) => drawn.filter((d) => d.role === role).map((d) => d.text).join(" ");
 
 /** A minimal fresher: one degree, one project, a few skills — the sparsest real profile. */
