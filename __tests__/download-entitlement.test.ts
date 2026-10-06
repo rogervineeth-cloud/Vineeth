@@ -96,7 +96,8 @@ const resume = (id: string, over: Row = {}) => ({
   ...over,
 });
 const plan = (over: Row) => ({ id: `plan-${Math.random()}`, user_id: OWNER, resumes_used: 0, resumes_allotted: 1, purchased_at: "2026-09-01T00:00:00.000Z", expires_at: YEAR, ...over });
-const download = (id: string) => downloadPdf(new Request(`http://localhost/api/download-pdf/${id}`) as unknown as NextRequest, { params: Promise.resolve({ id }) });
+const download = (id: string, query = "") => downloadPdf(new Request(`http://localhost/api/download-pdf/${id}${query}`) as unknown as NextRequest, { params: Promise.resolve({ id }) });
+const renderedStyle = (call = 0) => (mockRender.mock.calls[call] as unknown[])[2];
 const doUnlock = (id: string) => unlock(new Request(`http://localhost/api/resumes/${id}/unlock`, { method: "POST" }) as unknown as NextRequest, { params: Promise.resolve({ id }) });
 const credits = () => db.user_plans.filter((p) => p.plan_type !== "beta").map((p) => `${p.plan_type}:${p.resumes_used}/${p.resumes_allotted}`).join(",");
 
@@ -159,6 +160,38 @@ describe("GET /api/download-pdf/[id] (direct API and the dashboard button use th
     db.user = null;
     expect((await download(PAID_RESUME)).status).toBe(401);
     expect(mockRender).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/download-pdf/[id]?style= (PDF style picked on the preview page)", () => {
+  it("renders the saved style by default, and an offered ?style= for that download only", async () => {
+    db.resumes = [resume(PAID_RESUME, { template: "modern" })];
+    expect((await download(PAID_RESUME)).status).toBe(200);
+    expect(renderedStyle(0)).toBe("modern");
+    expect((await download(PAID_RESUME, "?style=compact")).status).toBe(200);
+    expect(renderedStyle(1)).toBe("compact");
+    // Nothing about the style is written back; the only write is downloaded_at.
+    expect(db.updates.every((u) => Object.keys(u).sort().join() === "downloaded_at,id,service,table")).toBe(true);
+    expect(db.resumes[0].template).toBe("modern");
+  });
+
+  it("a retired or unknown ?style= renders the saved style; a saved Executive keeps rendering", async () => {
+    db.resumes = [resume(PAID_RESUME, { template: "executive" })];
+    await download(PAID_RESUME, "?style=fancy");
+    await download(PAID_RESUME);
+    expect([renderedStyle(0), renderedStyle(1)]).toEqual(["executive", "executive"]);
+    db.resumes = [resume(PAID_RESUME, { template: null })];
+    await download(PAID_RESUME, "?style=executive");
+    expect(renderedStyle(2)).toBeNull(); // null renders Classic
+  });
+
+  it("a style never bypasses the entitlement and never costs a credit", async () => {
+    const res = await download(FREE_RESUME, "?style=modern");
+    expect(res.status).toBe(402);
+    expect(mockRender).not.toHaveBeenCalled();
+    for (const s of ["classic", "modern", "compact"]) expect((await download(PAID_RESUME, `?style=${s}`)).status).toBe(200);
+    expect(credits()).toBe("fresher:1/5");
+    expect(db.planReads).toBe(0);
   });
 });
 

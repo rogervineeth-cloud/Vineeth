@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { renderResumePdf, type ResumeJson } from "@/lib/resume-pdf";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { canDownloadResume } from "@/lib/plans";
+import { downloadStyle } from "@/lib/templates";
 
 // ── Main route ─────────────────────────────────────────────────────────────
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const debugId = crypto.randomUUID();
@@ -57,7 +58,11 @@ export async function GET(
     // ── Build PDF ────────────────────────────────────────────────────────
     // Layout lives in lib/resume-pdf.ts: it honours the generator's
     // section_order, paginates instead of drawing past the bottom margin, and
-    // applies the template the user actually picked.
+    // applies the template the user actually picked. ?style= picks another
+    // offered style for this download only (never saved, never charged:
+    // the entitlement above is per resume, not per style); anything else
+    // renders the saved one.
+    const style = downloadStyle(new URL(req.url).searchParams.get("style"), resumeRes.data.template as string | null);
     const pdfBytes = await renderResumePdf(
       rj,
       {
@@ -66,7 +71,7 @@ export async function GET(
         phone: profile?.phone,
         current_city: profile?.current_city,
       },
-      resumeRes.data.template as string | null
+      style
     );
 
     // Mark as downloaded. Server-side (service role): since migration 014 the

@@ -21,19 +21,24 @@ import { effectiveJdKeywords } from "@/lib/jd-keywords";
 const page = fs.readFileSync(path.join(__dirname, "..", "app", "(app)", "create", "page.tsx"), "utf8");
 
 describe("template choice survives navigation", () => {
-  it.each(["executive", "modern", "compact", "classic"])("a saved %s is restored", (id) => {
+  it.each(["modern", "compact", "classic"])("a saved %s is restored", (id) => {
     expect(storedTemplate(id)).toBe(id);
   });
 
-  it("missing or unknown values fall back to classic", () => {
-    for (const raw of [null, undefined, "", "fancy", "Executive"]) expect(storedTemplate(raw)).toBe("classic");
+  it("missing, unknown or retired values fall back to classic", () => {
+    // "executive" was retired from the picker: a stale localStorage choice
+    // starts the next resume on Classic (saved resumes keep rendering in it).
+    for (const raw of [null, undefined, "", "fancy", "Executive", "executive"]) expect(storedTemplate(raw)).toBe("classic");
   });
 
   it("covers every template the page offers and the server accepts", () => {
     const offered = [...page.matchAll(/^\s{4}id: "(\w+)",$/gm)].map((m) => m[1]).sort();
     expect(offered).toEqual([...TEMPLATE_IDS].sort());
     const route = fs.readFileSync(path.join(__dirname, "..", "app", "api", "generate-resume", "route.ts"), "utf8");
-    for (const id of TEMPLATE_IDS) expect(route).toMatch(new RegExp(`"${id}"`));
+    // The server accepts exactly the offered list, imported from the same place.
+    expect(route).toMatch(/import \{ TEMPLATE_IDS \} from "@\/lib\/templates"/);
+    expect(route).toMatch(/const TEMPLATES = new Set<string>\(TEMPLATE_IDS\)/);
+    expect([...TEMPLATE_IDS]).toEqual(["classic", "modern", "compact"]);
   });
 
   it("the page starts from the saved choice and saves under the same key it reads", () => {
@@ -44,7 +49,7 @@ describe("template choice survives navigation", () => {
   });
 
   it("Review shows the selected template and the request sends it", () => {
-    expect(page).toMatch(/capitalize">\{selectedTemplate\}<\/p>/);
+    expect(page).toMatch(/>\{TEMPLATE_STYLES\[selectedTemplate\]\.label\}<\/p>/);
     expect(page).toMatch(/template: selectedTemplate,/);
   });
 });
@@ -77,5 +82,22 @@ describe("hand-added skill chips reach Review", () => {
     const templateStep = page.slice(page.indexOf("Generating for"), page.indexOf("{/* STEP 3 — Review */}"));
     expect(templateStep).toMatch(/effectiveKeywords\.slice\(0, 5\)/);
     expect(templateStep).not.toMatch(/jdAnalysis\.keywords/);
+  });
+});
+
+describe("style pickers are accessible native radio groups", () => {
+  it("create: a fieldset with a legend, one radio per style, bound to the saved choice; images are decorative", () => {
+    expect(page).toMatch(/<fieldset>\s*<legend[^>]*>Choose your resume style<\/legend>/);
+    expect(page).toMatch(/type="radio"\s+name="resume-style"\s+value=\{tpl\.id\}\s+checked=\{selectedTemplate === tpl\.id\}/);
+    expect(page).toMatch(/src=\{`\/template-previews\/\$\{tpl\.id\}\.png`\}\s+alt=""/);
+    expect(page).not.toMatch(/<button[^>]*\n[^>]*onClick=\{\(\) => \{ setSelectedTemplate/);
+  });
+
+  it("preview: a PDF style radio group starting at the saved style; the download sends only an offered ?style=", () => {
+    const preview = fs.readFileSync(path.join(__dirname, "..", "app", "(app)", "preview", "[id]", "page.tsx"), "utf8");
+    expect(preview).toMatch(/<legend[^>]*>PDF style<\/legend>/);
+    expect(preview).toMatch(/type="radio" name="pdf-style" value=\{s\} checked=\{style === s\}/);
+    expect(preview).toMatch(/setStyle\(r\.template \|\| DEFAULT_TEMPLATE\)/);
+    expect(preview).toMatch(/fetch\(`\/api\/download-pdf\/\$\{id\}\$\{isTemplateId\(style\) \? `\?style=\$\{style\}` : ""\}`\)/);
   });
 });

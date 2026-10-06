@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { hasResumeContent, RESUME_CONTENT_HINT } from "@/lib/profile-completeness";
 import { parseRegenParam } from "@/lib/regen";
 import { analyzeJd, effectiveJdKeywords, withoutKeyword, type JdAnalysis } from "@/lib/jd-keywords";
-import { storedTemplate, TEMPLATE_STORAGE_KEY, type TemplateId } from "@/lib/templates";
+import { storedTemplate, TEMPLATE_STORAGE_KEY, TEMPLATE_STYLES, type TemplateId } from "@/lib/templates";
 import { createStepFromParam, type CreateStep } from "@/lib/create-steps";
 import { isAlreadyGenerating, ALREADY_GENERATING } from "@/lib/generation-feedback";
 import { loadPlansEnsuringBeta, summarisePlans, type PlanRow } from "@/lib/beta-client";
@@ -124,100 +124,21 @@ async function fetchCreateContext(): Promise<CreateContext> {
   return { status: "ready", email: res.user.email, profile: res.profile, planCheck };
 }
 
-const TEMPLATES: { id: TemplateId; label: string; description: string; svg: React.ReactNode }[] = [
+// The styles offered (lib/templates.ts); every one is the same single-column
+// ATS layout. The preview images are rendered from lib/resume-pdf.ts by
+// scripts/render-style-previews.ts.
+const TEMPLATES: { id: TemplateId; label: string; description: string }[] = [
   {
     id: "classic",
-    label: "Classic",
-    description: "Clean & traditional",
-    svg: (
-      <svg viewBox="0 0 40 52" className="w-full h-full">
-        <rect x="2" y="2" width="36" height="6" rx="1" fill="#1f5c3a" opacity="0.5" />
-        <rect x="2" y="11" width="36" height="1" rx="0.5" fill="#1f5c3a" opacity="0.3" />
-        <rect x="2" y="14" width="28" height="1.5" rx="0.5" fill="#888" opacity="0.5" />
-        <rect x="2" y="17" width="22" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
-        <rect x="2" y="22" width="36" height="1" rx="0.5" fill="#1f5c3a" opacity="0.3" />
-        <rect x="2" y="25" width="30" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
-        <rect x="2" y="28" width="26" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
-        <rect x="2" y="31" width="20" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
-        <rect x="2" y="36" width="36" height="1" rx="0.5" fill="#1f5c3a" opacity="0.3" />
-        <rect x="2" y="39" width="24" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
-        <rect x="2" y="42" width="18" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
-      </svg>
-    ),
+    ...TEMPLATE_STYLES.classic,
   },
   {
     id: "modern",
-    label: "Modern",
-    description: "Green accents, bold name",
-    svg: (
-      <svg viewBox="0 0 40 52" className="w-full h-full">
-        <rect x="0" y="0" width="12" height="52" fill="#1f5c3a" opacity="0.1" />
-        <rect x="1.5" y="4" width="9" height="3" rx="0.5" fill="#1f5c3a" opacity="0.4" />
-        <rect x="1.5" y="10" width="9" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
-        <rect x="1.5" y="13" width="7" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
-        <rect x="1.5" y="19" width="9" height="1.5" rx="0.5" fill="#1f5c3a" opacity="0.35" />
-        <rect x="1.5" y="22" width="6" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
-        <rect x="1.5" y="25" width="8" height="1.5" rx="0.5" fill="#888" opacity="0.3" />
-        <rect x="15" y="3" width="23" height="5" rx="0.5" fill="#1f5c3a" opacity="0.4" />
-        <rect x="15" y="11" width="23" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
-        <rect x="15" y="14" width="19" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
-        <rect x="15" y="17" width="16" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
-        <rect x="15" y="22" width="23" height="1" rx="0.5" fill="#1f5c3a" opacity="0.25" />
-        <rect x="15" y="25" width="20" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
-        <rect x="15" y="28" width="17" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
-        <rect x="15" y="35" width="23" height="1" rx="0.5" fill="#1f5c3a" opacity="0.25" />
-        <rect x="15" y="38" width="18" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
-        <rect x="15" y="41" width="14" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
-      </svg>
-    ),
+    ...TEMPLATE_STYLES.modern,
   },
   {
     id: "compact",
-    label: "Compact",
-    description: "Dense, info-rich",
-    svg: (
-      <svg viewBox="0 0 40 52" className="w-full h-full">
-        <rect x="2" y="2" width="36" height="4" rx="0.5" fill="#1f5c3a" opacity="0.5" />
-        <rect x="2" y="8" width="36" height="1" rx="0.3" fill="#1f5c3a" opacity="0.3" />
-        <rect x="2" y="10.5" width="28" height="1" rx="0.3" fill="#888" opacity="0.45" />
-        <rect x="2" y="12.5" width="22" height="1" rx="0.3" fill="#888" opacity="0.4" />
-        <rect x="2" y="14.5" width="18" height="1" rx="0.3" fill="#888" opacity="0.35" />
-        <rect x="2" y="17" width="36" height="1" rx="0.3" fill="#1f5c3a" opacity="0.3" />
-        <rect x="2" y="19.5" width="26" height="1" rx="0.3" fill="#888" opacity="0.45" />
-        <rect x="2" y="21.5" width="20" height="1" rx="0.3" fill="#888" opacity="0.4" />
-        <rect x="2" y="23.5" width="24" height="1" rx="0.3" fill="#888" opacity="0.35" />
-        <rect x="2" y="26" width="36" height="1" rx="0.3" fill="#1f5c3a" opacity="0.3" />
-        <rect x="2" y="28.5" width="30" height="1" rx="0.3" fill="#888" opacity="0.45" />
-        <rect x="2" y="30.5" width="24" height="1" rx="0.3" fill="#888" opacity="0.4" />
-        <rect x="2" y="32.5" width="18" height="1" rx="0.3" fill="#888" opacity="0.35" />
-        <rect x="2" y="35" width="36" height="1" rx="0.3" fill="#1f5c3a" opacity="0.3" />
-        <rect x="2" y="37.5" width="22" height="1" rx="0.3" fill="#888" opacity="0.45" />
-        <rect x="2" y="39.5" width="18" height="1" rx="0.3" fill="#888" opacity="0.4" />
-        <rect x="2" y="41.5" width="26" height="1" rx="0.3" fill="#888" opacity="0.35" />
-        <rect x="2" y="44" width="20" height="1" rx="0.3" fill="#888" opacity="0.3" />
-      </svg>
-    ),
-  },
-  {
-    id: "executive",
-    label: "Executive",
-    description: "Serif, roomy, senior",
-    svg: (
-      <svg viewBox="0 0 40 52" className="w-full h-full">
-        <rect x="0" y="0" width="40" height="12" fill="#1f5c3a" opacity="0.65" />
-        <rect x="4" y="3" width="20" height="3" rx="0.5" fill="white" opacity="0.7" />
-        <rect x="4" y="8" width="12" height="2" rx="0.5" fill="white" opacity="0.4" />
-        <rect x="2" y="16" width="36" height="1.5" rx="0.5" fill="#1f5c3a" opacity="0.35" />
-        <rect x="2" y="20" width="30" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
-        <rect x="2" y="23" width="26" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
-        <rect x="2" y="26" width="20" height="1.5" rx="0.5" fill="#888" opacity="0.35" />
-        <rect x="2" y="31" width="36" height="1.5" rx="0.5" fill="#1f5c3a" opacity="0.35" />
-        <rect x="2" y="35" width="28" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
-        <rect x="2" y="38" width="22" height="1.5" rx="0.5" fill="#888" opacity="0.4" />
-        <rect x="2" y="44" width="36" height="1.5" rx="0.5" fill="#1f5c3a" opacity="0.35" />
-        <rect x="2" y="48" width="18" height="1.5" rx="0.5" fill="#888" opacity="0.45" />
-      </svg>
-    ),
+    ...TEMPLATE_STYLES.compact,
   },
 ];
 
@@ -928,47 +849,57 @@ function CreatePageInner() {
               Back
             </button>
 
-            <h2 className="font-serif italic text-2xl text-[#1a1a1a] mb-1">Choose your template</h2>
-            <p className="text-sm text-[#6b6b6b] mb-6">
-              All templates are ATS-optimised — picked up cleanly by recruiter parsers.
-            </p>
+            {/* A native radio group: arrow keys move the choice, screen readers
+                announce "Resume style, Classic, radio button, 1 of 3, checked". */}
+            <fieldset>
+              <legend className="font-serif italic text-2xl text-[#1a1a1a] mb-1">Choose your resume style</legend>
+              <p id="style-help" className="text-sm text-[#6b6b6b] mb-6">
+                Every style is single-column, real selectable text with standard headings, so recruiter parsers read it cleanly. Only colour and spacing differ. You can switch styles when you download.
+              </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {TEMPLATES.map((tpl) => (
-                <button
-                  key={tpl.id}
-                  type="button"
-                  onClick={() => { setSelectedTemplate(tpl.id); if (typeof window !== "undefined") localStorage.setItem(TEMPLATE_STORAGE_KEY, tpl.id); }}
-                  className={`rounded-xl border-2 overflow-hidden text-left transition-all focus:outline-none ${
-                    selectedTemplate === tpl.id
-                      ? "border-[#1f5c3a] shadow-md"
-                      : "border-stone-200 bg-white hover:border-[#1f5c3a]/40"
-                  }`}
-                >
-                  {/* Preview image */}
-                  <div className="relative w-full bg-stone-50 border-b border-stone-100" style={{height: 200}}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/template-previews/${tpl.id}.png`}
-                      alt={`${tpl.label} template preview`}
-                      className="w-full h-full object-cover object-top"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5" aria-describedby="style-help">
+                {TEMPLATES.map((tpl) => (
+                  <label
+                    key={tpl.id}
+                    className={`relative cursor-pointer rounded-xl border-2 overflow-hidden text-left transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#1f5c3a] has-[:focus-visible]:ring-offset-2 ${
+                      selectedTemplate === tpl.id
+                        ? "border-[#1f5c3a] shadow-md"
+                        : "border-stone-200 bg-white hover:border-[#1f5c3a]/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="resume-style"
+                      value={tpl.id}
+                      checked={selectedTemplate === tpl.id}
+                      onChange={() => { setSelectedTemplate(tpl.id); if (typeof window !== "undefined") localStorage.setItem(TEMPLATE_STORAGE_KEY, tpl.id); }}
+                      className="sr-only"
                     />
-                    {selectedTemplate === tpl.id && (
-                      <div className="absolute top-2 right-2 bg-[#1f5c3a] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                        Selected
-                      </div>
-                    )}
-                  </div>
-                  {/* Label row */}
-                  <div className={`px-4 py-3 ${selectedTemplate === tpl.id ? "bg-[#1f5c3a]/5" : "bg-white"}`}>
-                    <p className={`text-sm font-semibold ${selectedTemplate === tpl.id ? "text-[#1f5c3a]" : "text-[#1a1a1a]"}`}>
-                      {tpl.label}
-                    </p>
-                    <p className="text-xs text-[#6b6b6b] mt-0.5">{tpl.description}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
+                    {/* Preview image: decorative, the label text names the style */}
+                    <div className="relative w-full bg-stone-50 border-b border-stone-100" style={{height: 200}}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/template-previews/${tpl.id}.png`}
+                        alt=""
+                        className="w-full h-full object-cover object-top"
+                      />
+                      {selectedTemplate === tpl.id && (
+                        <div aria-hidden="true" className="absolute top-2 right-2 bg-[#1f5c3a] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                          Selected
+                        </div>
+                      )}
+                    </div>
+                    {/* Label row */}
+                    <div className={`px-4 py-3 ${selectedTemplate === tpl.id ? "bg-[#1f5c3a]/5" : "bg-white"}`}>
+                      <p className={`text-sm font-semibold ${selectedTemplate === tpl.id ? "text-[#1f5c3a]" : "text-[#1a1a1a]"}`}>
+                        {tpl.label}{tpl.id === "classic" && <span className="font-normal text-[#6b6b6b]"> (default)</span>}
+                      </p>
+                      <p className="text-xs text-[#6b6b6b] mt-0.5">{tpl.description}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
             {/* Mobile-only generate button */}
             <div className="lg:hidden mt-auto pt-6">
@@ -1193,10 +1124,10 @@ function CreatePageInner() {
             {/* Template */}
             <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 mb-8">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide">Template</p>
+                <p className="text-[10px] font-semibold text-[#1f5c3a] uppercase tracking-wide">Resume style</p>
                 <button onClick={() => { pushUrlStep("template"); setFlowStep(2); }} className="text-xs text-[#1f5c3a] underline underline-offset-2">Change</button>
               </div>
-              <p className="text-sm font-medium text-[#1a1a1a] capitalize">{selectedTemplate}</p>
+              <p className="text-sm font-medium text-[#1a1a1a]">{TEMPLATE_STYLES[selectedTemplate].label}</p>
             </div>
 
             {/* Action buttons */}
