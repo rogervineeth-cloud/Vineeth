@@ -10,6 +10,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import LinkedinJobSearch from "@/components/dashboard/LinkedinJobSearch";
 import { FREE_PREVIEW_RULE, FREE_PREVIEW_DOWNLOAD_MESSAGE } from "@/lib/plan-config";
 import { loadPlansEnsuringBeta } from "@/lib/beta-client";
 import { downloadAction, paidCreditsLeft, freeCreditsLeft } from "@/lib/download-entitlement";
@@ -317,6 +318,8 @@ export default function DashboardPage() {
             })}
           </div>
         )}
+
+        {!loading && <LinkedinJobSearch />}
       </div>
 
       {resumes.length > 0 && (
