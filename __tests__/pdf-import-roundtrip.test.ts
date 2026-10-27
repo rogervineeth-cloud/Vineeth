@@ -7,6 +7,8 @@
  *   company     "Zoho Corporation Chennai"          (location lost)
  *   institution "College of Engineering Trivandrum · 8.4 CGPA Thiruvananthapuram, Kerala"
  *   degree      "B.Tech Computer Science 2022-2026", year "2022", grade/location blank.
+ * A bullet that wrapped onto a second line also imported as two bullets.
+ *
  * Cause: the renderer puts locations and dates flush right on the same line,
  * pdf.js reports the space between as one wide blank item, and the route
  * joined it with a single space. lib/pdf-text now keeps a wide gap as a column
@@ -21,7 +23,7 @@ import { execFileSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { assemblePdfText, COLUMN_GAP, type PdfTextItem } from "@/lib/pdf-text";
+import { assemblePdfText, assemblePdfPages, COLUMN_GAP, type PdfTextItem } from "@/lib/pdf-text";
 import { extractProfile, parseExperienceBlock, parseEducationBlock, parseSkillsBlock, columnCells } from "@/lib/resume-parser";
 import { renderResumePdf, type ResumeJson, type ContactDetails } from "@/lib/resume-pdf";
 import { FIXTURES } from "./helpers/resume-fixtures";
@@ -31,7 +33,24 @@ const ITEMS = path.join(__dirname, "helpers", "pdf-items.mjs");
 const FIXTURE = path.join(__dirname, "fixtures", "roundtrip-compact.pdf");
 const pdfItems = (files: string[]): PdfTextItem[][][] =>
   JSON.parse(execFileSync("node", [ITEMS, ...files], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }));
-const importText = (pages: PdfTextItem[][]) => pages.map(assemblePdfText).join("\n");
+/** main 1f55cdb's route line join, verbatim: newline on a y change, else one space. */
+function legacyRouteJoin(items: PdfTextItem[]): string {
+  let lastY: number | null = null;
+  let buf = "";
+  for (const item of items) {
+    if (typeof item.str !== "string") continue;
+    const itemY: number | null = Array.isArray(item.transform) ? (item.transform as number[])[5] : null;
+    if (lastY !== null && itemY !== null && Math.abs(itemY - lastY) > 1) buf += "\n";
+    else if (buf && !buf.endsWith(" ") && !buf.endsWith("\n")) buf += " ";
+    buf += item.str;
+    if (item.hasEOL) buf += "\n";
+    lastY = itemY;
+  }
+  return buf;
+}
+
+// Exactly what the route does (app/api/parse-resume extractTextFromPdf).
+const importText = (pages: PdfTextItem[][]) => assemblePdfPages(pages);
 
 describe("the QA fixture (Compact PDF, production layout) imports field for field", () => {
   const [pages] = pdfItems([FIXTURE]);
@@ -57,6 +76,15 @@ describe("the QA fixture (Compact PDF, production layout) imports field for fiel
     expect(p.skills).toEqual(ROUNDTRIP_RESUME.skills);
   });
 
+  it("the wrapped, quantified bullet imports as one bullet, exactly", () => {
+    const wrapped = ROUNDTRIP_RESUME.experience![0].bullets[2];
+    expect(wrapped).toMatch(/4\.2% to 0\.6%.*Rs\. 3\.5 lakh.*12,000.*\(3 regions\)\.$/);
+    // It really does wrap in the fixture: two visual lines at the same x.
+    const lines = pages[0].filter((i) => typeof i.str === "string" && /failed invoice|3 regions/.test(i.str as string));
+    expect(lines).toHaveLength(2);
+    expect(p.experience[0].bullets).toEqual(ROUNDTRIP_RESUME.experience![0].bullets);
+  });
+
   it("the text the route builds marks the right-aligned columns", () => {
     const lines = importText(pages).split("\n");
     expect(lines).toEqual(expect.arrayContaining([
@@ -80,20 +108,25 @@ describe("every style × profile the app renders imports back to its experience 
   }, 60_000);
   afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
+  it("the long QA bullet wraps in every style (so the matrix exercises the join)", () => {
+    cases.forEach((c, i) => {
+      if (c.f.id !== "qa-roundtrip") return;
+      const hits = extracted[i].flat().filter((it) => typeof it.str === "string" && /failed invoice|3 regions/.test(it.str as string));
+      expect({ style: c.style, lines: hits.length }).toEqual({ style: c.style, lines: 2 });
+    });
+  });
+
   it.each(cases.map((c, i) => [`${c.style} × ${c.f.id}`, i] as const))("%s", (_label, i) => {
     const { f } = cases[i];
     const p = extractProfile(importText(extracted[i]));
     expect(p.experience.map((e) => [e.company, e.role, e.duration, e.location]))
       .toEqual((f.resume.experience ?? []).map((e) => [e.company, e.role, e.duration, e.location]));
-    // Every bullet word arrives, in order. (A bullet that WRAPS still imports
-    // as two bullets — pre-existing, outside this fix; see the todo below.)
-    expect(p.experience.map((e) => e.bullets.join(" "))).toEqual((f.resume.experience ?? []).map((e) => e.bullets.join(" ")));
+    // Exactly: each bullet whole (wrapped ones joined), with its punctuation, in order.
+    expect(p.experience.map((e) => e.bullets)).toEqual((f.resume.experience ?? []).map((e) => e.bullets));
     expect(p.education.map((e) => [e.institution, e.degree, e.year, e.location, e.cgpa ?? ""]))
       .toEqual((f.resume.education ?? []).map((e) => [e.institution, e.degree, e.year, e.location, e.cgpa ?? ""]));
   });
 });
-
-it.todo("a bullet that wraps onto a second line imports as ONE bullet (today: two)");
 
 describe("assemblePdfText", () => {
   const it_ = (str: string, x: number, y: number, width: number, hasEOL = false): PdfTextItem => ({ str, transform: [10, 0, 0, 10, x, y], width, hasEOL });
@@ -116,7 +149,78 @@ describe("assemblePdfText", () => {
 
   it("the route builds its text with it", () => {
     const route = fs.readFileSync(path.join(__dirname, "..", "app", "api", "parse-resume", "route.ts"), "utf8");
-    expect(route).toMatch(/pagesText\.push\(assemblePdfText\(content\.items as PdfTextItem\[\]\)\);/);
+    expect(route).toMatch(/pageItems\.push\(content\.items as PdfTextItem\[\]\);/);
+    expect(route).toMatch(/return assemblePdfPages\(pageItems\);/);
+  });
+});
+
+describe("wrapped bullets: joined only on a hanging indent, never across distinct items", () => {
+  const item = (str: string, x: number, y: number, width = 100): PdfTextItem => ({ str, transform: [10, 0, 0, 10, x, y], width, hasEOL: false });
+  const glyphBullet = (text: string, y: number) => [item("•", 50, y, 3), item(" ", 53, y, 7), item(text, 61, y)];
+
+  it("a continuation at the bullet text's x joins; the next bullet stays separate", () => {
+    const text = assemblePdfPages([[...glyphBullet("Reduced churn from 9% to", 700), item("6.5% in two quarters.", 61, 686), ...glyphBullet("Led a team of 4.", 672)]]);
+    expect(text.split("\n").filter(Boolean)).toEqual(["• Reduced churn from 9% to 6.5% in two quarters.", "• Led a team of 4."]);
+  });
+
+  it("three-line bullets join in order; punctuation is kept as written", () => {
+    const text = assemblePdfPages([[...glyphBullet("Shipped v2.0 (beta),", 700), item("then GA: 3 cities;", 61, 686), item("NPS +18.", 61, 672)]]);
+    expect(text.split("\n").filter(Boolean)).toEqual(["• Shipped v2.0 (beta), then GA: 3 cities; NPS +18."]);
+  });
+
+  it("a bullet that continues on the next page joins across the page break", () => {
+    const text = assemblePdfPages([[...glyphBullet("Migrated 120 services to", 60)], [item("Kubernetes in 5 months.", 61, 780)]]);
+    expect(text.split("\n").filter(Boolean)).toEqual(["• Migrated 120 services to Kubernetes in 5 months."]);
+  });
+
+  it("third-party layouts are not merged: a paragraph at the margin, another indent, a heading, a column row", () => {
+    const lines = assemblePdfPages([[
+      ...glyphBullet("Built the billing service", 700),
+      item("Plain paragraph at the margin.", 50, 686),
+      ...glyphBullet("Second bullet", 672),
+      item("Deeper sub-point", 75, 658),
+      ...glyphBullet("Third bullet", 644),
+      item("SKILLS", 50, 620),
+      ...glyphBullet("Fourth bullet", 600),
+      item("Acme", 61, 586, 30), item(" ", 91, 586, 400), item("Pune", 500, 586, 25),
+    ]]).split("\n").filter(Boolean);
+    expect(lines).toEqual([
+      "• Built the billing service", "Plain paragraph at the margin.",
+      "• Second bullet", "Deeper sub-point",
+      "• Third bullet", "SKILLS",
+      "• Fourth bullet", "Acme\tPune",
+    ]);
+  });
+
+  it("a bullet whose glyph shares the text item (no measurable text x) is never joined", () => {
+    const lines = assemblePdfPages([[item("• Owned the roadmap", 50, 700), item("for payments.", 58, 686)]]).split("\n").filter(Boolean);
+    expect(lines).toEqual(["• Owned the roadmap", "for payments."]);
+  });
+
+  it("a third-party PDF (pdf-lib, dash bullets, text at the margin) parses as before through real pdf.js", async () => {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const page = doc.addPage([612, 792]);
+    const rows: [string, number][] = [
+      ["Meera Pillai", 50], ["meera.pillai@example.com | +91 98450 11111 | Pune", 50], ["EXPERIENCE", 50],
+      ["Data Analyst, Acme Analytics", 50], ["Jan 2023 - Present", 50],
+      ["- Built 14 dashboards in Power BI for the sales team", 50], ["- Cut report time by 60%", 50],
+      ["EDUCATION", 50], ["B.Sc Statistics, 2022", 50], ["Fergusson College", 50],
+    ];
+    rows.forEach(([t, x], k) => page.drawText(t, { x, y: 740 - k * 16, size: 10, font }));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "third-party-"));
+    const file = path.join(dir, "third-party.pdf");
+    fs.writeFileSync(file, await doc.save());
+    const [pdfPages] = pdfItems([file]);
+    fs.rmSync(dir, { recursive: true, force: true });
+    const text = assemblePdfPages(pdfPages);
+    expect(text).not.toMatch(/\t/);
+    const p = extractProfile(text);
+    // Identical to what the single-space join (main's route) gave for this file.
+    const legacy = extractProfile(pdfPages.map(legacyRouteJoin).join("\n"));
+    expect(p).toEqual(legacy);
+    expect(p.experience.flatMap((e) => e.bullets)).toEqual(["Built 14 dashboards in Power BI for the sales team", "Cut report time by 60%"]);
   });
 });
 

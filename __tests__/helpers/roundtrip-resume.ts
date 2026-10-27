@@ -3,7 +3,7 @@
  * "Aarav" QA account, Compact style) whose own PDF did not import cleanly.
  * Fictional values with the same structure: employer + location on one row,
  * institution · grade + "City, State" on one row, a year RANGE, a grade
- * written "8.4 CGPA".
+ * written "8.4 CGPA", and a quantified bullet long enough to wrap.
  */
 import type { ContactDetails, ResumeJson } from "@/lib/resume-pdf";
 
@@ -20,6 +20,8 @@ export const ROUNDTRIP_RESUME: ResumeJson = {
     bullets: [
       "Wrote user stories for the invoice reminders feature used by 12,000 businesses.",
       "Owned the product spec for the GST billing flow and shipped it in 6 weeks.",
+      // Wraps onto a second line in every style (the round-trip must keep it one bullet).
+      "Cut failed invoice reminders from 4.2% to 0.6% by moving retries to a queue, saving about Rs. 3.5 lakh a month across 12,000 businesses (3 regions).",
     ],
   }],
   skills: ["Product Management", "Stakeholder Communication", "SQL", "Jira"],
