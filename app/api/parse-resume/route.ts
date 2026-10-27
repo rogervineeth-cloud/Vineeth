@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractProfile } from "@/lib/resume-parser";
+import { assemblePdfPages, type PdfTextItem } from "@/lib/pdf-text";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -144,33 +145,19 @@ async function extractTextFromPdf(data: Uint8Array): Promise<string> {
   let pdf: any | null = null;
   try {
     pdf = await loadingTask.promise;
-    const pagesText: string[] = [];
+    const pageItems: PdfTextItem[][] = [];
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       try {
         const content = await page.getTextContent();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const items = content.items as Array<any>;
-        let lastY: number | null = null;
-        let buf = "";
-        for (const item of items) {
-          if (typeof item.str !== "string") continue;
-          const itemY: number | null = Array.isArray(item.transform) ? item.transform[5] : null;
-          if (lastY !== null && itemY !== null && Math.abs(itemY - lastY) > 1) {
-            buf += "\n";
-          } else if (buf && !buf.endsWith(" ") && !buf.endsWith("\n")) {
-            buf += " ";
-          }
-          buf += item.str;
-          if (item.hasEOL) buf += "\n";
-          lastY = itemY;
-        }
-        pagesText.push(buf);
+        pageItems.push(content.items as PdfTextItem[]);
       } finally {
         page.cleanup();
       }
     }
-    return pagesText.join("\n");
+    // Lines, with a wide same-line gap kept as a column boundary and wrapped
+    // bullets joined, also across pages (lib/pdf-text.ts).
+    return assemblePdfPages(pageItems);
   } finally {
     if (pdf) {
       try { await pdf.cleanup(); } catch { /* ignore */ }

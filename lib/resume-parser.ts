@@ -14,6 +14,8 @@
 //   4) Best-effort: if a line can't be classified confidently, keep it in the
 //      running section instead of dropping the file.
 
+import { detectTechSkills } from "@/lib/jd-keywords";
+
 export interface ExperienceEntry {
   company: string;
   role: string;
@@ -334,6 +336,21 @@ const ROLE_HINT_RE =
 const DEGREE_HINT_RE =
   /(b\.?\s*tech|b\.?\s*e\b|bachelor|m\.?\s*tech|m\.?\s*e\b|master|mba|mca|bca|bba|b\.?\s*sc|m\.?\s*sc|b\.?\s*a\b|m\.?\s*a\b|ph\.?\s*d|diploma|class\s*(?:x|xii|10|12)|hsc|ssc|secondary|higher\s+secondary|matriculation|gcse|a-?level)/i;
 
+/**
+ * The cells of a line that lib/pdf-text split at a wide column gap (TAB):
+ * "Zoho Corporation\tChennai" -> ["Zoho Corporation", "Chennai"]. A line
+ * without a gap is one cell.
+ */
+export function columnCells(line: string): string[] {
+  return line.split("\t").map((c) => c.trim()).filter(Boolean);
+}
+const untab = (line: string) => line.replace(/\s*\t\s*/g, " ").trim();
+
+/** "8.4 CGPA", "CGPA 8.4", "CGPA: 8.4/10", "92%", "GPA 3.8/4" — a grade, kept as written. */
+const GRADE_RE =
+  /^(?:(?:c?gpa|percentage|aggregate|score)\s*:?\s*\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)?\s*%?|\d+(?:\.\d+)?\s*(?:\/\s*\d+(?:\.\d+)?\s*)?c?gpa|\d{1,3}(?:\.\d+)?\s*%)$/i;
+const YEAR_RE = /\b(19|20)\d{2}\b/;
+
 export function parseExperienceBlock(block: string[]): ExperienceEntry[] {
   const entries: ExperienceEntry[] = [];
   let cur: ExperienceEntry | null = null;
@@ -344,7 +361,9 @@ export function parseExperienceBlock(block: string[]): ExperienceEntry[] {
   const lines = block.map((l) => l.trim()).filter(Boolean);
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    // Column gaps matter only for the employer/location row (above); every
+    // other use reads the line as plain text.
+    const line = untab(lines[i]);
     if (isBullet(line)) {
       if (!cur) cur = { company: "", role: "", duration: "", location: "", bullets: [] };
       cur.bullets.push(stripBullet(line));
@@ -372,12 +391,31 @@ export function parseExperienceBlock(block: string[]): ExperienceEntry[] {
       }
       // Look ahead one line for company/role if the date-line only had one of them.
       const next = lines[i + 1];
+      // "Zoho Corporation<gap>Chennai": employer (or role) left, location
+      // flush right, as this app's own PDFs and many templates lay it out.
+      const nextCells = next ? columnCells(next) : [];
+      if (next && nextCells.length === 2 && !isBullet(next) && !findDateRange(next) && !YEAR_RE.test(nextCells[1])) {
+        const [left, right] = nextCells;
+        if (cur.role && !cur.company && !ROLE_HINT_RE.test(left)) {
+          cur.company = left; cur.location = right; i++;
+          continue;
+        }
+        if (cur.company && !cur.role) {
+          // "Company<gap>dates / Role<gap>Location" when the left cell reads
+          // as a role; otherwise the common "Title<gap>dates /
+          // Employer<gap>Location" layout (this app's own PDFs).
+          if (ROLE_HINT_RE.test(left)) cur.role = left;
+          else { cur.role = cur.company; cur.company = left; }
+          cur.location = right; i++;
+          continue;
+        }
+      }
       if (next && !isBullet(next) && !findDateRange(next) && next.length < 90) {
         if (cur.role && !cur.company && !ROLE_HINT_RE.test(next)) {
-          cur.company = next;
+          cur.company = untab(next);
           i++;
         } else if (cur.company && !cur.role && ROLE_HINT_RE.test(next)) {
-          cur.role = next;
+          cur.role = untab(next);
           i++;
         }
       }
@@ -461,7 +499,41 @@ export function parseEducationBlock(block: string[]): EducationEntry[] {
   let cur: EducationEntry | null = null;
   const flush = () => { if (cur && (cur.institution || cur.degree)) entries.push(cur); cur = null; };
   for (const raw of block) {
-    const line = raw.trim();
+    const cells = columnCells(raw);
+    // Two columns: "B.Tech Computer Science<gap>2022-2026" (title, dates) or
+    // "College ... · 8.4 CGPA<gap>Thiruvananthapuram, Kerala" (institution
+    // and grade, location) — this app's own PDF layout and a common one.
+    if (cells.length === 2 && !isBullet(cells[0])) {
+      const [left, right] = cells;
+      if (YEAR_RE.test(right) && !YEAR_RE.test(left)) {
+        if (DEGREE_HINT_RE.test(left)) {
+          if (cur && cur.degree) flush();
+          if (!cur) cur = { institution: "", degree: "", year: "", location: "" };
+          cur.degree = left;
+        } else {
+          if (cur && (cur.institution || cur.year)) flush();
+          if (!cur) cur = { institution: "", degree: "", year: "", location: "" };
+          cur.institution = left;
+        }
+        cur.year = right;
+        continue;
+      }
+      if (!YEAR_RE.test(right) && !GRADE_RE.test(right)) {
+        if (!cur) cur = { institution: "", degree: "", year: "", location: "" };
+        const parts = left.split(/\s+[·|]\s+/).map((p) => p.trim()).filter(Boolean);
+        const grade = parts.find((p) => GRADE_RE.test(p));
+        const rest = parts.filter((p) => p !== grade).join(" · ");
+        // "CGPA 8.4" is how lib/resume-format formatGrade shows a stored "8.4":
+        // store the number, so re-rendering gives the same line. Anything
+        // else ("8.4 CGPA", "92%") is kept as written.
+        if (grade) cur.cgpa = grade.match(/^CGPA\s+(\d{1,2}(?:\.\d{1,2})?)$/i)?.[1] ?? grade;
+        if (rest && !cur.institution) cur.institution = rest;
+        else if (rest && !cur.degree && DEGREE_HINT_RE.test(rest)) cur.degree = rest;
+        cur.location = right;
+        continue;
+      }
+    }
+    const line = untab(raw);
     if (!line) continue;
     if (isBullet(line)) {
       // Bullet under an education entry — usually coursework / honours. Skip
@@ -564,13 +636,38 @@ export function parseSkillsBlock(block: string[]): string[] {
     .filter((s, i, arr) => arr.findIndex((t) => t.toLowerCase() === s.toLowerCase()) === i);
 }
 
+/**
+ * This app's own PDFs (lib/resume-pdf renderProjects) draw a project as its
+ * title, then its tech joined with " · " on the next line, then each
+ * description sentence as a bullet. That tech row used to read as a second
+ * project title — CampusEats imported as two projects, the first empty, the
+ * second named "React Native · Firebase · Node.js · Figma" (production QA,
+ * 27 Oct 2026).
+ *
+ * The line right after a title (nothing collected for it yet) is the tech
+ * row when it is " · "-separated short items, none ending a sentence, at
+ * least one a known tech skill — or a single known tech skill followed by a
+ * bullet. A genuine next title (no known tech, or not " · "-separated) still
+ * starts a new project.
+ */
+const TECH_SEP = /\s+·\s+/;
+function techRow(line: string, nextLine: string | undefined): string[] | null {
+  const parts = line.split(TECH_SEP).map((s) => s.trim()).filter(Boolean);
+  const short = (p: string) => p.length <= 40 && p.split(/\s+/).length <= 4 && !/[.!?]$/.test(p);
+  const known = (p: string) => detectTechSkills(p).length > 0;
+  if (parts.length >= 2) return parts.every(short) && parts.some(known) ? parts : null;
+  const only = parts[0] ?? "";
+  const exact = detectTechSkills(only).some((k) => k.toLowerCase() === only.toLowerCase());
+  return exact && short(only) && nextLine !== undefined && isBullet(nextLine) ? [only] : null;
+}
+
 export function parseProjectsBlock(block: string[]): ProjectEntry[] {
   const entries: ProjectEntry[] = [];
   let cur: ProjectEntry | null = null;
   const flush = () => { if (cur && cur.name) entries.push(cur); cur = null; };
-  for (const raw of block) {
-    const line = raw.trim();
-    if (!line) continue;
+  const lines = block.map((l) => l.trim()).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (isBullet(line)) {
       if (!cur) cur = { name: "Project", description: "", tech: [] };
       cur.description = cur.description ? cur.description + " " + stripBullet(line) : stripBullet(line);
@@ -580,6 +677,10 @@ export function parseProjectsBlock(block: string[]): ProjectEntry[] {
     if (techMatch && cur) {
       cur.tech = techMatch[1].split(/[,;|]/).map((s) => s.trim()).filter(Boolean);
       continue;
+    }
+    if (cur && cur.name !== "Project" && !cur.description && !cur.tech.length) {
+      const tech = techRow(line, lines[i + 1]);
+      if (tech) { cur.tech = tech; continue; }
     }
     if (line.length < 80 && !line.endsWith(".")) {
       flush();
@@ -670,7 +771,10 @@ export function extractProfile(text: string): ExtractedProfile {
   let sawAnyHeader = false;
 
   for (const raw of lines) {
-    const trimmed = raw.trim();
+    // Column gaps (TAB, lib/pdf-text) are kept only for the experience and
+    // education parsers; headings and every other section read plain text.
+    const withCols = raw.trim();
+    const trimmed = untab(withCols);
     const sec = classifySection(trimmed);
     if (sec) {
       active = sec;
@@ -685,7 +789,7 @@ export function extractProfile(text: string): ExtractedProfile {
       continue;
     }
     if (active) {
-      buckets[active].push(trimmed);
+      buckets[active].push(active === "experience" || active === "education" ? withCols : trimmed);
     } else {
       headerLines.push(trimmed);
     }
@@ -693,17 +797,17 @@ export function extractProfile(text: string): ExtractedProfile {
 
   // No headers at all? Try a heuristic salvage so we still surface something.
   if (!sawAnyHeader) {
-    const fb = fallbackBucket(lines);
+    const fb = fallbackBucket(lines.map(untab));
     buckets.experience.push(...fb.experience);
     buckets.skills.push(...fb.skills);
   }
 
-  const flat = lines.join("\n");
+  const flat = lines.map(untab).join("\n");
   const email = extractEmail(flat);
   const phone = extractPhone(flat);
   // Search the header block first (top of resume), then the whole document.
   const city = extractCity(headerLines.slice(0, 12).join("\n")) || extractCity(flat);
-  const name = extractName(lines, email);
+  const name = extractName(lines.map(untab), email);
   const summary = buckets.summary.filter(Boolean).join(" ").replace(/\s+/g, " ").trim().slice(0, 800) || null;
   const experience = parseExperienceBlock(buckets.experience);
   const education = parseEducationBlock(buckets.education);
