@@ -44,6 +44,7 @@ describe("no customer-facing copy contradicts the credit policy", () => {
     [/free regenerat|regenerat\w*\s+(is|are)\s+free|free within 24/i, "regeneration is never free"],
     [/free ATS preview|ATS preview per account|run your free preview|used your free preview\b(?! —)/i, "the ATS review must not be called a preview"],
     [/3 free|3 AI-tailored resume generations/i, "stale 3-credit beta copy"],
+    [/free in beta/i, "generation is not 'free in beta': only the first AI resume is free, as a view-only preview"],
   ];
   it.each(CUSTOMER_FACING)("%s", (f) => {
     const src = code(f);

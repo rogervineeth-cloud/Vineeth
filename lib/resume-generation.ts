@@ -307,7 +307,7 @@ export function parseModelReply(message: Pick<Anthropic.Message, "content">): { 
  * (normaliser). The WHOLE profile is passed, not just experience — education
  * placeholders and numeric grounding both need it.
  */
-export function postProcessResume(resumeJson: unknown, profile: GenerationProfile, opts: { now?: Date } = {}) {
+export function postProcessResume(resumeJson: unknown, profile: GenerationProfile, opts: { now?: Date; jdText?: string } = {}) {
   const sanitised = sanitiseGeneratedResume(resumeJson as ResumeShape, {
     summary: profile.summary,
     experience: profile.experience ?? [],
@@ -321,7 +321,7 @@ export function postProcessResume(resumeJson: unknown, profile: GenerationProfil
   const covered = enforceSourceCoverage(detailed.resume, profile, facts);
   const summarised = enforceSummaryFacts(covered.resume, profile, facts);
   const enriched = enrichEarlyCareerSummary(orderEarlyCareerSections(summarised.resume, facts), profile, facts);
-  const advised = enforceAdviceEvidence(enriched.resume, profile, facts);
+  const advised = enforceAdviceEvidence(enriched.resume, profile, facts, opts.jdText);
   const headlined = { ...advised.resume, headline: buildHeadline(advised.resume, profile, facts) } as ResumeShape;
   if (!headlined.headline) delete headlined.headline;
   const normalised = normaliseGeneratedResume(
@@ -440,6 +440,56 @@ function restoreDropped(bullets: string[], source: string[], dropped: number): s
   return [...bullets, ...missing.slice(0, dropped)];
 }
 
+// ── Phrase evidence (missing_keywords) ─────────────────────────────────────
+//
+// Production QA (27 Oct 2026): a junior PM whose profile says "wrote user
+// stories", "owned product spec" and lists "Stakeholder Communication" was
+// told all three were missing. The curated-skill matcher only knows tech
+// skills, so practices like these were never checked. A keyword counts as
+// evidenced when its content words appear, in order and close together, in
+// one evidence entry (skills, a role, a bullet, a project — not the summary),
+// after plural folding and a few standard abbreviations.
+
+const ABBREVIATIONS: Record<string, string> = {
+  spec: "specification", specs: "specification", mgmt: "management", comms: "communication",
+  docs: "documentation", doc: "documentation", dev: "development", eng: "engineering",
+  ops: "operations", reqs: "requirement", req: "requirement", ux: "ux", ui: "ui",
+};
+const PHRASE_STOP = new Set(["a", "an", "the", "and", "or", "of", "for", "to", "in", "on", "with", "&"]);
+
+function phraseStem(word: string): string {
+  const w = word.toLowerCase().replace(/[^a-z0-9+#]/g, "");
+  if (ABBREVIATIONS[w]) return ABBREVIATIONS[w];
+  if (/ies$/.test(w) && w.length > 4) return w.slice(0, -3) + "y";
+  if (/(?:ss|us|is)$/.test(w)) return w;
+  if (/s$/.test(w) && w.length > 3) return w.slice(0, -1);
+  return w;
+}
+const phraseTokens = (t: string) => t.split(/[\s/,-]+/).map(phraseStem).filter((w) => w && !PHRASE_STOP.has(w));
+
+export function phraseEvidenced(keyword: string, profile: GenerationProfile): boolean {
+  const want = phraseTokens(keyword);
+  if (!want.length) return false;
+  const entries: string[] = [...(profile.skills ?? [])];
+  for (const e of profile.experience ?? []) entries.push(e.role ?? "", ...(e.bullets ?? []));
+  for (const pr of profile.projects ?? []) entries.push(pr.name ?? "", pr.description ?? "", ...(pr.tech ?? []));
+  return entries.some((entry) => {
+    const have = phraseTokens(String(entry));
+    for (let start = 0; start < have.length; start++) {
+      if (have[start] !== want[0]) continue;
+      let at = start;
+      let ok = true;
+      for (const w of want.slice(1)) {
+        const next = have.slice(at + 1, at + 4).indexOf(w); // at most two words between
+        if (next < 0) { ok = false; break; }
+        at += next + 1;
+      }
+      if (ok) return true;
+    }
+    return false;
+  });
+}
+
 export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationProfile) {
   const warnings: string[] = [];
   const evidenceText = profileEvidence(profile);
@@ -470,12 +520,20 @@ export function enforceSkillEvidence(resume: ResumeShape, profile: GenerationPro
     const list = out[key];
     if (Array.isArray(list)) out[key] = list.filter((k) => typeof k === "string" && listEntryOk(k));
   }
-  // A candidate must never be told to add a skill they already have.
+  // A candidate must never be told to add a skill they already have — a
+  // curated skill the profile evidences, or a practice their own words name
+  // ("User Stories" for "wrote user stories", "Product Specification" for
+  // "owned the product spec").
   if (Array.isArray(out.missing_keywords)) {
     out.missing_keywords = out.missing_keywords.filter((k) => {
       if (typeof k !== "string") return false;
       const known = detectTechSkills(k);
-      return !(known.length > 0 && known.every((x) => evidenced.has(x)));
+      if (known.length > 0 && known.every((x) => evidenced.has(x))) return false;
+      if (phraseEvidenced(k, profile)) {
+        warnings.push(`dropped_evidenced_missing_keyword:${k}`);
+        return false;
+      }
+      return true;
     });
   }
 
@@ -826,7 +884,39 @@ function attributedUnevidenced(text: string, unevidenced: (t: string) => string[
   return [...new Set(out)];
 }
 
-function adviceProblems(text: string, unevidenced: (t: string) => string[], facts: CandidateFacts, missing: string[] = []): string[] {
+// ── Role requirements must come from the JD ────────────────────────────────
+//
+// Production QA (27 Oct 2026): a growth_note said the role "typically
+// requires 2-3 years" of experience; the pasted JD states no tenure at all.
+// A number of years the advice attributes to the ROLE must be one the JD
+// states. (Years attributed to the candidate are checked against
+// CANDIDATE_FACTS by yearsProblems.)
+
+const NUMBER_WORDS: Record<string, string> = { one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10", twelve: "12", fifteen: "15" };
+const YEAR_SPAN = /\b(\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen)\s*\+?\s*(?:(?:-|\u2013|\u2014|to|or)\s*(\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen)\s*\+?\s*)?(?:years?|yrs?)\b/gi;
+const asNumber = (w: string) => NUMBER_WORDS[w.toLowerCase()] ?? String(Number(w));
+
+/** Every number of years the JD states ("2-3 years", "5+ yrs", "two years"). */
+export function requirementYears(jdText: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of jdText.matchAll(YEAR_SPAN)) {
+    out.add(asNumber(m[1]));
+    if (m[2]) out.add(asNumber(m[2]));
+  }
+  return out;
+}
+
+/** Years the text attributes to the role that the JD does not state. */
+function unstatedRoleYears(clause: string, jdYears: Set<string>): string[] {
+  const out: string[] = [];
+  for (const m of clause.matchAll(YEAR_SPAN)) {
+    const nums = [m[1], m[2]].filter(Boolean).map((n) => asNumber(n as string));
+    if (nums.some((n) => !jdYears.has(n))) out.push(m[0]);
+  }
+  return out;
+}
+
+function adviceProblems(text: string, unevidenced: (t: string) => string[], facts: CandidateFacts, missing: string[] = [], jdYears: Set<string> | null = null): string[] {
   const problems: string[] = [];
   const attributed = attributedUnevidenced(text, unevidenced, missing);
   if (attributed.length) problems.push(`attributes_unevidenced:${attributed.join("|")}`);
@@ -841,6 +931,11 @@ function adviceProblems(text: string, unevidenced: (t: string) => string[], fact
     // "...applying for a role requiring 3+ years" (final-live-4 S03) states the
     // role's requirement, not the candidate's experience.
     const aboutRole = /\b(?:requires?|required|requiring|asks?|asking|expects?|expecting|needs?|minimum|calls for|targets?|seeks?)\b/i.test(clause);
+    // Not the candidate's own years ("you have", "your 2 years"): the role's.
+    const aboutCandidate = /\byou(?:r|'ve|'re)?\b/i.test(clause) && !aboutRole;
+    if (jdYears && !aboutCandidate) {
+      for (const y of unstatedRoleYears(clause, jdYears)) problems.push(`role_years_not_in_jd:${y}`);
+    }
     if ((ASSERT.test(clause) && !NEGATED.test(clause) && !aboutRole) || /\byour\s+(?:[a-z]+\s+){0,2}\d/i.test(clause)) {
       for (const y of yearsProblems(clause, facts)) problems.push(`years_${y.kind}:${y.claim}`);
     }
@@ -872,7 +967,8 @@ export function fixAdviceCounts(text: string): string {
   });
 }
 
-export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationProfile, facts: CandidateFacts) {
+export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationProfile, facts: CandidateFacts, jdText?: string) {
+  const jdYears = typeof jdText === "string" ? requirementYears(jdText) : null;
   const warnings: string[] = [];
   const out = { ...resume } as ResumeShape & Record<string, unknown>;
   const counted = (t: string) => {
@@ -895,7 +991,7 @@ export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationPr
     let previousDropped = false;
     let previousSkills: string[] = [];
     for (const sn of sentences) {
-      const p = adviceProblems(sn, unevidenced, facts, missing);
+      const p = adviceProblems(sn, unevidenced, facts, missing, jdYears);
       // "Inject these into bullets or summary", after a sentence naming skills
       // the candidate lacks.
       if (previousSkills.length && /\b(?:these|them|those|they)\b/i.test(sn) && EDIT_VERB.test(sn) && EDIT_TARGET.test(sn) && !ACQUIRE.test(sn)) {
@@ -927,7 +1023,7 @@ export function enforceAdviceEvidence(resume: ResumeShape, profile: GenerationPr
   if (Array.isArray(out.profile_improvement_tips)) {
     out.profile_improvement_tips = out.profile_improvement_tips.flatMap((tip) => {
       if (typeof tip !== "string") return [];
-      const p = adviceProblems(tip, unevidenced, facts, missing);
+      const p = adviceProblems(tip, unevidenced, facts, missing, jdYears);
       if (!p.length) return [tip];
       // Keep a clean leading instruction rather than the whole tip going:
       // "Lead or participate in formal code review processes and document

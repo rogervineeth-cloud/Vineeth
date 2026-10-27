@@ -6,6 +6,7 @@ import { Sparkles, AlertTriangle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { track } from "@/lib/analytics";
+import { FREE_PREVIEW_RULE } from "@/lib/plan-config";
 
 type ScoreFreeResult = {
   ats_score: number;
@@ -255,10 +256,10 @@ export default function FreeReviewPage() {
 
             <div className="border-t border-stone-200 pt-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
               <p className="text-sm text-[#6b6b6b]">
-                Want an AI-tailored resume for this JD?
+                Want an AI-tailored resume for this JD? {FREE_PREVIEW_RULE}
               </p>
               <Button asChild size="sm" className="bg-[#1f5c3a] hover:bg-[#174d30]">
-                <Link href="/create">Generate a tailored resume — free in beta →</Link>
+                <Link href="/create">Generate a tailored resume →</Link>
               </Button>
             </div>
           </div>
