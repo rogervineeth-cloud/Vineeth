@@ -12,7 +12,7 @@ export const ROUNDTRIP_CONTACT: ContactDetails = {
 };
 
 export const ROUNDTRIP_RESUME: ResumeJson = {
-  section_order: ["summary", "experience", "skills", "education", "projects"],
+  section_order: ["summary", "experience", "projects", "skills", "education"],
   headline: "Associate Product Manager | User Research, SQL",
   summary: "Product analyst at Zoho Corporation who wrote user stories and owned the product spec for a billing flow.",
   experience: [{
@@ -29,5 +29,10 @@ export const ROUNDTRIP_RESUME: ResumeJson = {
     institution: "College of Engineering Trivandrum", degree: "B.Tech Computer Science", year: "2022-2026",
     location: "Thiruvananthapuram, Kerala", cgpa: "8.4 CGPA",
   }],
-  projects: [],
+  // The production shape that imported as two projects (title row, " · " tech row, sentence bullets).
+  projects: [{
+    name: "CampusEats - Canteen Pre-order App",
+    description: "Final-year capstone. Built a React Native app for pre-ordering canteen meals, cutting average queue time from 18 to 6 minutes for 1,200 students. Owned the product spec and ran the pilot with two canteens.",
+    tech: ["React Native", "Firebase", "Node.js", "Figma"],
+  }],
 };

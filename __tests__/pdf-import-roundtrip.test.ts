@@ -24,7 +24,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { assemblePdfText, assemblePdfPages, COLUMN_GAP, type PdfTextItem } from "@/lib/pdf-text";
-import { extractProfile, parseExperienceBlock, parseEducationBlock, parseSkillsBlock, columnCells } from "@/lib/resume-parser";
+import { extractProfile, parseExperienceBlock, parseEducationBlock, parseSkillsBlock, parseProjectsBlock, columnCells } from "@/lib/resume-parser";
 import { renderResumePdf, type ResumeJson, type ContactDetails } from "@/lib/resume-pdf";
 import { FIXTURES } from "./helpers/resume-fixtures";
 import { ROUNDTRIP_CONTACT, ROUNDTRIP_RESUME } from "./helpers/roundtrip-resume";
@@ -76,6 +76,14 @@ describe("the QA fixture (Compact PDF, production layout) imports field for fiel
     expect(p.skills).toEqual(ROUNDTRIP_RESUME.skills);
   });
 
+  it("CampusEats imports as ONE project: name, full description, tech", () => {
+    expect(p.projects).toEqual([{
+      name: "CampusEats - Canteen Pre-order App",
+      description: "Final-year capstone. Built a React Native app for pre-ordering canteen meals, cutting average queue time from 18 to 6 minutes for 1,200 students. Owned the product spec and ran the pilot with two canteens.",
+      tech: ["React Native", "Firebase", "Node.js", "Figma"],
+    }]);
+  });
+
   it("the wrapped, quantified bullet imports as one bullet, exactly", () => {
     const wrapped = ROUNDTRIP_RESUME.experience![0].bullets[2];
     expect(wrapped).toMatch(/4\.2% to 0\.6%.*Rs\. 3\.5 lakh.*12,000.*\(3 regions\)\.$/);
@@ -123,6 +131,8 @@ describe("every style × profile the app renders imports back to its experience 
       .toEqual((f.resume.experience ?? []).map((e) => [e.company, e.role, e.duration, e.location]));
     // Exactly: each bullet whole (wrapped ones joined), with its punctuation, in order.
     expect(p.experience.map((e) => e.bullets)).toEqual((f.resume.experience ?? []).map((e) => e.bullets));
+    // Projects: one per source project — the " · " tech row is tech, not a second project.
+    expect(p.projects).toEqual((f.resume.projects ?? []).map((pr) => ({ name: pr.name, description: pr.description, tech: pr.tech })));
     expect(p.education.map((e) => [e.institution, e.degree, e.year, e.location, e.cgpa ?? ""]))
       .toEqual((f.resume.education ?? []).map((e) => [e.institution, e.degree, e.year, e.location, e.cgpa ?? ""]));
   });
@@ -221,6 +231,52 @@ describe("wrapped bullets: joined only on a hanging indent, never across distinc
     const legacy = extractProfile(pdfPages.map(legacyRouteJoin).join("\n"));
     expect(p).toEqual(legacy);
     expect(p.experience.flatMap((e) => e.bullets)).toEqual(["Built 14 dashboards in Power BI for the sales team", "Cut report time by 60%"]);
+  });
+});
+
+describe("project tech rows (the app's \" · \" row) vs a genuine next project title", () => {
+  it("the production shape: title, tech row, sentence bullets -> one project", () => {
+    expect(parseProjectsBlock([
+      "CampusEats - Canteen Pre-order App",
+      "React Native · Firebase · Node.js · Figma",
+      "• Final-year capstone.",
+      "• Owned the product spec and ran the pilot with two canteens.",
+    ])).toEqual([{
+      name: "CampusEats - Canteen Pre-order App",
+      description: "Final-year capstone. Owned the product spec and ran the pilot with two canteens.",
+      tech: ["React Native", "Firebase", "Node.js", "Figma"],
+    }]);
+  });
+
+  it("a single known tech before the bullets is the tech row", () => {
+    expect(parseProjectsBlock(["Sales Dashboard", "Tableau", "• Built a weekly sales dashboard."])).toEqual([
+      { name: "Sales Dashboard", description: "Built a weekly sales dashboard.", tech: ["Tableau"] },
+    ]);
+  });
+
+  it("a genuine next project title after a project with no description stays a project", () => {
+    expect(parseProjectsBlock(["Campus Bus Tracker", "Lecture Notes Search", "• Indexed shared notes."]).map((x) => x.name))
+      .toEqual(["Campus Bus Tracker", "Lecture Notes Search"]);
+    // " · " in a title with no known tech, and a lone tech word with no bullet after it.
+    expect(parseProjectsBlock(["Portfolio", "Photo Journal · Travel Blog", "• Wrote 40 posts."]).map((x) => x.name))
+      .toEqual(["Portfolio", "Photo Journal · Travel Blog"]);
+    expect(parseProjectsBlock(["Hackathon Entry", "Python"]).map((x) => x.name)).toEqual(["Hackathon Entry", "Python"]);
+  });
+
+  it("a tech row is only read right after a title, never after the description started", () => {
+    const out = parseProjectsBlock(["Expense Splitter", "• Split shared trip costs.", "Budget Planner", "React · Node.js", "• Tracks monthly spend."]);
+    expect(out).toEqual([
+      { name: "Expense Splitter", description: "Split shared trip costs.", tech: [] },
+      { name: "Budget Planner", description: "Tracks monthly spend.", tech: ["React", "Node.js"] },
+    ]);
+  });
+
+  it("third-party project layouts parse as before", () => {
+    expect(parseProjectsBlock(["Chat App", "Tech: React, Socket.io, Redis", "Built a realtime chat for 500 users."])).toEqual([
+      { name: "Chat App", description: "Built a realtime chat for 500 users.", tech: ["React", "Socket.io", "Redis"] },
+    ]);
+    // A comma list after a title is not the app's row: unchanged (read as a title, as before).
+    expect(parseProjectsBlock(["Chat App", "React, Node.js"]).map((x) => x.name)).toEqual(["Chat App", "React, Node.js"]);
   });
 });
 

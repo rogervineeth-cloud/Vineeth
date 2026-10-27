@@ -14,6 +14,8 @@
 //   4) Best-effort: if a line can't be classified confidently, keep it in the
 //      running section instead of dropping the file.
 
+import { detectTechSkills } from "@/lib/jd-keywords";
+
 export interface ExperienceEntry {
   company: string;
   role: string;
@@ -634,13 +636,38 @@ export function parseSkillsBlock(block: string[]): string[] {
     .filter((s, i, arr) => arr.findIndex((t) => t.toLowerCase() === s.toLowerCase()) === i);
 }
 
+/**
+ * This app's own PDFs (lib/resume-pdf renderProjects) draw a project as its
+ * title, then its tech joined with " · " on the next line, then each
+ * description sentence as a bullet. That tech row used to read as a second
+ * project title — CampusEats imported as two projects, the first empty, the
+ * second named "React Native · Firebase · Node.js · Figma" (production QA,
+ * 27 Oct 2026).
+ *
+ * The line right after a title (nothing collected for it yet) is the tech
+ * row when it is " · "-separated short items, none ending a sentence, at
+ * least one a known tech skill — or a single known tech skill followed by a
+ * bullet. A genuine next title (no known tech, or not " · "-separated) still
+ * starts a new project.
+ */
+const TECH_SEP = /\s+·\s+/;
+function techRow(line: string, nextLine: string | undefined): string[] | null {
+  const parts = line.split(TECH_SEP).map((s) => s.trim()).filter(Boolean);
+  const short = (p: string) => p.length <= 40 && p.split(/\s+/).length <= 4 && !/[.!?]$/.test(p);
+  const known = (p: string) => detectTechSkills(p).length > 0;
+  if (parts.length >= 2) return parts.every(short) && parts.some(known) ? parts : null;
+  const only = parts[0] ?? "";
+  const exact = detectTechSkills(only).some((k) => k.toLowerCase() === only.toLowerCase());
+  return exact && short(only) && nextLine !== undefined && isBullet(nextLine) ? [only] : null;
+}
+
 export function parseProjectsBlock(block: string[]): ProjectEntry[] {
   const entries: ProjectEntry[] = [];
   let cur: ProjectEntry | null = null;
   const flush = () => { if (cur && cur.name) entries.push(cur); cur = null; };
-  for (const raw of block) {
-    const line = raw.trim();
-    if (!line) continue;
+  const lines = block.map((l) => l.trim()).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (isBullet(line)) {
       if (!cur) cur = { name: "Project", description: "", tech: [] };
       cur.description = cur.description ? cur.description + " " + stripBullet(line) : stripBullet(line);
@@ -650,6 +677,10 @@ export function parseProjectsBlock(block: string[]): ProjectEntry[] {
     if (techMatch && cur) {
       cur.tech = techMatch[1].split(/[,;|]/).map((s) => s.trim()).filter(Boolean);
       continue;
+    }
+    if (cur && cur.name !== "Project" && !cur.description && !cur.tech.length) {
+      const tech = techRow(line, lines[i + 1]);
+      if (tech) { cur.tech = tech; continue; }
     }
     if (line.length < 80 && !line.endsWith(".")) {
       flush();
