@@ -63,8 +63,10 @@ const e2e = BASE ? describe : describe.skip;
 
 e2e("browser: Template → Job Desc after a direct load of /create?step=template", () => {
   jest.setTimeout(90_000);
+  // Loaded inside open(), not here: jest runs a describe.skip body too, so a
+  // top-level `npm root -g` ran (and could fail the suite) with E2E off.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { chromium } = require(path.join(execSync("npm root -g").toString().trim(), "playwright"));
+  const loadChromium = () => require(path.join(execSync("npm root -g").toString().trim(), "playwright")).chromium;
   const b64u = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
 
   async function open(start: string) {
@@ -72,7 +74,7 @@ e2e("browser: Template → Job Desc after a direct load of /create?step=template
     const user = { id: "11111111-1111-4111-8111-111111111111", email: "qa@example.com", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() };
     const session = { access_token: [b64u({ alg: "HS256" }), b64u({ sub: user.id, exp, role: "authenticated", aud: "authenticated" }), "sig"].join("."), refresh_token: "r", expires_in: 3600, expires_at: exp, token_type: "bearer", user };
     const ref = new URL(process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54399").hostname.split(".")[0];
-    const browser = await chromium.launch({ executablePath: process.env.E2E_CHROMIUM ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+    const browser = await loadChromium().launch({ executablePath: process.env.E2E_CHROMIUM ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     await ctx.addCookies([{ name: `sb-${ref}-auth-token`, value: "base64-" + b64u(session), url: BASE }]);
     const page = await ctx.newPage();
@@ -80,7 +82,6 @@ e2e("browser: Template → Job Desc after a direct load of /create?step=template
     await page.goto(BASE + start, { waitUntil: "networkidle" });
     return { browser, page };
   }
-  const heading = async (page: { locator(s: string): { allInnerTexts(): Promise<string[]> } }) => (await page.locator("h1,h2").allInnerTexts()).join(" | ");
 
   it.each([
     ["real click", "/create?step=template", "/create"],
@@ -88,7 +89,7 @@ e2e("browser: Template → Job Desc after a direct load of /create?step=template
   ])("%s: URL and page switch to Job Desc", async (_l, start, expected) => {
     const { browser, page } = await open(start);
     try {
-      expect(await heading(page)).toMatch(/Choose your template/);
+      expect(await page.locator("legend").allInnerTexts()).toContain("Choose your resume style");
       await page.locator("a", { hasText: "Job Desc" }).first().click();
       await page.waitForURL((u: URL) => u.pathname + u.search === expected, { timeout: 5000 });
       await page.waitForFunction(() => /Paste the job description/.test(document.body.innerText), null, { timeout: 5000 });

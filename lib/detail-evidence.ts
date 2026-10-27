@@ -144,6 +144,11 @@ export function headNounOnEvidence(text: string, noun: string, evidence: Evidenc
 const CLAUSE_STARTS = [
   /,\s+(?:and\s+|while\s+|thereby\s+)?[a-z]+ing\b/gi,
   /\s+(?:and|while)\s+[a-z]+ing\b/gi,
+  // "... and collaborated with Apple's hardware teams": the whole coordinated
+  // past-tense clause, so the supported first half survives.
+  // Only a verb clause: not ", and embedded development" (a list item) and
+  // only when a preposition or object follows ("collaborated with ...").
+  /(?<!,)\s+and\s+[a-z]+ed(?=\s+(?:with|alongside|across|closely|on|for|to|the|a|an|in|into)\b)/gi,
   /,?\s+(?:by|using|through|via|with|as)\s+/gi,
   // Purpose clause: "Seeking the SDE II role to deepen expertise in ...".
   /\s+to\s+(?!\d)[a-z]+\b/gi,
@@ -170,12 +175,15 @@ function coverage(result: string, source: string): number {
   return src.length ? src.filter((w) => have.has(w)).length / src.length : 1;
 }
 
-/** Ends in a clause that lost its object ("... and partnering") or on a function word. */
+/** Ends in a clause that lost its object ("... and partnering", "... and collaborated") or on a function word. */
 function dangling(t: string): boolean {
   const words = t.replace(/[.!?]$/, "").trim().split(/\s+/);
   const last = (words[words.length - 1] ?? "").toLowerCase().replace(/[^a-z-]/g, "");
   const prev = (words[words.length - 2] ?? "").toLowerCase();
-  return STOP.has(last) || (/ing$/.test(last) && (prev === "and" || prev.endsWith(",")));
+  // "... and collaborated." (production QA, 27 Oct 2026): removing "with
+  // cross-functional teams" left a coordinated past-tense verb with nothing
+  // after it — as dangling as "... and partnering".
+  return STOP.has(last) || (/(?:ing|ed)$/.test(last) && (prev === "and" || prev === "or" || prev.endsWith(",")));
 }
 
 function tidy(t: string): string {

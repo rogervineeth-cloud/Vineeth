@@ -157,8 +157,10 @@ export default function PreviewPage() {
   }
 
   async function handleDownload(justUnlocked = false) {
+    // Right after an unlock this closure still holds the pre-unlock
+    // canDownload (false); justUnlocked lets that first download through. The
+    // server re-checks the entitlement either way.
     if (!canDownload && !justUnlocked) { toast.error(NOT_DOWNLOADABLE); return; }
-    if (!canDownload) { toast.error(NOT_DOWNLOADABLE); return; }
     setDownloading(true);
     try {
       // An offered style travels as ?style=; a retired saved style (e.g.

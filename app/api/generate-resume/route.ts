@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
       // missing field would become a NULL that renders as a red "0".
       // Normalise what can be defaulted honestly and refuse the rest BEFORE
       // any credit is consumed.
-      const normalised = postProcessResume(parsedReply.json, parsed.data.user_profile);
+      const normalised = postProcessResume(parsedReply.json, parsed.data.user_profile, { jdText: parsed.data.jd_text });
       const resumeJson = normalised.resume as Record<string, unknown>;
       if (normalised.warnings.length > 0) {
         track("generate_resume_sanitised", { user_id: userId, warnings: normalised.warnings.join(","), warning_count: normalised.warnings.length });
